@@ -1,5 +1,5 @@
 /**
- * Domain model. All linear values are centimetres.
+ * Domain model. All linear values are centimetres, weights are kilograms.
  *
  * World axes: X — along the vehicle (towards the cab), Y — up, Z — across the vehicle.
  * The deck of every cargo body and the dock platform are at Y = 0.
@@ -54,6 +54,8 @@ export interface CargoItem {
   /** World position of the min corner of the item's bounding box. */
   pos: Vec3;
   color: string;
+  /** Gross weight, kg. Missing in plans made before weights existed: treated as unknown (0). */
+  weight?: number;
 }
 
 export type BodyKind = 'semi' | 'truck' | 'trailer';
@@ -65,6 +67,8 @@ export interface CargoBody {
   kind: BodyKind;
   /** Internal dimensions. */
   dims: Dims;
+  /** Payload capacity, kg. Missing: no limit is checked. */
+  maxLoad?: number;
 }
 
 export interface Plan {

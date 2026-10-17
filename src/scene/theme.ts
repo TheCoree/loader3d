@@ -1,4 +1,4 @@
-/** Scene palette. UI colours live in styles.css; keep the accent in sync. */
+/** Scene palette. UI colours live in src/index.css (--primary = accent); keep the accent in sync. */
 export const COLORS = {
   background: '#e7ebf0',
   yard: '#c9d0d8',

@@ -15,6 +15,7 @@ def plan_data(item_count: int = 2) -> dict[str, Any]:
                 "kind": "semi",
                 "name": "Полуприцеп",
                 "dims": {"l": 1360, "w": 245, "h": 270},
+                "maxLoad": 20000,
             }
         ],
         "items": [
@@ -26,6 +27,7 @@ def plan_data(item_count: int = 2) -> dict[str, Any]:
                 "orientation": {"yaw": 90 if n % 2 else 0},
                 "pos": {"x": 1360 - 120 * n, "y": 0, "z": 0},
                 "color": "#f0a35e",
+                "weight": 400 + n,
             }
             for n in range(1, item_count + 1)
         ],
@@ -64,6 +66,21 @@ async def test_plan_data_round_trips(anna):
     loaded = await anna.get(f"/api/plans/{created['id']}")
     assert loaded.status_code == 200
     assert loaded.json()["data"] == data
+
+
+async def test_weight_and_payload_are_optional(anna):
+    """Plans made before weights existed have neither field; they must come back without nulls."""
+    data = plan_data(2)
+    del data["bodies"][0]["maxLoad"]
+    for item in data["items"]:
+        del item["weight"]
+    created = (await anna.post("/api/plans", json={"name": "Старый план", "data": data})).json()
+    assert created["data"] == data
+    assert "maxLoad" not in created["data"]["bodies"][0]
+    assert all("weight" not in item for item in created["data"]["items"])
+
+    default = (await anna.post("/api/plans", json={"name": "Новый"})).json()
+    assert default["data"]["bodies"][0]["maxLoad"] == 20000
 
 
 async def test_next_seq_is_never_behind_the_items(anna):
@@ -175,8 +192,11 @@ def _broken(change) -> dict[str, Any]:
         pytest.param(_broken(lambda d: d["bodies"][0].update(kind="ship")), id="body-kind"),
         pytest.param(_broken(lambda d: d["items"][0]["pos"].update(y=-10)), id="below-floor"),
         pytest.param(_broken(lambda d: d["items"][0].update(color="red")), id="color"),
-        pytest.param(_broken(lambda d: d["items"][0].update(weight=500)), id="unknown-field"),
+        pytest.param(_broken(lambda d: d["items"][0].update(fragile=True)), id="unknown-field"),
         pytest.param(_broken(lambda d: d.pop("nextSeq")), id="missing-next-seq"),
+        pytest.param(_broken(lambda d: d["items"][0].update(weight=-1)), id="negative-weight"),
+        pytest.param(_broken(lambda d: d["items"][0].update(weight=31_000)), id="item-too-heavy"),
+        pytest.param(_broken(lambda d: d["bodies"][0].update(maxLoad=70_000)), id="payload-too-big"),
     ],
 )
 async def test_invalid_plan_data_is_rejected(anna, data):
