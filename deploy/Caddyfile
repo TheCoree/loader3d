@@ -1,0 +1,33 @@
+# All values come from .env (passed into the container by docker-compose.yml).
+#
+# SITE_ADDRESS = domain (loader.example.com) -> Caddy obtains a Let's Encrypt certificate
+#                and redirects HTTP to HTTPS; ports 80 and 443 must be reachable from the internet.
+# SITE_ADDRESS = :80                          -> plain HTTP, e.g. behind an existing reverse proxy.
+# Several names are allowed: "example.com, www.example.com".
+# The text after the first colon in {$SITE_ADDRESS::80} is the fallback (":80").
+
+{
+	admin off
+}
+
+{$SITE_ADDRESS::80} {
+	root * /srv
+	encode zstd gzip
+
+	# Vite puts content-hashed bundles into /assets: safe to cache forever.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html must be revalidated so a new deploy is picked up immediately.
+	@index path / /index.html
+	header @index Cache-Control "no-cache"
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	try_files {path} /index.html
+	file_server
+}

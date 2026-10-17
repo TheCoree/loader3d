@@ -15,6 +15,8 @@ controls and extension points are in README.md — read it first.
 - `npm test` — Vitest unit tests for `src/core`.
 - `npx tsc --noEmit` — typecheck; `npm run build` — typecheck + production build.
 - Run all three before calling a change done; check scene changes in the browser.
+- Deploy: `docker compose up -d` (Dockerfile → Caddy, `deploy/Caddyfile`). Every deploy setting is an env
+  variable documented in `.env.example`; add new ones there, to `docker-compose.yml` and to README.
 
 ## Invariants (do not break)
 
