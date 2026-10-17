@@ -3,3 +3,12 @@ dist
 *.log
 .DS_Store
 .env
+
+# backend (Python)
+.venv
+__pycache__/
+.pytest_cache
+.ruff_cache
+*.db
+*.db-shm
+*.db-wal

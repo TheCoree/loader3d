@@ -5,6 +5,7 @@
 и магнитной привязкой.
 
 Стек: **React 18 + TypeScript + three.js + zustand**, сборка — Vite, тесты — Vitest.
+Бэкенд ([backend/](backend)): **Python 3.14 + FastAPI + SQLAlchemy 2 (async)**, SQLite в разработке, Postgres в проде.
 
 ```bash
 npm install
@@ -15,17 +16,26 @@ npm run build      # проверка типов + production-сборка в di
 
 ## Деплой (Docker)
 
-На сервере нужны только Docker и Docker Compose v2 — Node.js не нужен, сборка идёт внутри образа
-(`npm ci` → тесты → `vite build`), готовая статика раздаётся через [Caddy](https://caddyserver.com).
+На сервере нужны только Docker и Docker Compose v2 — Node.js и Python не нужны, сборка идёт внутри
+образов (с прогоном тестов). Три контейнера:
+
+- `web` — [Caddy](https://caddyserver.com): статика фронтенда, HTTPS, проксирует `/api/*` в `api`;
+- `api` — бэкенд, при старте сам применяет миграции БД;
+- `db` — Postgres, наружу не публикуется, данные в томе `postgres_data`.
 
 ```bash
 git clone https://github.com/almbvb/loader3d.git && cd loader3d
-cp .env.example .env     # отредактировать настройки
+cp .env.example .env     # задать JWT_SECRET и POSTGRES_PASSWORD (openssl rand -hex 32), остальное по желанию
 docker compose up -d
 ```
 
 Репозиторий приватный: для `git clone` на сервере нужен deploy key (SSH) или токен GitHub.
 Обновление: `git pull && docker compose up -d --build`. Логи: `docker compose logs -f`.
+Если сервер развёрнут до появления бэкенда — перед обновлением добавить в `.env` новые переменные
+из `.env.example` (без `JWT_SECRET` и `POSTGRES_PASSWORD` compose не запустится).
+
+Резервная копия БД: `docker compose exec db pg_dump -U loader3d loader3d > backup.sql`,
+восстановление: `docker compose exec -T db psql -U loader3d loader3d < backup.sql`.
 
 Все настройки — в `.env` (описание каждой — в `.env.example`):
 
@@ -34,8 +44,15 @@ docker compose up -d
 | `SITE_ADDRESS` | `:80` | Домен (`loader.example.com`) → автоматический HTTPS от Let's Encrypt; `:80` → просто HTTP |
 | `HTTP_PORT` / `HTTPS_PORT` | `80` / `443` | Порты на хосте, можно с IP: `127.0.0.1:8080` |
 | `COMPOSE_PROJECT_NAME` | `loader3d` | Префикс имён контейнера, образа и томов |
-| `LOG_MAX_SIZE` / `LOG_MAX_FILE` | `10m` / `3` | Ротация логов контейнера |
-| `NODE_VERSION` / `CADDY_VERSION` | `24` / `2` | Версии базовых образов (после смены — `--build`) |
+| `JWT_SECRET` | — (обязательно) | Ключ подписи токенов, 32+ случайных символа; смена разлогинивает всех |
+| `ACCESS_TOKEN_TTL_MINUTES` / `REFRESH_TOKEN_TTL_DAYS` | `15` / `30` | Время жизни access-токена и сессии без активности |
+| `REGISTRATION_OPEN` | `true` | `false` — новые аккаунты создавать нельзя |
+| `COOKIE_SECURE` | `true` | `false` только если сайт открывают по голому HTTP (иначе вход не переживёт перезагрузку) |
+| `POSTGRES_PASSWORD` | — (обязательно) | Пароль БД, применяется при первом создании базы |
+| `POSTGRES_DB` / `POSTGRES_USER` | `loader3d` / `loader3d` | Имя базы и пользователя |
+| `LOG_MAX_SIZE` / `LOG_MAX_FILE` | `10m` / `3` | Ротация логов контейнеров |
+| `NODE_VERSION` / `CADDY_VERSION` / `PYTHON_VERSION` | `24` / `2` / `3.14` | Версии базовых образов (после смены — `--build`) |
+| `POSTGRES_VERSION` | `18` | Мажорная версия Postgres (18+; смена у существующей базы — через dump/restore) |
 
 Типовые варианты:
 
@@ -46,7 +63,76 @@ docker compose up -d
   `HTTPS_PORT=127.0.0.1:8443`, а во внешнем прокси — `proxy_pass http://127.0.0.1:8080`.
 - **Просто по IP** — значения по умолчанию, приложение откроется на `http://<IP сервера>/`.
 
-План раскладки хранится в браузере пользователя (localStorage), поэтому базы данных и бэкенда нет.
+Текущий интерфейс пока хранит план в браузере (localStorage); аккаунты и сохранённые схемы уже есть в
+API (см. «Бэкенд»), подключение к ним — вместе с новым интерфейсом.
+
+## Бэкенд (API)
+
+Каталог [backend/](backend): FastAPI, SQLAlchemy 2 (async), Alembic, Pydantic. Всё под префиксом `/api`,
+интерактивная документация — `/api/docs`, схема OpenAPI — `/api/openapi.json` (из неё можно генерировать
+TS-типы клиента). Поля JSON — в camelCase, как во фронтенде.
+
+Локально нужен [uv](https://docs.astral.sh/uv/) (`pip install uv` или установщик с сайта), Python 3.14 uv
+найдёт или скачает сам:
+
+```bash
+cd backend
+uv sync                          # зависимости в backend/.venv
+uv run python -m app --reload    # миграции + сервер на http://127.0.0.1:8000 (SQLite: backend/loader3d.db)
+uv run pytest                    # тесты (на временной SQLite; TEST_DATABASE_URL=postgresql+asyncpg://… — на Postgres)
+uv run ruff check . && uv run ruff format --check .
+```
+
+`npm run dev` проксирует `/api` на `127.0.0.1:8000`, поэтому фронтенд в разработке ходит в API с того
+же адреса, что и в проде. Настройки бэкенда — переменные окружения (или `backend/.env`):
+`DATABASE_URL`, `DATABASE_PASSWORD`, `JWT_SECRET`, `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`,
+`REGISTRATION_OPEN`, `COOKIE_SECURE`, `CORS_ORIGINS`, `ENVIRONMENT` (см. [config.py](backend/app/config.py)).
+
+Изменили модели в `app/models.py` — нужна миграция, которая работает и на SQLite, и на Postgres:
+`uv run alembic revision --autogenerate -m "что изменилось"`, проверить файл в `migrations/versions/`.
+Тест `test_migrations_match_the_models` падает, если миграции не совпадают с моделями.
+
+### Эндпоинты
+
+| Метод и путь | Что делает |
+|---|---|
+| `POST /api/auth/register` | Регистрация `{email, password, displayName?}` → вход (как login) |
+| `POST /api/auth/login` | `{email, password}` → `{accessToken, expiresIn, user}` + cookie с refresh-токеном |
+| `POST /api/auth/refresh` | По cookie: новый access-токен, refresh-токен ротируется |
+| `POST /api/auth/logout` | Завершить текущую сессию (нужна только cookie) |
+| `GET /api/auth/sessions` | Активные сессии (устройства): user agent, IP, последняя активность, `current` |
+| `DELETE /api/auth/sessions/{id}` / `DELETE /api/auth/sessions` | Завершить одну / все остальные сессии |
+| `GET /api/users/me`, `PATCH /api/users/me` | Профиль, смена `displayName` |
+| `POST /api/users/me/password` | Смена пароля, остальные сессии завершаются |
+| `DELETE /api/users/me` | Удаление аккаунта со всеми схемами (`{password}` в теле) |
+| `GET /api/plans?q=&sort=-updatedAt&limit=20&offset=0` | Главная: схемы пользователя без содержимого (`bodyCount`, `itemCount`, даты), поиск по названию, `sort`: `updatedAt`/`createdAt`/`name`, `-` — по убыванию |
+| `POST /api/plans` | Новая схема `{name, data?}`; без `data` — пустая с еврофурой 13,6 м |
+| `GET /api/plans/{id}` | Схема целиком: `data` — тот же `Plan`, что экспортирует фронтенд в JSON |
+| `PATCH /api/plans/{id}` | Сохранить `{version, name?, data?}`; `409 version_conflict`, если схему уже изменили |
+| `POST /api/plans/{id}/duplicate` | Копия `{name?}` (по умолчанию «… (копия)») |
+| `DELETE /api/plans/{id}` | Удалить |
+| `GET /api/health` | Проверка живости и связи с БД |
+
+Ошибки: `{"detail": {"code": "...", "message": "..."}}` — `code` для логики клиента, `message` по-русски
+для показа; ошибки валидации — стандартный ответ FastAPI `422`.
+
+### Как клиенту работать с сессией
+
+- **Access-токен** (JWT, 15 мин) — из ответа login/register/refresh, держать в памяти (не в localStorage)
+  и слать в `Authorization: Bearer …`.
+- **Refresh-токен** (JWT, 30 дней) — только в httpOnly-cookie `loader3d_refresh` с `Path=/api/auth` и
+  `SameSite=Strict`: JavaScript его не видит, браузер шлёт его только на `/api/auth/*`.
+- При загрузке страницы — `POST /api/auth/refresh`: 200 → пользователь вошёл, 401 → показать вход.
+- На `401` с `code: "token_expired"` — один раз `refresh` и повторить запрос; если и refresh дал 401 —
+  на экран входа.
+- Каждый refresh выдаёт новый refresh-токен. Старый принимается ещё 30 секунд (несколько вкладок
+  обновляются одновременно), позже — считается украденным, и сессия завершается для всех её копий.
+- Logout и «завершить сессию» действуют сразу: каждый запрос проверяет, что сессия жива.
+- Сохранение схемы — `PATCH` с `version` из последнего ответа; на `409` предложить перезагрузить схему.
+
+Сервер проверяет структуру и диапазоны плана (размеры как в `core/presets.ts` и `core/item.ts`, до 3
+кузовов, до 5000 грузов, уникальные id), но не физику: отсутствие пересечений по-прежнему обеспечивает
+`settle()` на клиенте.
 
 ## Что умеет
 
@@ -101,6 +187,17 @@ src/
     tools/           MoveTool, ResizeTool (интерфейс Tool для новых жестов)
     VehicleView / CargoView / SelectionView / GuidesView / DimensionLine / CameraRig
   ui/              React-панели поверх сцены
+backend/
+  app/
+    main.py          create_app(): роутеры под /api, движок БД в lifespan
+    config.py        настройки из переменных окружения
+    models.py        User, AuthSession (сессия = устройство), Plan (схема)
+    security.py      Argon2id, кодирование/проверка JWT
+    auth.py          выдача, ротация и отзыв сессий; зависимость CurrentAuth
+    schemas/         тела запросов/ответов; plan_data.py — валидация Plan из src/core/types.ts
+    routers/         auth, users, plans, health
+  migrations/      Alembic (SQLite и Postgres)
+  tests/           pytest
 ```
 
 ### Как устроено контекстное взаимодействие
