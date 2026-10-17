@@ -1,0 +1,132 @@
+import type { Box, CargoItem } from './types';
+import { EPS, overlaps, overlapsXZ } from './geometry';
+import { itemBox } from './item';
+
+/** Vertical tolerance (cm) for deciding that one box rests on another. */
+export const CONTACT_TOLERANCE = 0.05;
+
+/**
+ * Height at which a box with this footprint comes to rest: the highest top among obstacles under
+ * (or above) the footprint, or the floor. Placing a box there can never intersect an obstacle and
+ * never leaves it hanging in the air.
+ */
+export function supportHeight(footprint: Box, obstacles: readonly Box[]): number {
+  let y = 0;
+  for (const o of obstacles) {
+    if (o.max.y > y && overlapsXZ(footprint, o)) y = o.max.y;
+  }
+  return y;
+}
+
+/**
+ * Same as {@link supportHeight} for a rigid group. `members` are positioned in XZ, their Y is
+ * relative to the group base. Returns the base Y.
+ */
+export function groupBaseY(members: readonly Box[], obstacles: readonly Box[]): number {
+  let y = 0;
+  for (const m of members) {
+    for (const o of obstacles) {
+      const need = o.max.y - m.min.y;
+      if (need > y && overlapsXZ(m, o)) y = need;
+    }
+  }
+  return y;
+}
+
+export interface SettleOptions {
+  /** Items that give way to others resting at the same level (e.g. one that was just rotated). */
+  yieldIds?: ReadonlySet<string>;
+  /** Items placed after everything else, on top of whatever is under them (e.g. a dropped stack). */
+  topIds?: ReadonlySet<string>;
+}
+
+/**
+ * Gravity pass: drops every item onto the floor or onto the items under it, bottom-up.
+ * The result never has intersections or floating items, whatever the input was. Order of the
+ * returned array matches the input; unchanged items keep their identity.
+ */
+export function settle(items: readonly CargoItem[], options: SettleOptions = {}): CargoItem[] {
+  const { yieldIds, topIds } = options;
+  const level = (y: number) => Math.round(y / EPS);
+  const order = items.map((item, index) => {
+    const box = itemBox(item);
+    return {
+      item,
+      index,
+      box,
+      level: level(box.min.y),
+      top: topIds?.has(item.id) ? 1 : 0,
+      yields: yieldIds?.has(item.id) ? 1 : 0,
+    };
+  });
+  order.sort(
+    (a, b) => a.top - b.top || a.level - b.level || a.yields - b.yields || a.index - b.index,
+  );
+
+  const placed: Box[] = [];
+  const out = items.slice();
+  for (const { item, index, box } of order) {
+    const y = supportHeight(box, placed);
+    const h = box.max.y - box.min.y;
+    placed.push({ min: { ...box.min, y }, max: { ...box.max, y: y + h } });
+    if (Math.abs(item.pos.y - y) > 1e-9) out[index] = { ...item, pos: { ...item.pos, y } };
+  }
+  return out;
+}
+
+/** Ids of the items `item` directly rests on. */
+function supportersOf(box: Box, id: string, all: ReadonlyArray<{ id: string; box: Box }>): string[] {
+  if (box.min.y < CONTACT_TOLERANCE) return [];
+  const result: string[] = [];
+  for (const other of all) {
+    if (other.id === id) continue;
+    if (Math.abs(other.box.max.y - box.min.y) < CONTACT_TOLERANCE && overlapsXZ(box, other.box)) {
+      result.push(other.id);
+    }
+  }
+  return result;
+}
+
+/**
+ * The item plus everything that rests on it — directly or indirectly — and on nothing else.
+ * Picking up a box carries this stack along.
+ */
+export function collectStack(rootId: string, items: readonly CargoItem[]): Set<string> {
+  const all = items.map((i) => ({ id: i.id, box: itemBox(i) }));
+  const supporters = new Map<string, string[]>();
+  for (const entry of all) supporters.set(entry.id, supportersOf(entry.box, entry.id, all));
+
+  const group = new Set([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [id, sup] of supporters) {
+      if (group.has(id) || sup.length === 0) continue;
+      if (sup.every((s) => group.has(s))) {
+        group.add(id);
+        changed = true;
+      }
+    }
+  }
+  return group;
+}
+
+/** Pairs of intersecting items (diagnostics and tests). */
+export function findCollisions(items: readonly CargoItem[]): Array<[string, string]> {
+  const boxes = items.map(itemBox);
+  const pairs: Array<[string, string]> = [];
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      if (overlaps(boxes[i], boxes[j])) pairs.push([items[i].id, items[j].id]);
+    }
+  }
+  return pairs;
+}
+
+/** Items that neither stand on the floor nor rest on another item (diagnostics and tests). */
+export function findFloating(items: readonly CargoItem[]): string[] {
+  const all = items.map((i) => ({ id: i.id, box: itemBox(i) }));
+  return all
+    .filter((e) => e.box.min.y >= CONTACT_TOLERANCE && supportersOf(e.box, e.id, all).length === 0)
+    .map((e) => e.id);
+}

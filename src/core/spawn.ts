@@ -1,0 +1,37 @@
+import type { Box, Dims, Rect } from './types';
+import { EPS, overlapsXZ } from './geometry';
+
+/**
+ * First free floor spot for a new item inside `region`, filling rows from the region's max X
+ * (the truck's rear doors) outwards, left to right. Candidates are "extreme points" next to the
+ * already occupied boxes, so items line up neatly with `gap` between them.
+ */
+export function findFreeSpot(
+  size: Dims,
+  region: Rect,
+  occupied: readonly Box[],
+  gap = 10,
+): { x: number; z: number } | null {
+  const xs = new Set<number>([region.maxX - size.l]);
+  const zs = new Set<number>([region.minZ]);
+  for (const o of occupied) {
+    xs.add(o.min.x - gap - size.l);
+    xs.add(o.max.x - size.l);
+    zs.add(o.max.z + gap);
+    zs.add(o.min.z);
+  }
+  const xList = [...xs]
+    .filter((x) => x >= region.minX - EPS && x + size.l <= region.maxX + EPS)
+    .sort((a, b) => b - a);
+  const zList = [...zs]
+    .filter((z) => z >= region.minZ - EPS && z + size.w <= region.maxZ + EPS)
+    .sort((a, b) => a - b);
+
+  for (const x of xList) {
+    for (const z of zList) {
+      const fp: Box = { min: { x, y: 0, z }, max: { x: x + size.l, y: size.h, z: z + size.w } };
+      if (!occupied.some((o) => overlapsXZ(fp, o))) return { x, z };
+    }
+  }
+  return null;
+}
