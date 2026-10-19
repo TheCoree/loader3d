@@ -66,6 +66,12 @@ export function computeLayout(bodies: readonly CargoBody[]): VehicleLayout {
   };
 }
 
+/** Part of the dock where new or unloaded cargo is put: off the edges and clear of the aisle. */
+export function stagingRegion(layout: VehicleLayout): Rect {
+  const d = layout.dock;
+  return { minX: d.minX + 30, maxX: d.maxX - DOCK_AISLE, minZ: d.minZ + 30, maxZ: d.maxZ - 30 };
+}
+
 /** Bounding box of the vehicle including the cab (used for camera framing). */
 export function vehicleBounds(layout: VehicleLayout): Box {
   const boxes = layout.bodies.map((p) => p.box);

@@ -44,6 +44,12 @@ export function formatMeters(m: number): string {
   return `${formatter(1, true).format(m)} м`;
 }
 
+/** «450 кг» below a tonne, «12,4 т» from a tonne up. */
+export function formatWeight(kg: number): string {
+  if (Math.abs(kg) < 1000) return `${formatter(0, true).format(kg)} кг`;
+  return `${formatter(kg < 10000 ? 2 : 1, true).format(kg / 1000)} т`;
+}
+
 export function formatPercent(fraction: number): string {
   return `${formatter(0, false).format(fraction * 100)}%`;
 }

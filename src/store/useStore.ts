@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { CargoBody, CargoItem, Dims, Plan } from '../core/types';
-import { DOCK_AISLE, computeLayout, remapItems, type VehicleLayout } from '../core/layout';
+import { computeLayout, remapItems, stagingRegion, type VehicleLayout } from '../core/layout';
 import { itemBox, itemSize, sanitizeItemDims, uid } from '../core/item';
 import { settle } from '../core/physics';
 import { findFreeSpot } from '../core/spawn';
@@ -9,7 +9,9 @@ import { effectiveDims, rotateYaw90 } from '../core/orientation';
 import { beginMove, evaluateMove, finishMove } from '../core/move';
 import {
   BODY_LIMITS,
+  BODY_MAX_LOAD_LIMIT,
   CARGO_COLORS,
+  ITEM_WEIGHT_LIMIT,
   DEFAULT_TRAILER,
   MAX_BODIES,
   VEHICLE_PRESETS,
@@ -44,6 +46,8 @@ export interface NewCargo {
   dims: Dims;
   name?: string;
   count?: number;
+  /** kg per item */
+  weight?: number;
 }
 
 export interface AppState extends PlanState {
@@ -52,7 +56,7 @@ export interface AppState extends PlanState {
   history: History;
 
   addItems(input: NewCargo): void;
-  updateItem(id: string, patch: { name?: string; color?: string; dims?: Dims }): void;
+  updateItem(id: string, patch: { name?: string; color?: string; dims?: Dims; weight?: number }): void;
   /** Replaces the item list after an interactive edit in the scene (move, resize). */
   applyItems(items: CargoItem[], key?: string): void;
   removeItem(id: string): void;
@@ -63,6 +67,8 @@ export interface AppState extends PlanState {
   select(id: string | null): void;
 
   updateBody(id: string, dims: Dims): void;
+  /** Payload capacity in kg; undefined removes the limit. */
+  setBodyMaxLoad(id: string, maxLoad: number | undefined): void;
   addTrailer(): void;
   removeBody(id: string): void;
   applyVehiclePreset(presetId: string): void;
@@ -70,7 +76,10 @@ export interface AppState extends PlanState {
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void;
   undo(): void;
   redo(): void;
+  /** Replaces the plan as an undoable edit (import from a file, the example). */
   loadPlan(plan: Plan): void;
+  /** Opens a saved plan: replaces everything and starts a fresh undo history. */
+  openPlan(plan: Plan): void;
 }
 
 const HISTORY_LIMIT = 100;
@@ -103,7 +112,13 @@ function pickPlan(s: PlanState): PlanState {
 }
 
 function makeBody(t: BodyTemplate, id = uid('body')): CargoBody {
-  return { id, kind: t.kind, name: t.name, dims: { ...t.dims } };
+  const body: CargoBody = { id, kind: t.kind, name: t.name, dims: { ...t.dims } };
+  if (t.maxLoad !== undefined) body.maxLoad = t.maxLoad;
+  return body;
+}
+
+export function sanitizeWeight(kg: number): number {
+  return Math.min(ITEM_WEIGHT_LIMIT, Math.max(0, Math.round(kg * 10) / 10));
 }
 
 function clampBodyDims(d: Dims): Dims {
@@ -114,8 +129,7 @@ function clampBodyDims(d: Dims): Dims {
 
 /** Puts `item` on a free spot of the dock (or on top of something there if the dock is full). */
 function placeOnDock(item: CargoItem, existing: readonly CargoItem[], layout: VehicleLayout): CargoItem {
-  const d = layout.dock;
-  const region = { minX: d.minX + 30, maxX: d.maxX - DOCK_AISLE, minZ: d.minZ + 30, maxZ: d.maxZ - 30 };
+  const region = stagingRegion(layout);
   const size = itemSize(item);
   const spot = findFreeSpot(size, region, existing.map(itemBox)) ?? {
     x: region.maxX - size.l,
@@ -151,7 +165,13 @@ export function createDemoPlan(): PlanState {
   const body = layout.bodies[0].box;
   const items: CargoItem[] = [];
   let seq = 1;
-  const add = (name: string, dims: Dims, color: string, pos?: { x: number; z: number; y?: number }) => {
+  const add = (
+    name: string,
+    dims: Dims,
+    weight: number,
+    color: string,
+    pos?: { x: number; z: number; y?: number },
+  ) => {
     const item: CargoItem = {
       id: uid('cargo'),
       seq: seq++,
@@ -160,6 +180,7 @@ export function createDemoPlan(): PlanState {
       orientation: { yaw: 0 },
       pos: { x: 0, y: 0, z: 0 },
       color,
+      weight,
     };
     items.push(pos ? { ...item, pos: { x: pos.x, y: pos.y ?? 0, z: pos.z } } : placeOnDock(item, items, layout));
   };
@@ -167,22 +188,22 @@ export function createDemoPlan(): PlanState {
   // Two rows of euro pallets against the front wall, three across.
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 3; col++) {
-      add('Европаллета', { l: 120, w: 80, h: 150 }, CARGO_COLORS[0], {
+      add('Европаллета', { l: 120, w: 80, h: 150 }, 450, CARGO_COLORS[0], {
         x: body.max.x - 120 * (row + 1),
         z: body.min.z + 80 * col,
       });
     }
   }
-  add('Коробка', { l: 60, w: 40, h: 40 }, CARGO_COLORS[4], { x: body.max.x - 120, z: body.min.z, y: 150 });
-  add('Коробка', { l: 60, w: 40, h: 40 }, CARGO_COLORS[4], { x: body.max.x - 60, z: body.min.z, y: 150 });
-  for (let i = 0; i < 3; i++) add('IBC-куб', { l: 120, w: 100, h: 116 }, CARGO_COLORS[1]);
-  for (let i = 0; i < 2; i++) add('Финпаллета', { l: 120, w: 100, h: 150 }, CARGO_COLORS[2]);
-  add('Длинномер', { l: 320, w: 60, h: 60 }, CARGO_COLORS[3]);
+  add('Коробка', { l: 60, w: 40, h: 40 }, 25, CARGO_COLORS[4], { x: body.max.x - 120, z: body.min.z, y: 150 });
+  add('Коробка', { l: 60, w: 40, h: 40 }, 25, CARGO_COLORS[4], { x: body.max.x - 60, z: body.min.z, y: 150 });
+  for (let i = 0; i < 3; i++) add('IBC-куб', { l: 120, w: 100, h: 116 }, 1000, CARGO_COLORS[1]);
+  for (let i = 0; i < 2; i++) add('Финпаллета', { l: 120, w: 100, h: 150 }, 600, CARGO_COLORS[2]);
+  add('Длинномер', { l: 320, w: 60, h: 60 }, 180, CARGO_COLORS[3]);
 
   return { bodies, items: settle(items), nextSeq: seq, paletteIndex: 5 };
 }
 
-function isValidPlan(p: unknown): p is Plan {
+export function isValidPlan(p: unknown): p is Plan {
   if (!p || typeof p !== 'object') return false;
   const plan = p as Partial<Plan>;
   return (
@@ -214,7 +235,7 @@ export const useStore = create<AppState>()(
         settings: DEFAULT_SETTINGS,
         history: { past: [], future: [], lastKey: null, lastAt: 0 },
 
-        addItems({ dims, name, count = 1 }) {
+        addItems({ dims, name, count = 1, weight }) {
           const s = get();
           const layout = getLayout(s.bodies);
           const color = CARGO_COLORS[s.paletteIndex % CARGO_COLORS.length];
@@ -232,6 +253,7 @@ export const useStore = create<AppState>()(
                 orientation: { yaw: 0 },
                 pos: { x: 0, y: 0, z: 0 },
                 color,
+                ...(weight !== undefined && weight > 0 ? { weight: sanitizeWeight(weight) } : {}),
               },
               items,
               layout,
@@ -253,6 +275,7 @@ export const useStore = create<AppState>()(
             if (patch.name !== undefined) next.name = patch.name.trim() || i.name;
             if (patch.color !== undefined) next.color = patch.color;
             if (patch.dims) next.dims = sanitizeItemDims(patch.dims);
+            if (patch.weight !== undefined) next.weight = sanitizeWeight(patch.weight);
             return next;
           });
           const geometryChanged = patch.dims !== undefined;
@@ -329,6 +352,18 @@ export const useStore = create<AppState>()(
           commit({ bodies, items: rebody(s.items, s.bodies, bodies) }, {}, `body:${id}`);
         },
 
+        setBodyMaxLoad(id, maxLoad) {
+          const s = get();
+          const bodies = s.bodies.map((b) => {
+            if (b.id !== id) return b;
+            const { maxLoad: _, ...rest } = b;
+            return maxLoad === undefined
+              ? rest
+              : { ...rest, maxLoad: Math.min(BODY_MAX_LOAD_LIMIT, Math.max(0, Math.round(maxLoad))) };
+          });
+          commit({ bodies }, {}, `body-load:${id}`);
+        },
+
         addTrailer() {
           const s = get();
           if (s.bodies.length >= MAX_BODIES) return;
@@ -399,35 +434,38 @@ export const useStore = create<AppState>()(
           const nextSeq = Math.max(plan.nextSeq || 1, ...items.map((i) => i.seq + 1));
           commit({ bodies: plan.bodies, items, nextSeq }, { selectedId: null });
         },
+
+        openPlan(plan) {
+          if (!isValidPlan(plan)) throw new Error('Схема повреждена');
+          const items = settle(plan.items);
+          set({
+            bodies: plan.bodies,
+            items,
+            nextSeq: Math.max(plan.nextSeq || 1, ...items.map((i) => i.seq + 1)),
+            paletteIndex: items.length,
+            selectedId: null,
+            history: { past: [], future: [], lastKey: null, lastAt: 0 },
+          });
+        },
       };
     },
     {
-      name: 'loader3d:plan',
+      // Plans live on the server; only display preferences stay in the browser.
+      // (The pre-accounts plan is still under LEGACY_PLAN_KEY until the user imports it.)
+      name: 'loader3d:settings',
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({
-        bodies: s.bodies,
-        items: s.items,
-        nextSeq: s.nextSeq,
-        paletteIndex: s.paletteIndex,
-        settings: s.settings,
-      }),
+      partialize: (s) => ({ settings: s.settings }),
       merge: (persisted, current) => {
-        const p = persisted as Partial<AppState> | undefined;
-        if (!isValidPlan(p)) return current;
-        const extra = persisted as Partial<AppState>;
-        return {
-          ...current,
-          bodies: p.bodies,
-          items: settle(p.items),
-          nextSeq: p.nextSeq ?? current.nextSeq,
-          paletteIndex: extra.paletteIndex ?? current.paletteIndex,
-          settings: { ...DEFAULT_SETTINGS, ...extra.settings },
-        };
+        const settings = (persisted as Partial<AppState> | undefined)?.settings;
+        return { ...current, settings: { ...DEFAULT_SETTINGS, ...settings } };
       },
     },
   ),
 );
+
+/** localStorage key of the plan saved by the app before accounts existed. */
+export const LEGACY_PLAN_KEY = 'loader3d:plan';
 
 export function exportPlan(s: AppState): Plan {
   return { bodies: s.bodies, items: s.items, nextSeq: s.nextSeq };

@@ -11,16 +11,7 @@
 }
 
 {$SITE_ADDRESS::80} {
-	root * /srv
 	encode zstd gzip
-
-	# Vite puts content-hashed bundles into /assets: safe to cache forever.
-	@assets path /assets/*
-	header @assets Cache-Control "public, max-age=31536000, immutable"
-
-	# index.html must be revalidated so a new deploy is picked up immediately.
-	@index path / /index.html
-	header @index Cache-Control "no-cache"
 
 	header {
 		X-Content-Type-Options nosniff
@@ -28,6 +19,27 @@
 		-Server
 	}
 
-	try_files {path} /index.html
-	file_server
+	# Backend (backend/, the "api" service). Same origin as the frontend: no CORS, and the
+	# refresh-token cookie stays first-party.
+	handle /api/* {
+		request_body {
+			max_size 5MB
+		}
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+
+		# Vite puts content-hashed bundles into /assets: safe to cache forever.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+
+		# index.html must be revalidated so a new deploy is picked up immediately.
+		@index path / /index.html
+		header @index Cache-Control "no-cache"
+
+		try_files {path} /index.html
+		file_server
+	}
 }

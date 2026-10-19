@@ -5,6 +5,11 @@ import { effectiveDims } from './orientation';
 export const MIN_ITEM_SIZE = 5;
 export const MAX_ITEM_SIZE = 3000;
 
+/** Weight in kg; items without a weight count as 0. */
+export function itemWeight(item: CargoItem): number {
+  return item.weight ?? 0;
+}
+
 export function itemSize(item: CargoItem): Dims {
   return effectiveDims(item.dims, item.orientation);
 }

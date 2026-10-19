@@ -1,0 +1,55 @@
+/*
+ * DOM parts of the 3D scene: the canvas host and the CSS2D labels created by src/scene/*.ts
+ * (DimensionLine, SelectionView, VehicleView). Carried over unchanged from the previous UI —
+ * the scene looks exactly as before. Not Tailwind: the elements are created imperatively.
+ */
+
+.viewport-host {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.scene-canvas {
+  display: block;
+  outline: none;
+}
+
+.label-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.dim-label {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #c9d2de;
+  color: #1e293b;
+  font: 600 12px/1.1 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dim-label--item {
+  background: #2f6fed;
+  border-color: transparent;
+  color: #fff;
+  font-size: 11.5px;
+}
+
+.body-tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(47, 58, 75, 0.85);
+  color: #fff;
+  font: 600 11px/1.2 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

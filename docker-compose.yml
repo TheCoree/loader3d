@@ -1,8 +1,18 @@
 # Production deployment. All settings live in .env (copy .env.example -> .env);
 # the defaults below are used only when a variable is missing.
 #
-#   docker compose up -d            # first start: builds the image and starts it
+#   docker compose up -d            # first start: builds the images and starts everything
 #   docker compose up -d --build    # after git pull: rebuild and restart
+#
+# web (Caddy): static frontend + HTTPS, proxies /api/* to api
+# api (FastAPI, backend/): applies database migrations on start
+# db  (Postgres): reachable only from the compose network
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILE:-3}"
 
 services:
   web:
@@ -22,12 +32,48 @@ services:
       # Certificates and ACME account: must survive container re-creation.
       - caddy_data:/data
       - caddy_config:/config
-    logging:
-      driver: json-file
-      options:
-        max-size: "${LOG_MAX_SIZE:-10m}"
-        max-file: "${LOG_MAX_FILE:-3}"
+    depends_on:
+      - api
+    logging: *logging
+
+  api:
+    build:
+      context: ./backend
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.14}
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-loader3d}@db:5432/${POSTGRES_DB:-loader3d}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-15}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+  db:
+    image: postgres:${POSTGRES_VERSION:-18}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-loader3d}
+      POSTGRES_USER: ${POSTGRES_USER:-loader3d}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      # Postgres 18+ keeps its data under /var/lib/postgresql/<major>/: all accounts and plans.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
 
 volumes:
   caddy_data:
   caddy_config:
+  postgres_data:

@@ -1,25 +1,31 @@
-import { CargoPanel } from './ui/CargoPanel';
-import { HelpDialog } from './ui/HelpDialog';
-import { TopBar } from './ui/TopBar';
-import { Viewport } from './ui/Viewport';
-import { cx } from './ui/hooks';
-import { useUi } from './store/useUi';
+import { lazy, Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router';
+import { FullScreenLoader, PublicOnly, RequireAuth } from './components/RouteGuards';
+import { AccountPage } from './pages/AccountPage';
+import { AuthPage } from './pages/AuthPage';
+import { HomePage } from './pages/HomePage';
+
+// The editor brings three.js and the scene: loaded only when a plan is opened.
+const EditorPage = lazy(() => import('./pages/EditorPage').then((m) => ({ default: m.EditorPage })));
 
 export function App() {
-  const panelOpen = useUi((s) => s.panelOpen);
-  const setPanelOpen = useUi((s) => s.setPanelOpen);
-
   return (
-    <div className="app">
-      <TopBar />
-      <div className="workspace">
-        <Viewport />
-        <aside className={cx('sidebar', panelOpen && 'is-open')}>
-          <CargoPanel />
-        </aside>
-        {panelOpen && <div className="scrim" onClick={() => setPanelOpen(false)} />}
-      </div>
-      <HelpDialog />
-    </div>
+    <Routes>
+      <Route path="/login" element={<PublicOnly><AuthPage mode="login" /></PublicOnly>} />
+      <Route path="/register" element={<PublicOnly><AuthPage mode="register" /></PublicOnly>} />
+      <Route path="/" element={<RequireAuth><HomePage /></RequireAuth>} />
+      <Route
+        path="/plans/:planId"
+        element={
+          <RequireAuth>
+            <Suspense fallback={<FullScreenLoader label="Открываем редактор…" />}>
+              <EditorPage />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
+      <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
