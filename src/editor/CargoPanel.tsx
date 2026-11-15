@@ -7,7 +7,6 @@ import {
   Lock,
   LockOpen,
   PackagePlus,
-  PanelRightClose,
   Plus,
   RotateCw,
   Trash2,
@@ -48,7 +47,7 @@ import { useFeature, useOpenAutoload, usePinned, usePlacements, useStats, useUni
 const ITEMS = ['груз', 'груза', 'грузов'] as const;
 
 /** The cargo panel: new cargo, automatic loading, the list with the inspector of the selected item. */
-export function CargoPanel({ onHide }: { onHide?: () => void }) {
+export function CargoPanel() {
   const count = useStore((s) => s.items.length);
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -57,16 +56,6 @@ export function CargoPanel({ onHide }: { onHide?: () => void }) {
         <Badge variant="secondary" className="h-5 px-1.5 tabular-nums">
           {count}
         </Badge>
-        {onHide && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="ml-auto text-muted-foreground" onClick={onHide} aria-label="Скрыть панель">
-                <PanelRightClose />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Скрыть панель — вся сцена на экране</TooltipContent>
-          </Tooltip>
-        )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <AddCargoForm />

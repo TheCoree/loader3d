@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, FileQuestion, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, FileQuestion, Package, RefreshCw } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { planApi } from '@/api/endpoints';
 import { FullScreenLoader } from '@/components/RouteGuards';
@@ -21,6 +21,7 @@ import { guardSceneShortcuts, useMediaQuery } from '@/editor/hooks';
 import { flush, hasUnsavedChanges, startSync, stopSync, usePlanSync } from '@/editor/planSync';
 import { startThumbnails, stopThumbnails } from '@/editor/planThumbnail';
 import { planKeys } from '@/lib/plansQuery';
+import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 
@@ -149,6 +150,42 @@ function useLimitOffers(): void {
   );
 }
 
+/**
+ * While the cargo panel is hidden: a strip along the right edge of the scene. Pointing at the edge
+ * slides out a small tab (on touch screens it always shows); a click brings the panel back.
+ */
+function PanelHandle({ hidden, onOpen }: { hidden: boolean; onOpen(): void }) {
+  const count = useStore((s) => s.items.length);
+  return (
+    <div
+      className={cn(
+        'group/handle absolute top-1/2 right-0 z-10 flex h-40 w-7 -translate-y-1/2 items-center justify-end',
+        !hidden && 'pointer-events-none',
+      )}
+    >
+      <button
+        type="button"
+        tabIndex={hidden ? 0 : -1}
+        aria-hidden={!hidden}
+        aria-label="Показать панель грузов"
+        title="Показать панель грузов"
+        onClick={onOpen}
+        className={cn(
+          'flex h-24 w-9 translate-x-full flex-col items-center justify-center gap-1.5 rounded-l-2xl border border-r-0 bg-card/95 text-muted-foreground shadow-lg shadow-foreground/10 backdrop-blur-md outline-none',
+          'transition-[translate,color] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-foreground motion-reduce:transition-none',
+          'focus-visible:ring-3 focus-visible:ring-ring/50',
+          hidden &&
+            'group-hover/handle:translate-x-0 focus-visible:translate-x-0 [@media(hover:none)]:translate-x-0',
+        )}
+      >
+        <ChevronLeft className="size-4" />
+        <Package className="size-4" />
+        <span className="text-[11px] font-medium tabular-nums">{count}</span>
+      </button>
+    </div>
+  );
+}
+
 function EditorLayout() {
   useLimitOffers();
   const desktop = useMediaQuery('(min-width: 768px)');
@@ -164,13 +201,27 @@ function EditorLayout() {
       <EditorHeader />
       <div className="relative min-h-0 flex-1">
         <Viewport rightInset={floating ? panelWidth + PANEL_GAP : 0} />
-        {floating && (
-          <aside
-            className="absolute z-10 flex flex-col overflow-hidden rounded-2xl border bg-card/95 shadow-xl shadow-foreground/10 backdrop-blur-md"
-            style={{ top: PANEL_GAP, right: PANEL_GAP, bottom: PANEL_GAP, width: panelWidth }}
-          >
-            <CargoPanel onHide={() => setPanelHidden(true)} />
-          </aside>
+        {desktop && (
+          <>
+            {/*
+              Always mounted (the form keeps what was typed); hidden it slides out to the right and is
+              inert, so it takes no focus or clicks. The canvas is full width either way; only the
+              overlays above it follow the panel (Viewport animates their inset).
+            */}
+            <aside
+              aria-label="Грузы"
+              inert={!floating}
+              className={cn(
+                'absolute z-10 flex flex-col overflow-hidden rounded-2xl border bg-card/95 shadow-xl shadow-foreground/10 backdrop-blur-md',
+                'transition-[translate,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
+                !floating && 'pointer-events-none translate-x-[calc(100%+24px)] opacity-0',
+              )}
+              style={{ top: PANEL_GAP, right: PANEL_GAP, bottom: PANEL_GAP, width: panelWidth }}
+            >
+              <CargoPanel />
+            </aside>
+            <PanelHandle hidden={!floating} onOpen={() => setPanelHidden(false)} />
+          </>
         )}
         {!desktop && (
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>

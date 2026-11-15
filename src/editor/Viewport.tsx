@@ -53,7 +53,7 @@ export function Viewport({ rightInset = 0 }: { rightInset?: number }) {
       {error && <div className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground">{error}</div>}
 
       <div
-        className="pointer-events-none absolute top-3 bottom-3 left-3 flex flex-col gap-3"
+        className="pointer-events-none absolute top-3 bottom-3 left-3 flex flex-col gap-3 transition-[right] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
         style={{ right: rightInset + 12 }}
       >
         <div className="flex min-h-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:content-start sm:items-start">
