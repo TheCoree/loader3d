@@ -25,8 +25,67 @@ export interface VehicleViewOptions {
 }
 
 const WHEEL_RADIUS = 52;
+const TIRE_WIDTH = 30;
+/** Front axle of the cab, from the cab's front face. */
+const FRONT_AXLE = 75;
+/** Wheel arch cut into the cab side, a little larger than the tyre. */
+const ARCH_RADIUS = 60;
 const UP = new THREE.Vector3(0, 1, 0);
 const PLUS_Z = new THREE.Vector3(0, 0, 1);
+
+/** A tyre with rounded shoulders (lathe about Y; wheels are turned so the axis runs along Z). */
+function tireGeometry(): THREE.LatheGeometry {
+  const r = WHEEL_RADIUS;
+  const w = TIRE_WIDTH / 2;
+  const profile = [
+    [r - 22, -w],
+    [r - 6, -w],
+    [r - 2, -w + 2.5],
+    [r, -w + 6],
+    [r, w - 6],
+    [r - 2, w - 2.5],
+    [r - 6, w],
+    [r - 22, w],
+  ].map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.LatheGeometry(profile, 36);
+}
+
+/**
+ * Side profile of a European cab-over cab (x from the back wall to the front, y up from the cab floor):
+ * a raked windscreen, rounded roof edges and the arch over the front wheel.
+ */
+function cabProfile(L: number, h: number): THREE.Shape {
+  const axle = L - FRONT_AXLE;
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.lineTo(axle - ARCH_RADIUS, 0);
+  s.absarc(axle, 0, ARCH_RADIUS, Math.PI, 0, true);
+  s.lineTo(L - 10, 0);
+  s.quadraticCurveTo(L, 0, L, 14);
+  s.lineTo(L, h * 0.5);
+  s.lineTo(L - 16, h * 0.92);
+  s.quadraticCurveTo(L - 20, h, L - 36, h);
+  s.lineTo(14, h);
+  s.quadraticCurveTo(0, h, 0, h - 14);
+  s.closePath();
+  return s;
+}
+
+/** Extrudes a side profile across the vehicle (Z), centred, with rounded edges. */
+function extrudeAcross(shape: THREE.Shape, width: number, bevel: number): THREE.ExtrudeGeometry {
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: width - 2 * bevel,
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    // The rounded edge stays inside the outline, so parts placed on the faces sit on the surface.
+    bevelOffset: -bevel,
+    bevelSegments: 3,
+    curveSegments: 10,
+  });
+  geometry.translate(0, 0, -(width - 2 * bevel) / 2);
+  return geometry;
+}
 
 /** Marks DOM elements over the scene that handle their own clicks (InteractionManager skips them). */
 export const SCENE_UI_ATTRIBUTE = 'data-scene-ui';
@@ -69,8 +128,10 @@ export class VehicleView {
 
   private readonly frameMaterial = fatMaterial(COLORS.frame, 2);
   private readonly dimMaterial = fatMaterial(COLORS.dims, 1.25);
-  private readonly wheelGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 30, 28);
-  private readonly hubGeometry = new THREE.CylinderGeometry(22, 22, 31, 20);
+  private readonly wheelGeometry = tireGeometry();
+  /** The rim: a disc set into the tyre, a raised hub and the hub cap. */
+  private readonly rimGeometry = new THREE.CylinderGeometry(WHEEL_RADIUS - 21, WHEEL_RADIUS - 21, TIRE_WIDTH - 6, 32);
+  private readonly hubGeometry = new THREE.CylinderGeometry(13, 15, TIRE_WIDTH + 1, 20);
 
   private readonly stripeTexture = canvasTexture(128, 128, (ctx) => {
     ctx.fillStyle = COLORS.stripeDark;
@@ -119,10 +180,14 @@ export class VehicleView {
     chassis: standard(COLORS.chassis, { roughness: 0.6 }),
     tire: standard(COLORS.tire, { roughness: 0.95 }),
     hub: standard(COLORS.hub, { roughness: 0.45, metalness: 0.3 }),
-    cab: standard(COLORS.cab, { roughness: 0.4 }),
+    cab: standard(COLORS.cab, { roughness: 0.35 }),
     trim: standard(COLORS.cabTrim, { roughness: 0.6 }),
-    glass: standard(COLORS.glass, { roughness: 0.15, metalness: 0.25 }),
+    glass: standard(COLORS.glass, { roughness: 0.12, metalness: 0.3, side: THREE.DoubleSide }),
+    rim: standard(COLORS.rim, { roughness: 0.35, metalness: 0.45 }),
     light: new THREE.MeshBasicMaterial({ color: COLORS.light }),
+    tailLight: new THREE.MeshBasicMaterial({ color: COLORS.tailLight }),
+    indicator: new THREE.MeshBasicMaterial({ color: COLORS.indicator }),
+    seam: new THREE.LineBasicMaterial({ color: COLORS.cabTrim, transparent: true, opacity: 0.35 }),
     stripe: new THREE.MeshStandardMaterial({ map: this.stripeTexture, roughness: 0.8 }),
     dockText: new THREE.MeshBasicMaterial({ map: this.dockTextTexture, transparent: true, depthWrite: false }),
     dockGrid: new THREE.LineBasicMaterial({ color: COLORS.dockGrid }),
@@ -179,6 +244,7 @@ export class VehicleView {
   dispose(): void {
     this.clear();
     this.wheelGeometry.dispose();
+    this.rimGeometry.dispose();
     this.hubGeometry.dispose();
     this.frameMaterial.dispose();
     this.dimMaterial.dispose();
@@ -229,12 +295,20 @@ export class VehicleView {
     for (const side of [-1, 1]) {
       const wheel = new THREE.Group();
       const tire = new THREE.Mesh(this.wheelGeometry, this.mats.tire);
+      const rim = new THREE.Mesh(this.rimGeometry, this.mats.rim);
       const hub = new THREE.Mesh(this.hubGeometry, this.mats.hub);
-      tire.userData.sharedGeometry = hub.userData.sharedGeometry = true;
-      wheel.add(tire, hub);
+      tire.userData.sharedGeometry = rim.userData.sharedGeometry = hub.userData.sharedGeometry = true;
+      wheel.add(tire, rim, hub);
       wheel.rotation.x = Math.PI / 2;
       wheel.position.set(x, -DECK_HEIGHT + WHEEL_RADIUS, side * halfTrack);
       this.add(wheel, { cast: true });
+    }
+  }
+
+  /** A mud flap behind a wheel pair. */
+  private mudFlaps(x: number, halfTrack: number): void {
+    for (const side of [-1, 1]) {
+      this.add(this.box([3, 46, TIRE_WIDTH + 14], this.mats.trim, [x, -DECK_HEIGHT + 30, side * halfTrack]), { cast: true });
     }
   }
 
@@ -319,12 +393,34 @@ export class VehicleView {
       body.kind === 'semi' ? [140, 270, 400] : body.kind === 'truck' ? [150, 285] : [140, 270];
     for (const offset of rear) this.wheelPair(min.x + offset, halfTrack);
     if (body.kind === 'trailer') this.wheelPair(max.x - 150, halfTrack);
+    this.mudFlaps(min.x + rear[0] - WHEEL_RADIUS - 12, halfTrack);
     if (body.kind === 'semi') {
+      // Landing gear legs with their feet.
       for (const side of [-1, 1]) {
-        this.add(this.box([14, DECK_HEIGHT - 36, 14], this.mats.chassis, [max.x - 280, -DECK_HEIGHT / 2 - 18, side * (W / 2 - 50)]), {
+        const z = side * (W / 2 - 50);
+        this.add(this.box([14, DECK_HEIGHT - 36, 14], this.mats.chassis, [max.x - 280, -DECK_HEIGHT / 2 - 18, z]), {
           cast: true,
         });
+        this.add(this.box([30, 6, 24], this.mats.chassis, [max.x - 280, -DECK_HEIGHT + 3, z]), { cast: true });
       }
+    }
+    // Side underrun guards between the axles.
+    const guardFrom = min.x + rear[rear.length - 1] + WHEEL_RADIUS + 20;
+    const guardTo = body.kind === 'semi' ? max.x - 300 : body.kind === 'trailer' ? max.x - 150 - WHEEL_RADIUS - 20 : max.x - 40;
+    if (guardTo - guardFrom > 80) {
+      for (const side of [-1, 1]) {
+        for (const y of [-58, -86]) {
+          this.add(this.box([guardTo - guardFrom, 6, 3], this.mats.trim, [(guardFrom + guardTo) / 2, y, side * (W / 2 - 6)]), {
+            cast: true,
+          });
+        }
+      }
+    }
+    // Rear underrun bar and tail lights.
+    this.add(this.box([8, 14, W - 30], this.mats.trim, [min.x + 10, -DECK_HEIGHT + 52, 0]), { cast: true });
+    for (const side of [-1, 1]) {
+      this.add(this.box([6, 40, 8], this.mats.chassis, [min.x + 12, -DECK_HEIGHT + 78, side * (W / 2 - 40)]), { cast: true });
+      this.add(this.box([3, 12, 34], this.mats.tailLight, [min.x - 1, -26, side * (W / 2 - 26)]));
     }
 
     const tag = new CSS2DObject(Object.assign(document.createElement('div'), { className: 'body-tag', textContent: body.name }));
@@ -362,56 +458,123 @@ export class VehicleView {
     }
   }
 
+  /**
+   * A European cab-over cab in one colour: rounded body with the front wheel arch, raked windscreen,
+   * sun visor, grille, headlights, bumper, door seams and handles, side windows, big mirrors, steps;
+   * a roof deflector on tractors; the chassis rails, fuel tank and battery box behind it.
+   */
   private buildCab(pv: PlacedVehicle, bodies: PlacedBody[]): void {
     const first = bodies[0];
     if (!first) return;
     const W = CAB_WIDTH;
-    const gap = first.body.kind === 'semi' ? CAB_GAP : 14;
+    const L = CAB_LENGTH;
+    const semi = first.body.kind === 'semi';
+    const gap = semi ? CAB_GAP : 14;
     const x0 = pv.front + gap;
-    const x1 = x0 + CAB_LENGTH;
+    const x1 = x0 + L;
     const yBottom = -DECK_HEIGHT + 48;
     const yTop = Math.max(170, Math.min(first.box.max.y - 15, 250));
     const h = yTop - yBottom;
-    const cx = (x0 + x1) / 2;
+    const halfW = W / 2;
+    const cab = new THREE.Group();
+    cab.position.set(x0, yBottom, 0);
+    // Local coordinates from here: x from the back wall, y from the cab floor.
+    const part = (mesh: THREE.Object3D) => cab.add(mesh);
+    const box = (size: [number, number, number], mat: THREE.Material, pos: [number, number, number]) =>
+      part(this.box(size, mat, pos));
 
-    this.add(this.box([CAB_LENGTH, h, W], this.mats.cab, [cx, yBottom + h / 2, 0]), { cast: true, receive: true });
-    // Roof deflector up to the body height on tractors.
-    if (first.body.kind === 'semi' && first.box.max.y > yTop + 20) {
-      const dh = first.box.max.y - yTop - 10;
-      this.add(this.box([CAB_LENGTH * 0.55, dh, W - 30], this.mats.cab, [x0 + CAB_LENGTH * 0.3, yTop + dh / 2, 0]), {
+    const shell = new THREE.Mesh(extrudeAcross(cabProfile(L, h), W, 8), this.mats.cab);
+    part(shell);
+
+    // Windscreen on the raked face, a sun visor above it.
+    const w0 = new THREE.Vector2(L, h * 0.52);
+    const w1 = new THREE.Vector2(L - 15, h * 0.9);
+    const slope = w1.clone().sub(w0);
+    const screen = new THREE.Group();
+    screen.position.set((w0.x + w1.x) / 2 + 0.8, (w0.y + w1.y) / 2, 0);
+    screen.rotation.z = Math.atan2(slope.y, slope.x) - Math.PI / 2;
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(W - 34, slope.length() - 6), this.mats.glass);
+    glass.rotation.y = Math.PI / 2;
+    screen.add(glass);
+    part(screen);
+    box([24, 5, W - 16], this.mats.trim, [L - 16, h * 0.93 + 2, 0]);
+
+    // Grille: a dark panel with slats in the cab colour; headlights and indicators; the bumper.
+    const grilleH = h * 0.28;
+    const grilleY = h * 0.5 - grilleH / 2 - 8;
+    box([2, grilleH, W - 86], this.mats.trim, [L + 0.6, grilleY, 0]);
+    for (let i = 0; i < 5; i++) {
+      box([4, 4, W - 92], this.mats.cab, [L + 1.6, grilleY - grilleH / 2 + (grilleH * (i + 0.5)) / 5, 0]);
+    }
+    for (const side of [-1, 1]) {
+      box([4, 16, 44], this.mats.light, [L + 1.5, 42, side * (halfW - 36)]);
+      box([4, 8, 14], this.mats.indicator, [L + 1.5, 42, side * (halfW - 8)]);
+    }
+    box([18, 30, W + 6], this.mats.trim, [L + 4, 10, 0]);
+
+    for (const side of [-1, 1]) {
+      const z = side * (halfW + 0.6);
+      // Side window following the windscreen, the door seam and handle.
+      const window = new THREE.Shape([
+        new THREE.Vector2(L - 98, h * 0.56),
+        new THREE.Vector2(L - 22, h * 0.56),
+        new THREE.Vector2(L - 33, h * 0.88),
+        new THREE.Vector2(L - 98, h * 0.88),
+      ]);
+      const pane = new THREE.Mesh(new THREE.ShapeGeometry(window), this.mats.glass);
+      pane.position.z = z;
+      part(pane);
+      // The door ends above the wheel arch.
+      const sill = ARCH_RADIUS + 8;
+      const seam = [
+        [L - 104, sill, L - 104, h * 0.92],
+        [L - 104, h * 0.92, L - 26, h * 0.92],
+        [L - 104, sill, L - 8, sill],
+      ].flatMap(([ax, ay, bx, by]) => [ax, ay, z, bx, by, z]);
+      part(this.lines(seam, this.mats.seam));
+      box([16, 4, 3], this.mats.trim, [L - 90, h * 0.5, side * (halfW + 1.5)]);
+
+      // Mirror on an arm in front of the door, and the steps behind the wheel.
+      box([4, 4, 30], this.mats.trim, [L - 18, h * 0.8, side * (halfW + 15)]);
+      box([10, 40, 16], this.mats.trim, [L - 18, h * 0.66, side * (halfW + 32)]);
+      for (const y of [-34, -6]) box([34, 4, 22], this.mats.trim, [L - 2 * FRONT_AXLE - 22, y, side * (halfW - 10)]);
+    }
+
+    // Roof deflector on tractors, sloping up to the trailer height.
+    if (semi && first.box.max.y > yTop + 20) {
+      const dh = first.box.max.y - yTop - 6;
+      const deflector = new THREE.Shape([
+        new THREE.Vector2(6, 0),
+        new THREE.Vector2(L * 0.78, 0),
+        new THREE.Vector2(L * 0.32, dh),
+        new THREE.Vector2(10, dh),
+      ]);
+      const mesh = new THREE.Mesh(extrudeAcross(deflector, W - 26, 6), this.mats.cab);
+      mesh.position.y = h - 2;
+      part(mesh);
+    }
+    this.add(cab, { cast: true, receive: true });
+
+    // Two chassis rails; under a semi-trailer they run back to the rear axles of the tractor.
+    const chassisStart = semi ? pv.front - 330 : x0 - 10;
+    for (const side of [-1, 1]) {
+      this.add(this.box([x1 - chassisStart, 26, 14], this.mats.chassis, [(x1 + chassisStart) / 2, -62, side * 45]), {
         cast: true,
       });
     }
-
-    const windshield = new THREE.Mesh(new THREE.PlaneGeometry(W - 30, h * 0.36), this.mats.glass);
-    windshield.rotation.y = Math.PI / 2;
-    windshield.position.set(x1 + 0.6, yTop - h * 0.24, 0);
-    const grille = new THREE.Mesh(new THREE.PlaneGeometry(W - 80, h * 0.26), this.mats.trim);
-    grille.rotation.y = Math.PI / 2;
-    grille.position.set(x1 + 0.6, yBottom + h * 0.3, 0);
-    this.add(new THREE.Group().add(windshield, grille));
-
-    for (const side of [-1, 1]) {
-      const window = new THREE.Mesh(new THREE.PlaneGeometry(80, h * 0.3), this.mats.glass);
-      window.position.set(x1 - 55, yTop - h * 0.24, side * (W / 2 + 0.6));
-      if (side < 0) window.rotation.y = Math.PI;
-      const light = new THREE.Mesh(new THREE.PlaneGeometry(34, 14), this.mats.light);
-      light.rotation.y = Math.PI / 2;
-      light.position.set(x1 + 0.8, yBottom + 32, side * (W / 2 - 34));
-      this.add(new THREE.Group().add(window, light));
-    }
-    this.add(this.box([14, 34, W + 4], this.mats.trim, [x1 + 6, yBottom + 4, 0]), { cast: true });
-
-    // Tractor chassis runs under the semi-trailer (fifth wheel).
-    const chassisStart = first.body.kind === 'semi' ? pv.front - 330 : x0 - 10;
-    this.add(this.box([x1 - chassisStart, 26, 110], this.mats.chassis, [(x1 + chassisStart) / 2, -62, 0]), {
-      cast: true,
-    });
-    const halfTrack = W / 2 - 30;
-    this.wheelPair(x1 - 65, halfTrack);
-    if (first.body.kind === 'semi') {
+    const halfTrack = halfW - 30;
+    this.wheelPair(x1 - FRONT_AXLE, halfTrack);
+    if (semi) {
+      // Fuel tank and battery box between the axles, mud flaps behind the rear wheels.
+      const between = x0 - 70;
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(27, 27, 120, 24), this.mats.rim);
+      tank.rotation.z = Math.PI / 2;
+      tank.position.set(between, -70, halfW - 48);
+      this.add(tank, { cast: true });
+      this.add(this.box([60, 44, 40], this.mats.chassis, [between, -70, -(halfW - 50)]), { cast: true });
       this.wheelPair(pv.front - 90, halfTrack);
       this.wheelPair(pv.front - 225, halfTrack);
+      this.mudFlaps(pv.front - 225 - WHEEL_RADIUS - 12, halfTrack);
     }
   }
 
