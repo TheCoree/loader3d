@@ -143,3 +143,23 @@
     animation: none;
   }
 }
+
+/*
+ * A dark bar inside the light UI (the editor header): the same components on near-black. Not a dark
+ * theme of the app — only elements with class="dark" and their children; popovers render outside it.
+ */
+.dark {
+  --background: #0a0b0d;
+  --foreground: #ffffff;
+  --card: #0a0b0d;
+  --card-foreground: #ffffff;
+  --secondary: rgb(255 255 255 / 0.12);
+  --secondary-foreground: #ffffff;
+  --muted: rgb(255 255 255 / 0.09);
+  --muted-foreground: rgb(255 255 255 / 0.55);
+  --accent: rgb(255 255 255 / 0.09);
+  --accent-foreground: #ffffff;
+  --border: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.16);
+  --ring: rgb(255 255 255 / 0.6);
+}
