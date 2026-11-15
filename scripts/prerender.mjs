@@ -37,7 +37,7 @@ try {
     .replace('<div id="root"></div>', `<div id="root">${renderLanding()}</div>`);
   writeFileSync('dist/index.html', html);
 
-  const robots = ['User-agent: *', 'Allow: /', 'Disallow: /plans', 'Disallow: /account', 'Disallow: /admin', 'Disallow: /api/'];
+  const robots = ['User-agent: *', 'Allow: /', 'Disallow: /plans', 'Disallow: /verify-email', 'Disallow: /account', 'Disallow: /admin', 'Disallow: /api/'];
   if (SITE_URL) robots.push('', `Sitemap: ${SITE_URL}/sitemap.xml`);
   writeFileSync('dist/robots.txt', `${robots.join('\n')}\n`);
   if (SITE_URL) {

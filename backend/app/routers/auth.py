@@ -101,6 +101,7 @@ async def resend_verification(auth: CurrentAuth, db: Db, settings: SettingsDep) 
             "resend_too_soon",
             f"Новый код можно запросить через {wait} с",
             headers={"Retry-After": str(wait)},
+            retryAfter=wait,
         )
     await issue_code(settings, user, now)
     await db.commit()

@@ -11,5 +11,5 @@ logger = logging.getLogger("app.mail")
 async def send_verification_code(settings: Settings, email: str, code: str) -> None:
     if settings.mail_backend == "console":
         # print: uvicorn does not configure the root logger, and the code must be visible in development.
-        print(f"[mail] Код подтверждения для {email}: {code}", flush=True)
+        print(f"[mail] Verification code for {email}: {code}", flush=True)
         logger.info("verification code sent to %s", email)

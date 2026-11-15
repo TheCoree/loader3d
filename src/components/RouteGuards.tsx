@@ -23,13 +23,20 @@ export function SessionLoader() {
   return <FullScreenLoader label={reconnecting ? 'Нет связи с сервером, переподключаемся…' : undefined} />;
 }
 
-/** Pages for logged-in users; others go to /login and come back afterwards. */
-export function RequireAuth({ children }: { children: ReactNode }) {
+/**
+ * Pages for logged-in users; others go to /login and come back afterwards. An account whose email is not
+ * confirmed yet goes to /verify-email first (`unverified` lets that page itself through).
+ */
+export function RequireAuth({ children, unverified = false }: { children: ReactNode; unverified?: boolean }) {
   const status = useAuth((s) => s.status);
+  const verified = useAuth((s) => s.user?.emailVerified ?? true);
   const location = useLocation();
   if (status === 'loading') return <SessionLoader />;
   if (status === 'anonymous') {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  }
+  if (!verified && !unverified) {
+    return <Navigate to="/verify-email" replace state={{ from: location.pathname + location.search }} />;
   }
   return children;
 }

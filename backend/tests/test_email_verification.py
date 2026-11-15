@@ -105,6 +105,7 @@ async def test_resend_has_a_cooldown_and_replaces_the_code(
     assert too_soon.status_code == 429
     assert error_code(too_soon) == "resend_too_soon"
     assert int(too_soon.headers["retry-after"]) > 0
+    assert too_soon.json()["detail"]["retryAfter"] > 0
 
     await _move_sent_at_back(app, "anna@example.com", verification.RESEND_COOLDOWN)
     response = await client.post("/api/auth/verify-email/resend")

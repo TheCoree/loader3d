@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, OctagonAlert } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
@@ -82,6 +82,163 @@ export function AuthPage({ mode }: { mode: Mode }) {
   };
 
   return (
+    <AuthShell>
+      <form onSubmit={submit} className="w-full max-w-[400px]" noValidate>
+        <h1 className={cn(displayTitle, 'text-[2.1rem] leading-[1.05] sm:text-[2.6rem]')}>{copy.title}</h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink/55">{copy.subtitle}</p>
+
+        {error && (
+          <Alert variant="destructive" className="mt-7 rounded-xl">
+            <OctagonAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <FieldGroup className="mt-9 gap-5">
+          {mode === 'register' && TIERS_ENABLED && <TierChoice value={tier} onChange={setTier} />}
+          {mode === 'register' && (
+            <Field data-invalid={!!fieldErrors.displayName}>
+              <FieldLabel htmlFor="displayName">Имя</FieldLabel>
+              <Input
+                id="displayName"
+                className={fieldClass}
+                autoComplete="name"
+                placeholder="Как к вам обращаться"
+                value={displayName}
+                maxLength={100}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              {fieldErrors.displayName && <FieldError>{fieldErrors.displayName}</FieldError>}
+            </Field>
+          )}
+
+          <Field data-invalid={!!fieldErrors.email}>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              className={fieldClass}
+              autoComplete="email"
+              placeholder="name@company.ru"
+              required
+              autoFocus
+              value={email}
+              aria-invalid={!!fieldErrors.email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            {fieldErrors.email && <FieldError>{fieldErrors.email}</FieldError>}
+          </Field>
+
+          <Field data-invalid={!!fieldErrors.password}>
+            <FieldLabel htmlFor="password">Пароль</FieldLabel>
+            <InputGroup className={groupClass}>
+              <InputGroupInput
+                id="password"
+                className="px-4 text-[15px] placeholder:text-ink/35 md:text-[15px]"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                placeholder={mode === 'register' ? 'Не короче 8 символов' : undefined}
+                required
+                value={password}
+                aria-invalid={!!fieldErrors.password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <InputGroupAddon align="inline-end" className="pr-3">
+                <InputGroupButton
+                  size="icon-sm"
+                  className="rounded-lg text-ink/45 hover:text-ink"
+                  aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+            {fieldErrors.password ? (
+              <FieldError>{fieldErrors.password}</FieldError>
+            ) : (
+              mode === 'register' && <FieldDescription className="sr-only">Не короче 8 символов</FieldDescription>
+            )}
+          </Field>
+
+          {mode === 'register' && (
+            <Field data-invalid={!!fieldErrors.terms}>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="terms"
+                  className="mt-0.5 size-[18px] rounded-[5px] border-ink/25 data-checked:border-ink data-checked:bg-ink"
+                  checked={accepted}
+                  aria-invalid={!!fieldErrors.terms}
+                  onCheckedChange={(v) => {
+                    setAccepted(v === true);
+                    setFieldErrors(({ terms: _, ...rest }) => rest);
+                  }}
+                />
+                <label htmlFor="terms" className="text-[13px] leading-relaxed text-ink/60">
+                  Принимаю{' '}
+                  <Link to="/terms" target="_blank" className={docLink}>
+                    пользовательское соглашение
+                  </Link>{' '}
+                  и даю согласие на обработку персональных данных по{' '}
+                  <Link to="/privacy" target="_blank" className={docLink}>
+                    политике конфиденциальности
+                  </Link>
+                </label>
+              </div>
+              {fieldErrors.terms && <FieldError>{fieldErrors.terms}</FieldError>}
+            </Field>
+          )}
+
+          <Button
+            type="submit"
+            size="lg"
+            className="group mt-3 h-12 w-full rounded-xl bg-ink text-[15px] font-medium text-white hover:bg-ink/85"
+            disabled={pending}
+          >
+            {pending && <Spinner />}
+            {copy.submit}
+            {!pending && <ArrowRight className="transition-transform group-hover:translate-x-0.5" />}
+          </Button>
+        </FieldGroup>
+
+        {mode === 'register' && (
+          <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
+            {TIERS_ENABLED ? (
+              <>
+                Компаниям с особыми задачами — тариф «Индивидуальный» по договору.{' '}
+                <Link to="/#contact" className="text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">
+                  Оставить заявку
+                </Link>
+              </>
+            ) : (
+              'Регистрация бесплатна и займёт меньше минуты.'
+            )}
+          </p>
+        )}
+
+        <div className="mt-9 flex items-center gap-4 text-sm text-ink/50">
+          <span className="h-px flex-1 bg-ink/[0.08]" />
+          {mode === 'login' ? 'Впервые в Loader3D?' : 'Уже есть аккаунт?'}
+          <span className="h-px flex-1 bg-ink/[0.08]" />
+        </div>
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="mt-5 h-12 w-full rounded-xl border-ink/10 bg-white text-[15px] font-medium hover:bg-ink/[0.03]"
+        >
+          <Link to={mode === 'login' ? '/register' : '/login'} state={location.state}>
+            {mode === 'login' ? 'Создать аккаунт' : 'Войти'}
+          </Link>
+        </Button>
+      </form>
+    </AuthShell>
+  );
+}
+
+/** The layout of the sign-in pages: the dark brand panel and a white column for the form. */
+export function AuthShell({ children }: { children: ReactNode }) {
+  return (
     <div className="min-h-dvh bg-ink text-ink antialiased lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:bg-white">
       <BrandPanel />
 
@@ -90,157 +247,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           <BackHome />
         </div>
 
-        <div className="flex flex-1 items-center justify-center py-4 lg:py-12">
-          <form onSubmit={submit} className="w-full max-w-[400px]" noValidate>
-            <h1 className={cn(displayTitle, 'text-[2.1rem] leading-[1.05] sm:text-[2.6rem]')}>{copy.title}</h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-ink/55">{copy.subtitle}</p>
-
-            {error && (
-              <Alert variant="destructive" className="mt-7 rounded-xl">
-                <OctagonAlert />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <FieldGroup className="mt-9 gap-5">
-              {mode === 'register' && TIERS_ENABLED && <TierChoice value={tier} onChange={setTier} />}
-              {mode === 'register' && (
-                <Field data-invalid={!!fieldErrors.displayName}>
-                  <FieldLabel htmlFor="displayName">Имя</FieldLabel>
-                  <Input
-                    id="displayName"
-                    className={fieldClass}
-                    autoComplete="name"
-                    placeholder="Как к вам обращаться"
-                    value={displayName}
-                    maxLength={100}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                  />
-                  {fieldErrors.displayName && <FieldError>{fieldErrors.displayName}</FieldError>}
-                </Field>
-              )}
-
-              <Field data-invalid={!!fieldErrors.email}>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  className={fieldClass}
-                  autoComplete="email"
-                  placeholder="name@company.ru"
-                  required
-                  autoFocus
-                  value={email}
-                  aria-invalid={!!fieldErrors.email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                {fieldErrors.email && <FieldError>{fieldErrors.email}</FieldError>}
-              </Field>
-
-              <Field data-invalid={!!fieldErrors.password}>
-                <FieldLabel htmlFor="password">Пароль</FieldLabel>
-                <InputGroup className={groupClass}>
-                  <InputGroupInput
-                    id="password"
-                    className="px-4 text-[15px] placeholder:text-ink/35 md:text-[15px]"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    placeholder={mode === 'register' ? 'Не короче 8 символов' : undefined}
-                    required
-                    value={password}
-                    aria-invalid={!!fieldErrors.password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <InputGroupAddon align="inline-end" className="pr-3">
-                    <InputGroupButton
-                      size="icon-sm"
-                      className="rounded-lg text-ink/45 hover:text-ink"
-                      aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-                      onClick={() => setShowPassword((v) => !v)}
-                    >
-                      {showPassword ? <EyeOff /> : <Eye />}
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-                {fieldErrors.password ? (
-                  <FieldError>{fieldErrors.password}</FieldError>
-                ) : (
-                  mode === 'register' && <FieldDescription className="sr-only">Не короче 8 символов</FieldDescription>
-                )}
-              </Field>
-
-              {mode === 'register' && (
-                <Field data-invalid={!!fieldErrors.terms}>
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="terms"
-                      className="mt-0.5 size-[18px] rounded-[5px] border-ink/25 data-checked:border-ink data-checked:bg-ink"
-                      checked={accepted}
-                      aria-invalid={!!fieldErrors.terms}
-                      onCheckedChange={(v) => {
-                        setAccepted(v === true);
-                        setFieldErrors(({ terms: _, ...rest }) => rest);
-                      }}
-                    />
-                    <label htmlFor="terms" className="text-[13px] leading-relaxed text-ink/60">
-                      Принимаю{' '}
-                      <Link to="/terms" target="_blank" className={docLink}>
-                        пользовательское соглашение
-                      </Link>{' '}
-                      и даю согласие на обработку персональных данных по{' '}
-                      <Link to="/privacy" target="_blank" className={docLink}>
-                        политике конфиденциальности
-                      </Link>
-                    </label>
-                  </div>
-                  {fieldErrors.terms && <FieldError>{fieldErrors.terms}</FieldError>}
-                </Field>
-              )}
-
-              <Button
-                type="submit"
-                size="lg"
-                className="group mt-3 h-12 w-full rounded-xl bg-ink text-[15px] font-medium text-white hover:bg-ink/85"
-                disabled={pending}
-              >
-                {pending && <Spinner />}
-                {copy.submit}
-                {!pending && <ArrowRight className="transition-transform group-hover:translate-x-0.5" />}
-              </Button>
-            </FieldGroup>
-
-            {mode === 'register' && (
-              <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
-                {TIERS_ENABLED ? (
-                  <>
-                    Компаниям с особыми задачами — тариф «Индивидуальный» по договору.{' '}
-                    <Link to="/#contact" className="text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">
-                      Оставить заявку
-                    </Link>
-                  </>
-                ) : (
-                  'Регистрация бесплатна и займёт меньше минуты.'
-                )}
-              </p>
-            )}
-
-            <div className="mt-9 flex items-center gap-4 text-sm text-ink/50">
-              <span className="h-px flex-1 bg-ink/[0.08]" />
-              {mode === 'login' ? 'Впервые в Loader3D?' : 'Уже есть аккаунт?'}
-              <span className="h-px flex-1 bg-ink/[0.08]" />
-            </div>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="mt-5 h-12 w-full rounded-xl border-ink/10 bg-white text-[15px] font-medium hover:bg-ink/[0.03]"
-            >
-              <Link to={mode === 'login' ? '/register' : '/login'} state={location.state}>
-                {mode === 'login' ? 'Создать аккаунт' : 'Войти'}
-              </Link>
-            </Button>
-          </form>
-        </div>
+        <div className="flex flex-1 items-center justify-center py-4 lg:py-12">{children}</div>
 
         <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-ink/40">
           <span>© {new Date().getFullYear()} Loader3D</span>

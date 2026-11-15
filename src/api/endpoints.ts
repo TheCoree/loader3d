@@ -34,6 +34,8 @@ export const authApi = {
   sessions: () => api<SessionInfo[]>('/auth/sessions'),
   revokeSession: (id: string) => api<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
   revokeOtherSessions: () => api<void>('/auth/sessions', { method: 'DELETE' }),
+  verifyEmail: (code: string) => api<User>('/auth/verify-email', { method: 'POST', body: { code } }),
+  resendVerification: () => api<{ retryAfter: number }>('/auth/verify-email/resend', { method: 'POST' }),
 };
 
 export const userApi = {
