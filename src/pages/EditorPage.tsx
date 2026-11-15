@@ -123,8 +123,9 @@ export function EditorPage() {
   return <EditorLayout />;
 }
 
-/** Width of the floating cargo panel and its distance from the edges, px. */
+/** Width of the floating cargo panel (wider on large screens, so cargo rows are not cut) and its distance from the edges, px. */
 const PANEL_WIDTH = 360;
+const PANEL_WIDTH_WIDE = 410;
 const PANEL_GAP = 12;
 
 /** «не больше 1 машины», «не больше 100 грузов» (genitive after «больше»). */
@@ -151,6 +152,7 @@ function useLimitOffers(): void {
 function EditorLayout() {
   useLimitOffers();
   const desktop = useMediaQuery('(min-width: 768px)');
+  const panelWidth = useMediaQuery('(min-width: 1280px)') ? PANEL_WIDTH_WIDE : PANEL_WIDTH;
   const panelHidden = useUi((s) => s.panelHidden);
   const setPanelHidden = useUi((s) => s.setPanelHidden);
   const drawerOpen = useUi((s) => s.drawerOpen);
@@ -161,11 +163,11 @@ function EditorLayout() {
     <div className="flex h-dvh flex-col overflow-hidden bg-scene" onKeyDown={guardSceneShortcuts}>
       <EditorHeader />
       <div className="relative min-h-0 flex-1">
-        <Viewport rightInset={floating ? PANEL_WIDTH + PANEL_GAP : 0} />
+        <Viewport rightInset={floating ? panelWidth + PANEL_GAP : 0} />
         {floating && (
           <aside
             className="absolute z-10 flex flex-col overflow-hidden rounded-2xl border bg-card/95 shadow-xl shadow-foreground/10 backdrop-blur-md"
-            style={{ top: PANEL_GAP, right: PANEL_GAP, bottom: PANEL_GAP, width: PANEL_WIDTH }}
+            style={{ top: PANEL_GAP, right: PANEL_GAP, bottom: PANEL_GAP, width: panelWidth }}
           >
             <CargoPanel onHide={() => setPanelHidden(true)} />
           </aside>

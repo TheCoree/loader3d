@@ -208,7 +208,7 @@ function AutoloadCard() {
             {many ? 'Загрузить в машину' : 'Загрузить в кузов'}
             {locked && <ProBadge />}
           </span>
-          <span className="block truncate text-xs text-muted-foreground">
+          <span className="block text-xs leading-snug text-pretty text-muted-foreground">
             На доке {plural(dock.dock, ITEMS)}
             {dock.dockWeight > 0 && ` · ${formatWeight(dock.dockWeight)}`} — разложим автоматически
           </span>
