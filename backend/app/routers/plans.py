@@ -2,8 +2,8 @@ import copy
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Query, Request, Response, status
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import defer
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -11,9 +11,18 @@ from app.auth import AuthContext, VerifiedAuth
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found
-from app.models import Plan, User, utcnow
+from app.models import Plan, PlanThumbnail, User, utcnow
 from app.schemas.plan_data import PlanData, default_plan_data
-from app.schemas.plans import PlanCreate, PlanDuplicate, PlanOut, PlanPage, PlanSort, PlanSummary, PlanUpdate
+from app.schemas.plans import (
+    PlanCreate,
+    PlanDuplicate,
+    PlanOut,
+    PlanPage,
+    PlanSort,
+    PlanSummary,
+    PlanUpdate,
+    ThumbnailOut,
+)
 from app.tiers import TIER_NAMES, effective_tier, tier_limits
 
 router = APIRouter(prefix="/plans", tags=["plans"])
@@ -180,8 +189,72 @@ async def duplicate_plan(
     )
     _set_name(plan, body.name or f"{source.name[:192]} (копия)")
     db.add(plan)
+    thumbnail = await db.get(PlanThumbnail, source.id)
+    if thumbnail is not None:
+        await db.flush()
+        db.add(PlanThumbnail(plan_id=plan.id, media_type=thumbnail.media_type, image=thumbnail.image))
+        plan.thumbnail_at = source.thumbnail_at
     await db.commit()
     return PlanOut.model_validate(plan)
+
+
+# The editor renders a JPEG (or WebP/PNG) of about 960×600; anything much bigger is not a preview.
+THUMBNAIL_MAX_BYTES = 512 * 1024
+_THUMBNAIL_SIGNATURES = {
+    "image/jpeg": (b"\xff\xd8\xff",),
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    "image/webp": (b"RIFF",),
+}
+
+
+@router.put("/{plan_id}/thumbnail")
+async def put_thumbnail(plan_id: uuid.UUID, request: Request, auth: VerifiedAuth, db: Db) -> ThumbnailOut:
+    """Replaces the preview picture (the request body is the image). Not an edit: the version stays."""
+    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    signatures = _THUMBNAIL_SIGNATURES.get(media_type)
+    if signatures is None:
+        raise ApiError(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "unsupported_image", "Нужна картинка JPEG, PNG или WebP"
+        )
+    image = await request.body()
+    if len(image) > THUMBNAIL_MAX_BYTES:
+        raise ApiError(status.HTTP_413_CONTENT_TOO_LARGE, "image_too_large", "Слишком большая картинка")
+    if not image.startswith(signatures) or (media_type == "image/webp" and image[8:12] != b"WEBP"):
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "invalid_image", "Файл не похож на картинку")
+
+    plan = await _get_own_plan(db, auth, plan_id)
+    thumbnail = await db.get(PlanThumbnail, plan.id)
+    if thumbnail is None:
+        db.add(PlanThumbnail(plan_id=plan.id, media_type=media_type, image=image))
+    else:
+        thumbnail.media_type = media_type
+        thumbnail.image = image
+    now = utcnow()
+    # Core UPDATE: no version bump (the editor's autosave keeps its version) and updated_at stays.
+    await db.execute(
+        update(Plan).where(Plan.id == plan.id).values(thumbnail_at=now, updated_at=Plan.updated_at)
+    )
+    await db.commit()
+    return ThumbnailOut(thumbnail_at=now)
+
+
+@router.get("/{plan_id}/thumbnail")
+async def get_thumbnail(plan_id: uuid.UUID, auth: VerifiedAuth, db: Db) -> Response:
+    """The preview picture; its URL carries ?v=thumbnailAt, so it can be cached for good."""
+    row = (
+        await db.execute(
+            select(PlanThumbnail.media_type, PlanThumbnail.image)
+            .join(Plan, Plan.id == PlanThumbnail.plan_id)
+            .where(Plan.id == plan_id, Plan.owner_id == auth.user.id)
+        )
+    ).first()
+    if row is None:
+        raise not_found("thumbnail_not_found", "Превью ещё нет")
+    return Response(
+        content=row.image,
+        media_type=row.media_type,
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
 
 
 @router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)

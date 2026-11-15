@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, MetaData, String, Uuid, false
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, LargeBinary, MetaData, String, Uuid, false
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -157,6 +157,20 @@ class Plan(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
+    # When the preview picture (PlanThumbnail) was last replaced; null — none yet. Set with a Core UPDATE
+    # that keeps `version` and `updated_at`: a new picture is not an edit of the plan.
+    thumbnail_at: Mapped[datetime | None]
+
     owner: Mapped[User] = relationship(back_populates="plans")
 
     __mapper_args__ = {"version_id_col": version}
+
+
+class PlanThumbnail(Base):
+    """The preview picture of a plan for its card on the home page, rendered by the editor."""
+
+    __tablename__ = "plan_thumbnails"
+
+    plan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plans.id", ondelete="CASCADE"), primary_key=True)
+    media_type: Mapped[str] = mapped_column(String(20))
+    image: Mapped[bytes] = mapped_column(LargeBinary)

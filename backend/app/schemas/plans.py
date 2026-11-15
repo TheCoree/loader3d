@@ -22,6 +22,8 @@ class PlanSummary(ApiModel):
     item_count: int
     created_at: datetime
     updated_at: datetime
+    # The preview picture (GET /api/plans/{id}/thumbnail?v=...); null — none yet.
+    thumbnail_at: datetime | None
 
 
 class PlanOut(PlanSummary):
@@ -51,3 +53,7 @@ class PlanUpdate(ApiModel):
 class PlanDuplicate(ApiModel):
     # Omitted: "<name> (копия)".
     name: PlanName | None = None
+
+
+class ThumbnailOut(ApiModel):
+    thumbnail_at: datetime
