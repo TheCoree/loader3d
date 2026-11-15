@@ -291,7 +291,10 @@ export class VehicleView {
     return new THREE.LineSegments(geometry, material);
   }
 
+  /** Two wheels on an axle beam (the beam ties them to the chassis above). */
   private wheelPair(x: number, halfTrack: number): void {
+    const y = -DECK_HEIGHT + WHEEL_RADIUS;
+    this.add(this.box([12, 12, 2 * halfTrack - TIRE_WIDTH], this.mats.chassis, [x, y, 0]), { cast: true });
     for (const side of [-1, 1]) {
       const wheel = new THREE.Group();
       const tire = new THREE.Mesh(this.wheelGeometry, this.mats.tire);
@@ -300,15 +303,25 @@ export class VehicleView {
       tire.userData.sharedGeometry = rim.userData.sharedGeometry = hub.userData.sharedGeometry = true;
       wheel.add(tire, rim, hub);
       wheel.rotation.x = Math.PI / 2;
-      wheel.position.set(x, -DECK_HEIGHT + WHEEL_RADIUS, side * halfTrack);
+      wheel.position.set(x, y, side * halfTrack);
       this.add(wheel, { cast: true });
     }
   }
 
-  /** A mud flap behind a wheel pair. */
-  private mudFlaps(x: number, halfTrack: number): void {
+  /**
+   * Mud flaps behind a wheel pair, each hanging from an arm that runs out from the chassis
+   * (`chassisZ` its outer side, `chassisY` its underside).
+   */
+  private mudFlaps(x: number, halfTrack: number, chassisZ: number, chassisY: number): void {
+    const bottom = -DECK_HEIGHT + 24;
+    const outer = halfTrack + TIRE_WIDTH / 2 + 4;
     for (const side of [-1, 1]) {
-      this.add(this.box([3, 46, TIRE_WIDTH + 14], this.mats.trim, [x, -DECK_HEIGHT + 30, side * halfTrack]), { cast: true });
+      this.add(this.box([3, chassisY - bottom, TIRE_WIDTH + 14], this.mats.trim, [x, (chassisY + bottom) / 2, side * halfTrack]), {
+        cast: true,
+      });
+      this.add(this.box([6, 6, outer - chassisZ], this.mats.chassis, [x + 4, chassisY - 3, side * (chassisZ + outer) / 2]), {
+        cast: true,
+      });
     }
   }
 
@@ -393,7 +406,9 @@ export class VehicleView {
       body.kind === 'semi' ? [140, 270, 400] : body.kind === 'truck' ? [150, 285] : [140, 270];
     for (const offset of rear) this.wheelPair(min.x + offset, halfTrack);
     if (body.kind === 'trailer') this.wheelPair(max.x - 150, halfTrack);
-    this.mudFlaps(min.x + rear[0] - WHEEL_RADIUS - 12, halfTrack);
+    const chassisZ = (W - 90) / 2;
+    const chassisBottom = -36;
+    this.mudFlaps(min.x + rear[0] - WHEEL_RADIUS - 12, halfTrack, chassisZ, chassisBottom);
     if (body.kind === 'semi') {
       // Landing gear legs with their feet.
       for (const side of [-1, 1]) {
@@ -408,19 +423,35 @@ export class VehicleView {
     const guardFrom = min.x + rear[rear.length - 1] + WHEEL_RADIUS + 20;
     const guardTo = body.kind === 'semi' ? max.x - 300 : body.kind === 'trailer' ? max.x - 150 - WHEEL_RADIUS - 20 : max.x - 40;
     if (guardTo - guardFrom > 80) {
+      const guardZ = W / 2 - 6;
       for (const side of [-1, 1]) {
         for (const y of [-58, -86]) {
-          this.add(this.box([guardTo - guardFrom, 6, 3], this.mats.trim, [(guardFrom + guardTo) / 2, y, side * (W / 2 - 6)]), {
+          this.add(this.box([guardTo - guardFrom, 6, 3], this.mats.trim, [(guardFrom + guardTo) / 2, y, side * guardZ]), {
+            cast: true,
+          });
+        }
+        // Brackets from the chassis down to the rails, at both ends and every 2 m between.
+        const brackets = Math.max(2, Math.round((guardTo - guardFrom) / 200) + 1);
+        for (let i = 0; i < brackets; i++) {
+          const x = guardFrom + 4 + ((guardTo - guardFrom - 8) * i) / (brackets - 1);
+          this.add(this.box([5, chassisBottom + 89, 5], this.mats.chassis, [x, (chassisBottom - 89) / 2, side * (guardZ - 3)]), {
+            cast: true,
+          });
+          this.add(this.box([5, 5, guardZ - chassisZ], this.mats.chassis, [x, chassisBottom - 2.5, side * (guardZ + chassisZ) / 2]), {
             cast: true,
           });
         }
       }
     }
-    // Rear underrun bar and tail lights.
-    this.add(this.box([8, 14, W - 30], this.mats.trim, [min.x + 10, -DECK_HEIGHT + 52, 0]), { cast: true });
+    // Rear crossmember under the floor with the tail lights; the underrun bar hangs from it.
+    this.add(this.box([30, 26, W - 6], this.mats.chassis, [min.x + 15, -23, 0]), { cast: true });
+    const barY = -DECK_HEIGHT + 52;
+    this.add(this.box([8, 14, W - 30], this.mats.trim, [min.x + 10, barY, 0]), { cast: true });
     for (const side of [-1, 1]) {
-      this.add(this.box([6, 40, 8], this.mats.chassis, [min.x + 12, -DECK_HEIGHT + 78, side * (W / 2 - 40)]), { cast: true });
-      this.add(this.box([3, 12, 34], this.mats.tailLight, [min.x - 1, -26, side * (W / 2 - 26)]));
+      this.add(this.box([6, chassisBottom - barY, 8], this.mats.chassis, [min.x + 12, (chassisBottom + barY) / 2, side * (W / 2 - 40)]), {
+        cast: true,
+      });
+      this.add(this.box([3, 12, 34], this.mats.tailLight, [min.x - 1, -23, side * (W / 2 - 26)]));
     }
 
     const tag = new CSS2DObject(Object.assign(document.createElement('div'), { className: 'body-tag', textContent: body.name }));
@@ -535,9 +566,12 @@ export class VehicleView {
       box([16, 4, 3], this.mats.trim, [L - 90, h * 0.5, side * (halfW + 1.5)]);
 
       // Mirror on an arm in front of the door, and the steps behind the wheel.
-      box([4, 4, 30], this.mats.trim, [L - 18, h * 0.8, side * (halfW + 15)]);
-      box([10, 40, 16], this.mats.trim, [L - 18, h * 0.66, side * (halfW + 32)]);
-      for (const y of [-34, -6]) box([34, 4, 22], this.mats.trim, [L - 2 * FRONT_AXLE - 22, y, side * (halfW - 10)]);
+      const mirrorY = h * 0.66;
+      for (const dy of [14, -14]) box([4, 4, 30], this.mats.trim, [L - 18, mirrorY + dy, side * (halfW + 15)]);
+      box([10, 40, 16], this.mats.trim, [L - 18, mirrorY, side * (halfW + 32)]);
+      const stepX = L - 2 * FRONT_AXLE - 22;
+      box([40, 46, 4], this.mats.trim, [stepX, -21, side * (halfW - 22)]);
+      for (const y of [-38, -12]) box([34, 4, 22], this.mats.trim, [stepX, y, side * (halfW - 10)]);
     }
 
     // Roof deflector on tractors, sloping up to the trailer height.
@@ -574,7 +608,9 @@ export class VehicleView {
       this.add(this.box([60, 44, 40], this.mats.chassis, [between, -70, -(halfW - 50)]), { cast: true });
       this.wheelPair(pv.front - 90, halfTrack);
       this.wheelPair(pv.front - 225, halfTrack);
-      this.mudFlaps(pv.front - 225 - WHEEL_RADIUS - 12, halfTrack);
+      this.mudFlaps(pv.front - 225 - WHEEL_RADIUS - 12, halfTrack, 52, -75);
+      // Fifth wheel: the plate on the rails the semi-trailer rests on.
+      this.add(this.box([80, 13, 100], this.mats.chassis, [pv.front - 160, -42.5, 0]), { cast: true });
     }
   }
 
