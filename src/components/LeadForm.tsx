@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { CircleCheck } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { leadApi } from '@/api/endpoints';
@@ -16,12 +17,14 @@ interface LeadFormProps {
   defaults?: { name?: string; email?: string };
   messagePlaceholder?: string;
   submitLabel?: string;
+  /** Classes of the submit button (the landing page draws it in its own style). */
+  submitClassName?: string;
   onSent?(): void;
   className?: string;
 }
 
 /**
- * A request to the team (admin panel → «Заявки»): the «Индивидуальный» tier, connecting «Профи»,
+ * A request to the team (admin panel → «Заявки»): the «Индивидуальный» tier, connecting «Pro»,
  * a demo. Plain state, no React Query: the landing page renders it on the server too.
  */
 export function LeadForm({
@@ -29,6 +32,7 @@ export function LeadForm({
   defaults,
   messagePlaceholder = 'Сколько машин в день, какие грузы, что важно',
   submitLabel = 'Отправить заявку',
+  submitClassName,
   onSent,
   className,
 }: LeadFormProps) {
@@ -128,11 +132,18 @@ export function LeadForm({
           onChange={(e) => setWebsite(e.target.value)}
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" size="lg" disabled={pending || !name.trim() || (!email.trim() && !phone.trim())}>
+        <Button type="submit" size="lg" className={submitClassName} disabled={pending || !name.trim() || (!email.trim() && !phone.trim())}>
           {pending && <Spinner />}
           {submitLabel}
         </Button>
-        <p className="text-xs text-muted-foreground">Ответим по email или телефону — что удобнее. Нужен хотя бы один контакт.</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Ответим по email или телефону — что удобнее. Нужен хотя бы один контакт. Отправляя заявку, вы даёте согласие на
+          обработку персональных данных по{' '}
+          <Link to="/privacy" target="_blank" className="underline underline-offset-4 hover:text-foreground">
+            политике конфиденциальности
+          </Link>
+          .
+        </p>
       </FieldGroup>
     </form>
   );

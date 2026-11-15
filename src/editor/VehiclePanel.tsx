@@ -299,7 +299,7 @@ function AddVehicle() {
         variant="outline"
         size="sm"
         className="w-full border-dashed text-muted-foreground"
-        onClick={() => showUpgrade(`На тарифе «${tierLimit.tierName}» в схеме одна машина. Несколько машин — на «Профи».`)}
+        onClick={() => showUpgrade(`На тарифе «${tierLimit.tierName}» в схеме одна машина. Несколько машин — на «Pro».`)}
       >
         <Plus /> Машина <ProBadge />
       </Button>

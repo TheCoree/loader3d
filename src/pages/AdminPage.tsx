@@ -147,7 +147,7 @@ export function AdminPage() {
               value={stats.data?.byTier ? stats.data.byTier.pro + stats.data.byTier.custom : stats.data && 0}
               note={
                 stats.data?.byTier &&
-                `Профи ${stats.data.byTier.pro} · Индивид. ${stats.data.byTier.custom} · Старт ${stats.data.byTier.free}`
+                `Pro ${stats.data.byTier.pro} · Индивид. ${stats.data.byTier.custom} · Старт ${stats.data.byTier.free}`
               }
             />
           ) : (

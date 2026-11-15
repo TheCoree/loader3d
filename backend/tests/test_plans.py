@@ -44,7 +44,7 @@ def plan_data(item_count: int = 2) -> dict[str, Any]:
 
 @pytest.fixture
 async def anna(client):
-    # The trial of «Профи»: no limits in the way (tier limits are tested in test_tiers.py).
+    # The trial of «Pro»: no limits in the way (tier limits are tested in test_tiers.py).
     await register(client, tier="pro")
     return client
 

@@ -4,7 +4,7 @@ Prices and marketing texts live in the frontend (src/lib/tiers.ts); the limits h
 enforces, and src/lib/tiers.ts repeats them for the pricing table: keep the two in sync.
 
 - "free" (Старт): a few plans with one vehicle, for trying the planner out.
-- "pro" (Профи): the full planner; new accounts may take a free trial of it once.
+- "pro" (Pro): the full planner; new accounts may take a free trial of it once.
 - "custom" (Индивидуальный): by contract, assigned by an admin, with limits and an end date of its own.
 
 There is no online payment yet: an admin activates and renews paid tiers in the admin panel.
@@ -19,7 +19,7 @@ from app.schemas.plan_data import MAX_ITEMS, MAX_VEHICLES
 
 Tier = Literal["free", "pro", "custom"]
 TIERS: tuple[Tier, ...] = ("free", "pro", "custom")
-TIER_NAMES: dict[str, str] = {"free": "Старт", "pro": "Профи", "custom": "Индивидуальный"}
+TIER_NAMES: dict[str, str] = {"free": "Старт", "pro": "Pro", "custom": "Индивидуальный"}
 TRIAL_DAYS = 14
 
 

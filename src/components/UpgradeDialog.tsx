@@ -14,7 +14,7 @@ import { useAuth } from '@/store/useAuth';
 
 interface UpgradeState {
   open: boolean;
-  /** Why it opened: «Автозагрузка доступна на тарифе «Профи»». */
+  /** Why it opened: «Автозагрузка доступна на тарифе «Pro»». */
   reason: string | null;
   /** Straight to the request form for this tier. */
   requestTier: TierId | null;
@@ -30,7 +30,7 @@ export const useUpgrade = create<UpgradeState>()((set) => ({
   close: () => set({ open: false }),
 }));
 
-/** Feature or limit of «Профи» behind a paywall: start the trial or ask the team to connect it. */
+/** Feature or limit of «Pro» behind a paywall: start the trial or ask the team to connect it. */
 export function UpgradeDialog() {
   const { open, reason, requestTier, close } = useUpgrade();
   const user = useAuth((s) => s.user);
@@ -45,7 +45,7 @@ export function UpgradeDialog() {
     setPending(true);
     try {
       setUser(await userApi.startTrial());
-      toast.success(`«Профи» подключён на ${TRIAL_DAYS} дней`);
+      toast.success(`«Pro» подключён на ${TRIAL_DAYS} дней`);
       close();
     } catch (error) {
       toast.error(errorMessage(error));
@@ -116,11 +116,11 @@ export function UpgradeDialog() {
   );
 }
 
-/** Marks a feature of «Профи» on tiers without it. */
+/** Marks a feature of «Pro» on tiers without it. */
 export function ProBadge() {
   return (
     <span className="ml-auto inline-flex h-4.5 items-center rounded-full bg-primary/10 px-1.5 text-[10px] font-semibold tracking-wide text-primary uppercase">
-      Профи
+      Pro
     </span>
   );
 }

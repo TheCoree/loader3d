@@ -45,7 +45,7 @@ export const TIERS: readonly TierInfo[] = [
   },
   {
     id: 'pro',
-    name: 'Профи',
+    name: 'Pro',
     tagline: 'Для логистов и складов, которые грузят каждый день',
     price: { monthly: 1990, yearly: 1590 },
     limits: { plans: null, vehicles: 10, items: 5000 },
@@ -67,7 +67,7 @@ export const TIERS: readonly TierInfo[] = [
     price: null,
     limits: { plans: null, vehicles: 10, items: 5000 },
     features: [
-      'Всё из тарифа «Профи»',
+      'Всё из тарифа «Pro»',
       'Лимиты, срок и стоимость — под ваши объёмы',
       'Работа по договору, оплата по счёту',
       'Помощь с внедрением: транспорт, типовые грузы, обучение',
@@ -85,7 +85,7 @@ export function formatPrice(rub: number): string {
   return `${new Intl.NumberFormat('ru-RU').format(rub)} ₽`;
 }
 
-/** «Профи до 12 ноября», «Пробный период до…», «Без срока». */
+/** «Pro до 12 ноября», «Пробный период до…», «Без срока». */
 export function subscriptionSummary(sub: Subscription): string {
   if (sub.tier === 'free') return sub.expiredTier ? `Тариф «${tierInfo(sub.expiredTier).name}» закончился` : 'Бесплатный тариф';
   if (!sub.expiresAt) return 'Без ограничения по сроку';

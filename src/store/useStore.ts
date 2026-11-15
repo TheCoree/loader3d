@@ -51,7 +51,7 @@ export const XRAY_OPACITY_RANGE: [number, number] = [0.08, 0.8];
 export interface PlanLimits {
   vehicles: number;
   items: number;
-  /** Shown in messages: «Старт», «Профи»… */
+  /** Shown in messages: «Старт», «Pro»… */
   tierName: string;
 }
 

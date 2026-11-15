@@ -124,8 +124,8 @@ function limitLines(limits: TierLimits): string[] {
   return [
     limits.plans === null ? 'Схем — без ограничений' : `Схем — до ${limits.plans}`,
     `В схеме — до ${plural(limits.vehicles, ['машины', 'машин', 'машин'])} и ${plural(limits.items, ['груза', 'грузов', 'грузов'])}`,
-    limits.autoload ? 'Автозагрузка с развесовкой' : 'Автозагрузка — на «Профи»',
-    limits.pdfSteps ? 'Пошаговая PDF-инструкция' : 'Пошаговая PDF-инструкция — на «Профи»',
+    limits.autoload ? 'Автозагрузка с развесовкой' : 'Автозагрузка — на «Pro»',
+    limits.pdfSteps ? 'Пошаговая PDF-инструкция' : 'Пошаговая PDF-инструкция — на «Pro»',
   ];
 }
 
@@ -165,7 +165,7 @@ function SubscriptionCard() {
         </Button>
         {sub.tier === 'free' ? (
           <Button onClick={() => show()}>
-            {sub.trialAvailable ? `«Профи» на ${TRIAL_DAYS} дней бесплатно` : 'Подключить «Профи»'}
+            {sub.trialAvailable ? `«Pro» на ${TRIAL_DAYS} дней бесплатно` : 'Подключить «Pro»'}
           </Button>
         ) : sub.tier === 'pro' ? (
           <Button variant="outline" onClick={() => show(undefined, 'pro')}>

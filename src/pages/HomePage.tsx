@@ -58,7 +58,7 @@ export function HomePage() {
   const planLimit = subscription?.limits.plans ?? null;
   const atPlanLimit = planLimit !== null && q === '' && !loading && total >= planLimit;
   const showUpgrade = useUpgrade((s) => s.show);
-  const limitReason = `На тарифе «${subscription?.name}» можно сохранить до ${plural(planLimit ?? 0, ['схемы', 'схем', 'схем'])}. На «Профи» — без ограничений.`;
+  const limitReason = `На тарифе «${subscription?.name}» можно сохранить до ${plural(planLimit ?? 0, ['схемы', 'схем', 'схем'])}. На «Pro» — без ограничений.`;
   const guard = (action: () => void) => () => (atPlanLimit ? showUpgrade(limitReason) : action());
 
   const importFile = async (file: File) => {

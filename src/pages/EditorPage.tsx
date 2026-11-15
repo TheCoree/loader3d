@@ -136,7 +136,7 @@ function useLimitOffers(): void {
         if (!hit || hit === prev.limitHit) return;
         useUpgrade
           .getState()
-          .show(`На тарифе «${hit.tierName}» в схеме не больше ${limitText(hit.kind, hit.limit)}. На «Профи» — до 10 машин и 5000 грузов.`);
+          .show(`На тарифе «${hit.tierName}» в схеме не больше ${limitText(hit.kind, hit.limit)}. На «Pro» — до 10 машин и 5000 грузов.`);
       }),
     [],
   );
