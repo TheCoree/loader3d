@@ -5,7 +5,6 @@ import { errorMessage } from '@/api/client';
 import { planApi } from '@/api/endpoints';
 import type { PlanSummary } from '@/api/types';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -82,14 +81,14 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="absolute top-3 right-3 z-10 rounded-full bg-white/85 text-ink/70 backdrop-blur hover:bg-white hover:text-ink data-[state=open]:bg-white sm:opacity-0 sm:group-hover/plan:opacity-100 sm:focus-visible:opacity-100 sm:data-[state=open]:opacity-100"
+            {/* A plain button: it sits on the light picture in both themes, so no theme-aware variant. */}
+            <button
+              type="button"
+              className="absolute top-3 right-3 z-10 grid size-8 place-items-center rounded-full bg-white/90 text-ink/70 ring-1 ring-ink/10 backdrop-blur transition outline-none hover:bg-white hover:text-ink focus-visible:ring-3 focus-visible:ring-ink/30 data-[state=open]:bg-ink data-[state=open]:text-white data-[state=open]:ring-ink sm:opacity-0 sm:group-hover/plan:opacity-100 sm:focus-visible:opacity-100 sm:data-[state=open]:opacity-100"
               aria-label="Действия со схемой"
             >
-              <Ellipsis />
-            </Button>
+              <Ellipsis className="size-4" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onSelect={() => navigate(href)}>
