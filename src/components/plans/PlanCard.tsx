@@ -5,6 +5,7 @@ import { errorMessage } from '@/api/client';
 import { planApi } from '@/api/endpoints';
 import type { PlanSummary } from '@/api/types';
 import { CARGO_COLORS } from '@/core/presets';
+import { CargoIllustration } from '@/components/CargoIllustration';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -48,30 +49,20 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
   };
 
   return (
-    <Card className="group/plan relative gap-0 py-0 transition-shadow hover:shadow-lg hover:shadow-foreground/5 hover:ring-primary/35 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
-      <div className="flex items-start gap-3 p-4">
-        <span
-          className="grid size-11 shrink-0 place-items-center rounded-lg"
-          style={{ background: `color-mix(in oklab, ${color} 16%, white)`, color: `color-mix(in oklab, ${color} 80%, black)` }}
-        >
-          <Truck className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1 pt-0.5">
-          <h3 className="truncate leading-snug font-medium">
-            <Link to={href} className="outline-none after:absolute after:inset-0 after:rounded-xl" title={plan.name}>
-              {plan.name}
-            </Link>
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground" title={`Изменено ${fullDate(plan.updatedAt)}`}>
-            Изменено {timeAgo(plan.updatedAt)}
-          </p>
-        </div>
+    <Card className="group/plan relative gap-0 rounded-2xl py-0 ring-ink/[0.07] transition-[box-shadow,translate] duration-200 hover:-translate-y-0.5 hover:shadow-[0_28px_50px_-28px_rgba(10,11,13,0.35)] has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
+      <div
+        className="relative h-36 overflow-hidden border-b border-ink/[0.05]"
+        style={{
+          background: `radial-gradient(120% 90% at 50% 100%, color-mix(in oklab, ${color} 26%, #f4f4f6) 0%, #f4f4f6 70%)`,
+        }}
+      >
+        <CargoIllustration className="absolute -bottom-7 left-1/2 h-44 -translate-x-1/2 transition-transform duration-300 group-hover/plan:scale-[1.04]" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon-sm"
-              className="relative z-10 -mt-1 -mr-1 text-muted-foreground opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover/plan:opacity-100 sm:focus-visible:opacity-100"
+              className="absolute top-3 right-3 z-10 rounded-full bg-white/80 text-ink/70 shadow-sm backdrop-blur hover:bg-white data-[state=open]:bg-white sm:opacity-0 sm:group-hover/plan:opacity-100 sm:focus-visible:opacity-100 sm:data-[state=open]:opacity-100"
               aria-label="Действия со схемой"
             >
               <Ellipsis />
@@ -105,16 +96,26 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Package className="size-3.5" />
-          {plural(plan.itemCount, ['груз', 'груза', 'грузов'])}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Truck className="size-3.5" />
-          {plan.vehicleCount > 1 && `${plural(plan.vehicleCount, ['машина', 'машины', 'машин'])} · `}
-          {plural(plan.bodyCount, ['кузов', 'кузова', 'кузовов'])}
-        </span>
+      <div className="px-5 pt-4 pb-5">
+        <h3 className="truncate font-display text-[17px] leading-snug font-medium tracking-[-0.01em]">
+          <Link to={href} className="outline-none after:absolute after:inset-0 after:rounded-2xl" title={plan.name}>
+            {plan.name}
+          </Link>
+        </h3>
+        <p className="mt-1 text-[13px] text-muted-foreground" title={`Изменено ${fullDate(plan.updatedAt)}`}>
+          Изменено {timeAgo(plan.updatedAt)}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-1.5 text-xs text-ink/70">
+          <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
+            <Package className="size-3.5" />
+            {plural(plan.itemCount, ['груз', 'груза', 'грузов'])}
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
+            <Truck className="size-3.5" />
+            {plan.vehicleCount > 1 && `${plural(plan.vehicleCount, ['машина', 'машины', 'машин'])} · `}
+            {plural(plan.bodyCount, ['кузов', 'кузова', 'кузовов'])}
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -122,16 +123,12 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
 
 export function PlanCardSkeleton() {
   return (
-    <Card className="gap-0 py-0">
-      <div className="flex items-start gap-3 p-4">
-        <Skeleton className="size-11 rounded-lg" />
-        <div className="flex-1 space-y-2 pt-1">
-          <Skeleton className="h-4 w-3/5" />
-          <Skeleton className="h-3 w-2/5" />
-        </div>
-      </div>
-      <div className="border-t px-4 py-3">
-        <Skeleton className="h-3 w-1/2" />
+    <Card className="gap-0 rounded-2xl py-0 ring-ink/[0.07]">
+      <Skeleton className="h-36 rounded-none" />
+      <div className="space-y-2.5 px-5 pt-4 pb-5">
+        <Skeleton className="h-4 w-3/5" />
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="mt-4 h-6 w-1/2 rounded-full" />
       </div>
     </Card>
   );

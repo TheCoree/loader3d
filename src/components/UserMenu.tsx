@@ -12,9 +12,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { initials } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
-export function UserMenu({ compact = false }: { compact?: boolean }) {
+export function UserMenu({ compact = false, tone = 'light' }: { compact?: boolean; tone?: 'light' | 'dark' }) {
+  const dark = tone === 'dark';
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const navigate = useNavigate();
@@ -28,16 +30,27 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 gap-2 px-1.5 data-[state=open]:bg-muted" aria-label="Меню аккаунта">
+        <Button
+          variant="ghost"
+          className={cn(
+            'h-9 gap-2 rounded-full px-1.5 sm:pr-2.5',
+            dark
+              ? 'text-white hover:bg-white/10 hover:text-white aria-expanded:bg-white/10 aria-expanded:text-white'
+              : 'data-[state=open]:bg-muted',
+          )}
+          aria-label="Меню аккаунта"
+        >
           <Avatar className="size-7">
-            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+            <AvatarFallback
+              className={cn('text-xs font-semibold', dark ? 'bg-white text-ink' : 'bg-ink text-white')}
+            >
               {initials(user.displayName)}
             </AvatarFallback>
           </Avatar>
           {!compact && (
             <>
               <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">{user.displayName}</span>
-              <ChevronDown className="hidden text-muted-foreground sm:inline" />
+              <ChevronDown className={cn('hidden sm:inline', dark ? 'text-white/50' : 'text-muted-foreground')} />
             </>
           )}
         </Button>
