@@ -14,6 +14,12 @@
       "port": 8000
     },
     {
+      "name": "api-venv",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "Set-Location backend; .venv/Scripts/python.exe -m app --reload"],
+      "port": 8000
+    },
+    {
       "name": "loader3d-preview",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "preview"],
