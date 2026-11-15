@@ -135,8 +135,8 @@ const STEPS = [
     text: 'Еврофура, мега, реф, сцепка, контейнер — или свои размеры кузова и грузоподъёмность.',
     image: {
       src: '/landing/transport.webp',
-      width: 644,
-      height: 455,
+      width: 640,
+      height: 450,
       alt: 'Панель «Транспорт»: размеры кузова и грузоподъёмность',
     },
   },
@@ -145,8 +145,8 @@ const STEPS = [
     text: 'Типовые паллеты и IBC в один клик или свои места: размеры, вес, количество.',
     image: {
       src: '/landing/cargo.webp',
-      width: 715,
-      height: 829,
+      width: 716,
+      height: 839,
       alt: 'Форма «Новый груз»: типовые грузы, размеры, вес и количество',
     },
   },
@@ -451,8 +451,8 @@ function Features() {
             <div className="mt-auto pl-7 sm:pl-9">
               <Shot
                 src="/landing/scene.webp"
-                width={1600}
-                height={814}
+                width={1752}
+                height={890}
                 alt="3D-сцена: полуприцеп с паллетами и размерными линиями, грузы на доке"
                 className="w-full rounded-tl-2xl ring-1 ring-ink/[0.06]"
               />
@@ -499,8 +499,8 @@ function Features() {
             <div className="mt-auto overflow-hidden pt-6 pb-9 pl-7 sm:pl-9">
               <Shot
                 src="/landing/stats.webp"
-                width={1792}
-                height={197}
+                width={1608}
+                height={201}
                 alt="Статистика кузова в редакторе: заполнение 53%, LDM 13,4 м, 18 т из 20 т, центр тяжести 50%"
                 className="w-[720px] max-w-none rounded-2xl shadow-[0_16px_40px_-18px_rgba(10,11,13,0.3)] ring-1 ring-ink/[0.06]"
               />
@@ -539,16 +539,16 @@ function PdfPreview() {
         <p className="mt-4 text-xs text-ink/45">Вид сбоку</p>
         <Shot
           src="/landing/side.webp"
-          width={1800}
-          height={549}
+          width={2088}
+          height={612}
           alt="Вид сбоку на загруженный полуприцеп"
           className="mt-1.5 w-full rounded-lg"
         />
         <p className="mt-4 text-xs text-ink/45">Вид сверху</p>
         <Shot
           src="/landing/top.webp"
-          width={1800}
-          height={341}
+          width={2088}
+          height={396}
           alt="Вид сверху с номерами мест"
           className="mt-1.5 w-full rounded-lg"
         />
