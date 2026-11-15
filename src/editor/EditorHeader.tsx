@@ -46,6 +46,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { timeAgo } from '@/lib/format';
 import { downloadPlan, readPlanFile } from '@/lib/planFiles';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useMediaQuery, usePlacements } from './hooks';
 import { flush, renamePlan, usePlanSync } from './planSync';
 import { XRAY_MODES } from './XrayControl';
@@ -73,7 +74,7 @@ export function EditorHeader() {
   };
 
   return (
-    <header className="dark z-20 flex h-14 shrink-0 items-center gap-1 border-b bg-background px-2 text-foreground">
+    <header className="z-20 flex h-14 shrink-0 items-center gap-1 border-b bg-background px-2 text-foreground">
       <IconTip label="Все схемы">
         <Button variant="ghost" size="icon-lg" onClick={() => void leave()} aria-label="Все схемы">
           <ArrowLeft className={ICON} />
@@ -99,6 +100,7 @@ export function EditorHeader() {
           <Separator orientation="vertical" className="mx-1 h-5 data-vertical:self-center" />
           <DisplayMenu />
           <FileMenu onReplace={replace.open} />
+          <ThemeToggle />
           <IconTip label="Управление и клавиши">
             <Button variant="ghost" size="icon-lg" onClick={() => setHelpOpen(true)} aria-label="Справка">
               <CircleHelp className={ICON} />
@@ -162,7 +164,7 @@ function PlanName() {
     return (
       <input
         ref={inputRef}
-        className="h-9 w-full max-w-xs min-w-0 rounded-lg border border-input bg-muted px-2 font-display text-base font-medium ring-3 ring-white/15 outline-none"
+        className="h-9 w-full max-w-xs min-w-0 rounded-lg border border-input bg-muted px-2 font-display text-base font-medium ring-3 ring-ring/20 outline-none"
         value={draft}
         maxLength={200}
         aria-label="Название схемы"

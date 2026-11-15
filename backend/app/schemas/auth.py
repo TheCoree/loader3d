@@ -163,3 +163,5 @@ class DisplaySettingsIn(ApiModel):
     xray: Literal["off", "selection", "auto", "all"] | None = None
     # src/store/useStore.ts XRAY_OPACITY_RANGE.
     xray_opacity: Annotated[float, Field(ge=0.08, le=0.8)] | None = None
+    # Colour theme of the app; "system" follows the OS.
+    theme: Literal["system", "light", "dark"] | None = None

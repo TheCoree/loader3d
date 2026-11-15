@@ -175,9 +175,9 @@ export function HomePage() {
               ))}
             </div>
           ) : nothingYet ? (
-            <Empty className="mt-8 rounded-3xl border border-dashed border-ink/15 bg-card py-20">
+            <Empty className="mt-8 rounded-3xl border border-dashed border-foreground/15 bg-card py-20">
               <EmptyHeader>
-                <EmptyMedia variant="icon" className="size-12 rounded-2xl bg-ink text-white [&_svg]:size-6">
+                <EmptyMedia variant="icon" className="size-12 rounded-2xl bg-foreground text-background [&_svg]:size-6">
                   <PackageOpen />
                 </EmptyMedia>
                 <EmptyTitle>Пока нет ни одной схемы</EmptyTitle>

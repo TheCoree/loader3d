@@ -1,5 +1,6 @@
-import { ChevronDown, LayoutGrid, LogOut, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, ShieldCheck, Sparkles, SunMoon, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { THEME_OPTIONS } from '@/components/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,16 +9,22 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { initials } from '@/lib/format';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
+import { useStore, type Theme } from '@/store/useStore';
 
-export function UserMenu({ compact = false, tone = 'light' }: { compact?: boolean; tone?: 'light' | 'dark' }) {
-  const dark = tone === 'dark';
+export function UserMenu({ compact = false }: { compact?: boolean }) {
   const user = useAuth((s) => s.user);
+  const theme = useStore((s) => s.settings.theme);
+  const setSetting = useStore((s) => s.setSetting);
   const logout = useAuth((s) => s.logout);
   const navigate = useNavigate();
   if (!user) return null;
@@ -30,27 +37,16 @@ export function UserMenu({ compact = false, tone = 'light' }: { compact?: boolea
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className={cn(
-            'h-9 gap-2 rounded-full px-1.5 sm:pr-2.5',
-            dark
-              ? 'text-white hover:bg-white/10 hover:text-white aria-expanded:bg-white/10 aria-expanded:text-white'
-              : 'data-[state=open]:bg-muted',
-          )}
-          aria-label="Меню аккаунта"
-        >
+        <Button variant="ghost" className="h-9 gap-2 rounded-full px-1.5 data-[state=open]:bg-muted sm:pr-2.5" aria-label="Меню аккаунта">
           <Avatar className="size-7">
-            <AvatarFallback
-              className={cn('text-xs font-semibold', dark ? 'bg-white text-ink' : 'bg-ink text-white')}
-            >
+            <AvatarFallback className="bg-foreground text-xs font-semibold text-background">
               {initials(user.displayName)}
             </AvatarFallback>
           </Avatar>
           {!compact && (
             <>
               <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">{user.displayName}</span>
-              <ChevronDown className={cn('hidden sm:inline', dark ? 'text-white/50' : 'text-muted-foreground')} />
+              <ChevronDown className="hidden text-muted-foreground sm:inline" />
             </>
           )}
         </Button>
@@ -83,6 +79,24 @@ export function UserMenu({ compact = false, tone = 'light' }: { compact?: boolea
             </DropdownMenuItem>
           </>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <SunMoon /> Тема
+            <span className="ml-auto text-xs text-muted-foreground">
+              {THEME_OPTIONS.find((o) => o.value === theme)?.label}
+            </span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-48">
+            <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setSetting('theme', v as Theme)}>
+              {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                <DropdownMenuRadioItem key={value} value={value}>
+                  <Icon /> {label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOut /> Выйти

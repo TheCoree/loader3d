@@ -6,7 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design tokens (shadcn/ui). One light theme: the 3D scene is light and its palette lives in
+ * Design tokens (shadcn/ui): the light theme here, the dark one under .dark below. The 3D scene is light in
+ * both, its palette lives in
  * src/scene/theme.ts — keep --primary equal to COLORS.accent there (selection colour).
  * Inter is loaded in index.html; the scene draws its canvas labels with the same family.
  * The whole UI is monochrome: --ink (near-black) for text, the default button and the dark sections,
@@ -145,23 +146,36 @@
 }
 
 /*
- * A dark bar inside the light UI (the editor header): the same components on near-black. Not a dark
- * theme of the app — only elements with class="dark" and their children; popovers render outside it.
+ * The dark theme of the app (Settings.theme, applied by lib/theme.ts as class="dark" on <html>).
+ * The public pages (landing, sign-in, documents) always stay light; the 3D scene keeps its own light
+ * palette (src/scene/theme.ts) in both themes. --primary stays equal to COLORS.accent.
  */
 .dark {
-  --background: #0a0b0d;
-  --foreground: #ffffff;
-  --card: #0a0b0d;
-  --card-foreground: #ffffff;
-  --secondary: rgb(255 255 255 / 0.12);
-  --secondary-foreground: #ffffff;
-  --muted: rgb(255 255 255 / 0.09);
-  --muted-foreground: rgb(255 255 255 / 0.55);
-  --accent: rgb(255 255 255 / 0.09);
-  --accent-foreground: #ffffff;
-  --border: rgb(255 255 255 / 0.1);
-  --input: rgb(255 255 255 / 0.16);
-  --ring: rgb(255 255 255 / 0.6);
+  color-scheme: dark;
+  --background: #0b0c0e;
+  --foreground: #f2f2f3;
+  --card: #131417;
+  --card-foreground: #f2f2f3;
+  --popover: #17181b;
+  --popover-foreground: #f2f2f3;
+  --primary-foreground: #ffffff;
+  --secondary: #1d1e22;
+  --secondary-foreground: #f2f2f3;
+  --muted: #1b1c20;
+  --muted-foreground: #8d8f97;
+  --accent: #212226;
+  --accent-foreground: #f2f2f3;
+  --destructive: #f2555a;
+  --success: #2fb779;
+  --border: rgb(255 255 255 / 0.09);
+  --input: rgb(255 255 255 / 0.14);
+  --ring: rgb(255 255 255 / 0.55);
+  --sidebar: #131417;
+  --sidebar-foreground: #f2f2f3;
+  --sidebar-accent: #212226;
+  --sidebar-accent-foreground: #f2f2f3;
+  --sidebar-border: rgb(255 255 255 / 0.09);
+  --sidebar-ring: rgb(255 255 255 / 0.55);
 }
 
 /*

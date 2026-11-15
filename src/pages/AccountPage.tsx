@@ -56,7 +56,7 @@ function SectionIcon({ icon: Icon, tone = 'default' }: { icon: typeof UserRound;
       className={
         tone === 'danger'
           ? 'grid size-9 place-items-center rounded-xl bg-destructive/10 text-destructive'
-          : 'grid size-9 place-items-center rounded-xl bg-muted text-ink'
+          : 'grid size-9 place-items-center rounded-xl bg-muted text-foreground'
       }
     >
       <Icon className="size-4" />

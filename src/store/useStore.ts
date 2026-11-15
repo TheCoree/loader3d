@@ -43,7 +43,11 @@ export interface Settings {
   xray: XrayMode;
   /** Opacity of see-through cargo, XRAY_OPACITY_RANGE. */
   xrayOpacity: number;
+  /** Colour theme of the app (lib/theme.ts); "system" follows the OS. The public pages stay light. */
+  theme: Theme;
 }
+
+export type Theme = 'system' | 'light' | 'dark';
 
 export const XRAY_OPACITY_RANGE: [number, number] = [0.08, 0.8];
 
@@ -154,10 +158,12 @@ export const DEFAULT_SETTINGS: Settings = {
   allowTilt: false,
   xray: 'selection',
   xrayOpacity: 0.22,
+  theme: 'system',
 };
 
 const UNITS: readonly Units[] = ['mm', 'cm', 'm'];
 const XRAY_MODES: readonly XrayMode[] = ['off', 'selection', 'auto', 'all'];
+const THEMES: readonly Theme[] = ['system', 'light', 'dark'];
 
 /** Settings from the server (or an old browser) with unknown keys dropped and bad values replaced by defaults. */
 export function sanitizeSettings(raw: unknown): Settings {
@@ -169,6 +175,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   }
   if (!UNITS.includes(out.units)) out.units = DEFAULT_SETTINGS.units;
   if (!XRAY_MODES.includes(out.xray)) out.xray = DEFAULT_SETTINGS.xray;
+  if (!THEMES.includes(out.theme)) out.theme = DEFAULT_SETTINGS.theme;
   const [lo, hi] = XRAY_OPACITY_RANGE;
   if (!(out.xrayOpacity >= lo && out.xrayOpacity <= hi)) out.xrayOpacity = DEFAULT_SETTINGS.xrayOpacity;
   return out;

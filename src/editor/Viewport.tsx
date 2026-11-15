@@ -164,7 +164,7 @@ function Hint() {
   };
   const kbd = 'h-4.5 border-white/15 bg-white/15 text-white';
   return (
-    <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full bg-foreground/85 py-1 pr-1 pl-3.5 text-xs text-white/85 shadow-lg backdrop-blur-md">
+    <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full bg-ink/85 py-1 pr-1 pl-3.5 text-xs text-white/85 shadow-lg backdrop-blur-md">
       {coarse ? (
         <span className="truncate">
           <b className="font-medium text-white">Палец по фону</b> — вращение · <b className="font-medium text-white">на грузе</b> —
