@@ -1,16 +1,15 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { LogoMark } from '@/components/Logo';
-import { Spinner } from '@/components/ui/spinner';
+import { LogoLoader } from '@/components/Logo';
 import { useAuth } from '@/store/useAuth';
 
 export function FullScreenLoader({ label = 'Загрузка…' }: { label?: string }) {
   return (
     <div className="grid min-h-dvh place-items-center bg-background">
       <div className="flex flex-col items-center gap-4 text-sm text-muted-foreground">
-        <LogoMark className="size-10" />
+        <LogoLoader className="size-11 text-foreground" label={label} />
         <span className="flex items-center gap-2">
-          <Spinner /> {label}
+          {label}
         </span>
       </div>
     </div>

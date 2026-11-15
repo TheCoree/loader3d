@@ -163,3 +163,61 @@
   --input: rgb(255 255 255 / 0.16);
   --ring: rgb(255 255 255 / 0.6);
 }
+
+/*
+ * The brand loader (LogoLoader): the box comes apart, turns 120° (its faces trade places) and closes
+ * again, three times per cycle so the loop is seamless.
+ */
+@keyframes logo-turn {
+  0%,
+  8% {
+    transform: rotate(0deg);
+  }
+  30%,
+  41% {
+    transform: rotate(120deg);
+  }
+  63%,
+  74% {
+    transform: rotate(240deg);
+  }
+  96%,
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes logo-face {
+  0%,
+  6%,
+  30%,
+  39%,
+  63%,
+  72%,
+  96%,
+  100% {
+    translate: 0 0;
+  }
+  18%,
+  51%,
+  84% {
+    translate: var(--dx) var(--dy);
+  }
+}
+
+.logo-turn {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: logo-turn 2.7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.logo-face {
+  animation: logo-face 2.7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-turn,
+  .logo-face {
+    animation: none;
+  }
+}
