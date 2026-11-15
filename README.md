@@ -137,6 +137,8 @@ uv run ruff check . && uv run ruff format --check .
 | `GET /api/plans/{id}` | Схема целиком: `data` — тот же `Plan`, что экспортирует фронтенд в JSON |
 | `PATCH /api/plans/{id}` | Сохранить `{version, name?, data?}`; `409 version_conflict`, если схему уже изменили |
 | `POST /api/plans/{id}/duplicate` | Копия `{name?}` (по умолчанию «… (копия)») |
+| `PUT /api/plans/{id}/thumbnail` | Превью для карточки: тело — JPEG/PNG/WebP до 512 КБ; рисует редактор, версию схемы не меняет |
+| `GET /api/plans/{id}/thumbnail?v=` | Превью (`thumbnailAt` в списке схем; `null` — ещё нет) |
 | `DELETE /api/plans/{id}` | Удалить |
 | `POST /api/leads` | Заявка с сайта или из окна смены тарифа `{name, email?, phone?, company?, message?, tier?}` (без входа) |
 | `GET /api/admin/stats` | Админ: пользователи, активность, тарифы, схемы, новые заявки |

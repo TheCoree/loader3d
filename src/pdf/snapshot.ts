@@ -32,6 +32,8 @@ export interface Shot {
   /** Drawing-style rulers (orthographic views only): length and width from above, height from the side. */
   rulers?: 'top' | 'side';
   format: 'png' | 'jpeg';
+  /** Background of the picture; white (print) by default. */
+  background?: string;
 }
 
 export interface Snapshot {
@@ -76,6 +78,8 @@ export class SnapshotRenderer {
   constructor(
     private readonly layout: VehicleLayout,
     private readonly highlightOverflow: boolean,
+    /** false: the vehicle in its own colours (previews) instead of the light print silhouette. */
+    ghostVehicle = true,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(SCALE);
@@ -100,7 +104,7 @@ export class SnapshotRenderer {
     // Print-friendly: the vehicle as a light grey silhouette (this view's own materials) so the cargo stands out.
     const ghost = new THREE.Color('#dde2e8');
     const seen = new Set<THREE.Material>();
-    this.vehicle.root.traverse((obj) => {
+    if (ghostVehicle) this.vehicle.root.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
       for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) {
         if (seen.has(m) || !(m instanceof THREE.MeshStandardMaterial) || m.transparent) continue;
@@ -112,6 +116,8 @@ export class SnapshotRenderer {
   }
 
   render(shot: Shot): Snapshot {
+    const background = shot.background ?? BACKGROUND;
+    this.scene.background = new THREE.Color(background);
     this.cargo.sync(shot.items, this.layout, { highlightOverflow: this.highlightOverflow, showLabels: false });
     this.setEdges(shot.items);
 
@@ -136,7 +142,7 @@ export class SnapshotRenderer {
     canvas.height = totalH * SCALE;
     const ctx = canvas.getContext('2d')!;
     ctx.scale(SCALE, SCALE);
-    ctx.fillStyle = BACKGROUND;
+    ctx.fillStyle = background;
     ctx.fillRect(0, 0, shot.width, totalH);
     ctx.drawImage(this.renderer.domElement, l, t, w, h);
 

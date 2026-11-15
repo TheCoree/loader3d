@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, FileQuestion, RefreshCw } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { planApi } from '@/api/endpoints';
@@ -18,6 +19,8 @@ import { PdfExportDialog } from '@/editor/PdfExportDialog';
 import { Viewport } from '@/editor/Viewport';
 import { guardSceneShortcuts, useMediaQuery } from '@/editor/hooks';
 import { flush, hasUnsavedChanges, startSync, stopSync, usePlanSync } from '@/editor/planSync';
+import { startThumbnails, stopThumbnails } from '@/editor/planThumbnail';
+import { planKeys } from '@/lib/plansQuery';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 
@@ -44,6 +47,7 @@ export function EditorPage() {
   const { planId = '' } = useParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +59,7 @@ export function EditorPage() {
         useStore.getState().openPlan(record.data);
         useUi.setState({ drawerOpen: false, autoloadOpen: false, pdfOpen: false });
         startSync(record);
+        startThumbnails(record, () => void queryClient.invalidateQueries({ queryKey: planKeys.all }));
         setState({ status: 'ready' });
       })
       .catch((error) => !cancelled && setState({ status: 'error', error }));
@@ -62,8 +67,9 @@ export function EditorPage() {
       cancelled = true;
       void flush();
       stopSync();
+      stopThumbnails();
     };
-  }, [planId, attempt]);
+  }, [planId, attempt, queryClient]);
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {

@@ -67,6 +67,11 @@ export const planApi = {
   duplicate: (id: string, name?: string) =>
     api<PlanRecord>(`/plans/${id}/duplicate`, { method: 'POST', body: { name } }),
   remove: (id: string) => api<void>(`/plans/${id}`, { method: 'DELETE' }),
+  /** The preview picture rendered by the editor (lib/planThumbnail.ts); not an edit, the version stays. */
+  putThumbnail: (id: string, image: Blob) =>
+    api<{ thumbnailAt: string }>(`/plans/${id}/thumbnail`, { method: 'PUT', body: image }),
+  thumbnail: (id: string, thumbnailAt: string, signal?: AbortSignal) =>
+    api<Blob>(`/plans/${id}/thumbnail`, { query: { v: thumbnailAt }, responseType: 'blob', signal }),
 };
 
 /** Public: works with or without a login (a logged-in user is linked to the request). */

@@ -67,6 +67,8 @@ export interface PlanSummary {
   itemCount: number;
   createdAt: string;
   updatedAt: string;
+  /** When the preview picture was last replaced; null — none yet. */
+  thumbnailAt: string | null;
 }
 
 export interface PlanRecord extends PlanSummary {

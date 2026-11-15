@@ -235,3 +235,56 @@
     animation: none;
   }
 }
+
+/*
+ * Plan cards (components/plans/PlanCard.tsx): on hover or focus a light runs around the border — a
+ * conic gradient in a 1.5 px ring (masked to the border), turning with an animated angle. No shadow.
+ */
+@property --plan-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes plan-border {
+  to {
+    --plan-angle: 360deg;
+  }
+}
+
+.plan-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--plan-angle),
+    transparent 0deg 140deg,
+    color-mix(in oklab, var(--primary) 60%, transparent) 220deg,
+    var(--foreground) 295deg,
+    var(--primary) 330deg,
+    transparent 360deg
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.plan-card:hover::after,
+.plan-card:has(a:focus-visible)::after {
+  opacity: 1;
+  animation: plan-border 2.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-card:hover::after,
+  .plan-card:has(a:focus-visible)::after {
+    animation: none;
+    background: var(--foreground);
+  }
+}
