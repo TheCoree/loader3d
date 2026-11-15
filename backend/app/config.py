@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = Field(30, ge=1, le=365)
 
     registration_open: bool = True
+    # New accounts confirm their email with a 6-digit code before they can use plans (app/verification.py).
+    # Off: accounts count as confirmed right away.
+    email_verification: bool = True
+    # How the code is delivered. "console": written to the API log (until a mailbox for the domain exists).
+    mail_backend: Literal["console"] = "console"
     # Subscription tiers (app/tiers.py). Off: no limits, and neither the API nor the site mention tiers.
     tiers_enabled: bool = False
     # Comma-separated origins allowed to call the API cross-origin.

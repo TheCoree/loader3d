@@ -22,9 +22,10 @@ from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found, unauthorized
 from app.models import AuthSession, User, utcnow
-from app.schemas.auth import AuthOut, LoginIn, RegisterIn, SessionOut, UserOut
+from app.schemas.auth import AuthOut, LoginIn, RegisterIn, SessionOut, UserOut, VerifyEmailIn, VerifyResendOut
 from app.security import hash_password, password_needs_rehash, verify_password
 from app.tiers import start_trial
+from app.verification import confirm, issue_code, resend_wait
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -58,16 +59,52 @@ async def register(
         password_hash=await hash_password(body.password),
         display_name=body.display_name or body.email.split("@", 1)[0][:100],
     )
+    now = utcnow()
     if body.tier == "pro" and settings.tiers_enabled:
-        start_trial(user, utcnow())
+        start_trial(user, now)
+    if not settings.email_verification:
+        user.email_verified_at = now
     db.add(user)
     try:
         await db.flush()
     except IntegrityError:
         raise email_taken from None
+    if settings.email_verification:
+        await issue_code(settings, user, now)
     tokens = await start_session(db, settings, user, request)
     await db.commit()
     return _auth_response(response, request, settings, user, tokens)
+
+
+@router.post("/verify-email")
+async def verify_email(body: VerifyEmailIn, auth: CurrentAuth, db: Db, settings: SettingsDep) -> UserOut:
+    """Confirms the email with the code sent at registration (or by /verify-email/resend)."""
+    try:
+        confirm(settings, auth.user, body.code, utcnow())
+    finally:
+        # Wrong attempts are counted too.
+        await db.commit()
+    return UserOut.of(auth.user, settings.tiers_enabled)
+
+
+@router.post("/verify-email/resend")
+async def resend_verification(auth: CurrentAuth, db: Db, settings: SettingsDep) -> VerifyResendOut:
+    """Sends a new code (the previous one stops working); at most once per cooldown."""
+    user = auth.user
+    if user.email_verified_at is not None:
+        raise ApiError(status.HTTP_409_CONFLICT, "already_verified", "Email уже подтверждён")
+    now = utcnow()
+    wait = resend_wait(user, now)
+    if wait > 0:
+        raise ApiError(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "resend_too_soon",
+            f"Новый код можно запросить через {wait} с",
+            headers={"Retry-After": str(wait)},
+        )
+    await issue_code(settings, user, now)
+    await db.commit()
+    return VerifyResendOut(retry_after=resend_wait(user, now))
 
 
 @router.post("/login")

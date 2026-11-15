@@ -26,6 +26,8 @@ def make_settings(tmp_path: Path, **overrides: Any) -> Settings:
         "database_url": url,
         "jwt_secret": TEST_JWT_SECRET,
         "environment": "development",
+        # Most tests do not care about it; tests/test_email_verification.py turns it on.
+        "email_verification": False,
     }
     return Settings(_env_file=None, **(values | overrides))  # type: ignore[call-arg]
 

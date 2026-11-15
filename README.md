@@ -57,6 +57,8 @@ docker compose up -d
 | `JWT_SECRET` | — (обязательно) | Ключ подписи токенов, 32+ случайных символа; смена разлогинивает всех |
 | `ACCESS_TOKEN_TTL_MINUTES` / `REFRESH_TOKEN_TTL_DAYS` | `15` / `30` | Время жизни access-токена и сессии без активности |
 | `REGISTRATION_OPEN` | `true` | `false` — новые аккаунты создавать нельзя (админ может добавить их в админ-панели) |
+| `EMAIL_VERIFICATION` | `true` | Новый аккаунт подтверждает email 6-значным кодом, до этого схемы закрыты; `false` — подтверждён сразу |
+| `MAIL_BACKEND` | `console` | Как отправлять письма: `console` — код пишется в лог API (`docker compose logs api`), пока нет почты на домене |
 | `TIERS_ENABLED` | `false` | `true` — тарифы: цены на сайте, выбор при регистрации, лимиты, тариф в аккаунте и админке; `false` — о тарифах ни слова, без лимитов; после смены — `--build` |
 | `POSTGRES_PASSWORD` | — (обязательно) | Пароль БД, применяется при первом создании базы |
 | `POSTGRES_DB` / `POSTGRES_USER` | `loader3d` / `loader3d` | Имя базы и пользователя |
@@ -106,7 +108,8 @@ uv run ruff check . && uv run ruff format --check .
 `npm run dev` проксирует `/api` на `127.0.0.1:8000`, поэтому фронтенд в разработке ходит в API с того
 же адреса, что и в проде. Настройки бэкенда — переменные окружения, `.env` в корне репозитория (тот же, что
 для деплоя) или `backend/.env` (важнее корневого): `DATABASE_URL`, `DATABASE_PASSWORD`, `JWT_SECRET`,
-`ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REGISTRATION_OPEN`, `TIERS_ENABLED`, `CORS_ORIGINS`,
+`ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REGISTRATION_OPEN`, `EMAIL_VERIFICATION`, `MAIL_BACKEND`,
+`TIERS_ENABLED`, `CORS_ORIGINS`,
 `ENVIRONMENT` (см. [config.py](backend/app/config.py)). `TIERS_ENABLED` из корневого `.env` читает и Vite —
 после его смены перезапустите оба процесса.
 

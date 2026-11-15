@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import defer
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.auth import CurrentAuth
+from app.auth import AuthContext, VerifiedAuth
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found
@@ -85,7 +85,7 @@ def _version_conflict(current_version: int) -> ApiError:
     )
 
 
-async def _get_own_plan(db: Db, auth: CurrentAuth, plan_id: uuid.UUID) -> Plan:
+async def _get_own_plan(db: Db, auth: AuthContext, plan_id: uuid.UUID) -> Plan:
     # Someone else's plan is "not found", so ids of other users' plans cannot be probed.
     plan = await db.scalar(select(Plan).where(Plan.id == plan_id, Plan.owner_id == auth.user.id))
     if plan is None:
@@ -95,7 +95,7 @@ async def _get_own_plan(db: Db, auth: CurrentAuth, plan_id: uuid.UUID) -> Plan:
 
 @router.get("")
 async def list_plans(
-    auth: CurrentAuth,
+    auth: VerifiedAuth,
     db: Db,
     q: Annotated[
         str | None, Query(max_length=200, description="Поиск по названию, без учёта регистра")
@@ -123,7 +123,7 @@ async def list_plans(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_plan(body: PlanCreate, auth: CurrentAuth, db: Db, settings: SettingsDep) -> PlanOut:
+async def create_plan(body: PlanCreate, auth: VerifiedAuth, db: Db, settings: SettingsDep) -> PlanOut:
     await _check_plan_count(db, auth.user, settings.tiers_enabled)
     data = body.data or default_plan_data()
     _check_contents(auth.user, settings.tiers_enabled, data)
@@ -136,13 +136,13 @@ async def create_plan(body: PlanCreate, auth: CurrentAuth, db: Db, settings: Set
 
 
 @router.get("/{plan_id}")
-async def get_plan(plan_id: uuid.UUID, auth: CurrentAuth, db: Db) -> PlanOut:
+async def get_plan(plan_id: uuid.UUID, auth: VerifiedAuth, db: Db) -> PlanOut:
     return PlanOut.model_validate(await _get_own_plan(db, auth, plan_id))
 
 
 @router.patch("/{plan_id}")
 async def update_plan(
-    plan_id: uuid.UUID, body: PlanUpdate, auth: CurrentAuth, db: Db, settings: SettingsDep
+    plan_id: uuid.UUID, body: PlanUpdate, auth: VerifiedAuth, db: Db, settings: SettingsDep
 ) -> PlanOut:
     """Saves a new name and/or contents. 409 `version_conflict` if the plan changed since `version`."""
     plan = await _get_own_plan(db, auth, plan_id)
@@ -167,7 +167,7 @@ async def update_plan(
 
 @router.post("/{plan_id}/duplicate", status_code=status.HTTP_201_CREATED)
 async def duplicate_plan(
-    plan_id: uuid.UUID, body: PlanDuplicate, auth: CurrentAuth, db: Db, settings: SettingsDep
+    plan_id: uuid.UUID, body: PlanDuplicate, auth: VerifiedAuth, db: Db, settings: SettingsDep
 ) -> PlanOut:
     source = await _get_own_plan(db, auth, plan_id)
     await _check_plan_count(db, auth.user, settings.tiers_enabled)
@@ -185,6 +185,6 @@ async def duplicate_plan(
 
 
 @router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_plan(plan_id: uuid.UUID, auth: CurrentAuth, db: Db) -> None:
+async def delete_plan(plan_id: uuid.UUID, auth: VerifiedAuth, db: Db) -> None:
     await db.delete(await _get_own_plan(db, auth, plan_id))
     await db.commit()

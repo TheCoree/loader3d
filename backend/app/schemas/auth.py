@@ -27,6 +27,15 @@ class RegisterIn(ApiModel):
     tier: Literal["free", "pro"] = "free"
 
 
+class VerifyEmailIn(ApiModel):
+    code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{6}$")]
+
+
+class VerifyResendOut(ApiModel):
+    # Seconds until the next code may be requested.
+    retry_after: int
+
+
 class LoginIn(ApiModel):
     email: LoginEmail
     password: Password
@@ -82,6 +91,8 @@ class UserOut(ApiModel):
     display_name: str
     created_at: datetime
     is_admin: bool
+    # false: the email is not confirmed yet (app/verification.py), plans are closed.
+    email_verified: bool
     # Editor display settings as last saved (camelCase keys); null — never changed.
     settings: dict[str, Any] | None
     # null when tiers are off (TIERS_ENABLED): nothing is limited.
@@ -95,6 +106,7 @@ class UserOut(ApiModel):
             display_name=user.display_name,
             created_at=user.created_at,
             is_admin=user.is_admin,
+            email_verified=user.email_verified_at is not None,
             settings=user.settings,
             subscription=SubscriptionOut.of(user) if tiers_enabled else None,
         )

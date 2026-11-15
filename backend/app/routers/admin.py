@@ -176,6 +176,8 @@ async def create_user(body: AdminUserCreate, auth: AdminAuth, db: Db, settings: 
         password_hash=await hash_password(body.password),
         display_name=body.display_name or body.email.split("@", 1)[0][:100],
         is_admin=body.is_admin,
+        # Created by an admin: the address is trusted.
+        email_verified_at=utcnow(),
     )
     if settings.tiers_enabled:
         user.tier = body.tier

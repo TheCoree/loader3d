@@ -64,6 +64,14 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
+    # Email confirmed with a code (app/verification.py); null — not yet, plans are closed until then.
+    email_verified_at: Mapped[datetime | None]
+    # The pending code: its HMAC, expiry, when it was sent (resend cooldown) and wrong attempts so far.
+    verify_code_hash: Mapped[str | None] = mapped_column(String(64))
+    verify_code_expires_at: Mapped[datetime | None]
+    verify_code_sent_at: Mapped[datetime | None]
+    verify_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+
     # Subscription (app/tiers.py): "free", "pro" or "custom" (by contract, set by an admin).
     # A paid tier past `tier_expires_at` works as "free" until it is renewed; null — no end date.
     tier: Mapped[str] = mapped_column(String(20), default="free", server_default="free")
