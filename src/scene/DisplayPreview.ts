@@ -49,6 +49,9 @@ function sample(): { layout: VehicleLayout; items: CargoItem[] } {
 /**
  * A small live scene for the display settings dialog: the same vehicle, cargo and ruler views as the
  * editor, on a sample truck, with its own WebGL context and an orbit camera. Renders on demand.
+ *
+ * One instance is kept for the editor ({@link acquireDisplayPreview}) and moved between dialog openings
+ * (`attach`/`detach`): the WebGL context and the compiled shaders are made once, so reopening is instant.
  */
 export class DisplayPreview {
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -60,22 +63,27 @@ export class DisplayPreview {
   private readonly vehicle = new VehicleView();
   private readonly cargo = new CargoView();
   private readonly loadLength = new LoadLengthView();
-  private readonly resizeObserver: ResizeObserver;
+  private readonly resizeObserver = new ResizeObserver(() => this.resize());
   private readonly sample = sample();
+  private host: HTMLElement | null = null;
   private settings: Settings | null = null;
   private frame = 0;
   private width = 1;
   private height = 1;
+  /** Shaders compiled in the background ({@link ready}); nothing is drawn before that. */
+  private compiled = false;
+  private compiling: Promise<void> | null = null;
+  /** Half the diagonal of the truck: the sphere the camera keeps in view. */
+  private readonly fitRadius: number;
 
-  constructor(private readonly host: HTMLElement) {
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  constructor() {
+    // A small picture: 1.5× is sharp enough and keeps every frame cheap.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.domElement.className = 'scene-canvas';
-    host.appendChild(this.renderer.domElement);
     this.labels.domElement.className = 'label-layer';
-    host.appendChild(this.labels.domElement);
 
     this.scene.background = new THREE.Color(COLORS.background);
     const hemi = new THREE.HemisphereLight('#ffffff', '#aab3bf', 1.55);
@@ -102,6 +110,7 @@ export class DisplayPreview {
       bounds.max.y - bounds.min.y,
       bounds.max.z - bounds.min.z,
     ).length();
+    this.fitRadius = radius / 2;
     this.camera.position.copy(center).addScaledVector(DIRECTION, radius * 2.4);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.copy(center);
@@ -124,10 +133,35 @@ export class DisplayPreview {
     cam.near = 100;
     cam.far = 9000;
     cam.updateProjectionMatrix();
+  }
 
-    this.resizeObserver = new ResizeObserver(() => this.resize());
+  /** Puts the canvas into `host` (the dialog's preview box). */
+  attach(host: HTMLElement): void {
+    this.detach();
+    this.host = host;
+    host.append(this.renderer.domElement, this.labels.domElement);
     this.resizeObserver.observe(host);
     this.resize();
+  }
+
+  detach(): void {
+    if (!this.host) return;
+    this.resizeObserver.disconnect();
+    this.renderer.domElement.remove();
+    this.labels.domElement.remove();
+    this.host = null;
+  }
+
+  /**
+   * Resolves once the shaders are compiled (in parallel where the browser can) and the first frame is
+   * drawn; call after `apply`, so every material of the sample is compiled at once.
+   */
+  ready(): Promise<void> {
+    this.compiling ??= this.renderer.compileAsync(this.scene, this.camera).then(() => {
+      this.compiled = true;
+      this.requestRender();
+    });
+    return this.compiling;
   }
 
   /** Shows the sample with these display settings. */
@@ -157,29 +191,35 @@ export class DisplayPreview {
 
   dispose(): void {
     cancelAnimationFrame(this.frame);
-    this.resizeObserver.disconnect();
+    this.detach();
     this.controls.dispose();
     this.vehicle.dispose();
     this.cargo.dispose();
     this.loadLength.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
-    this.renderer.domElement.remove();
-    this.labels.domElement.remove();
   }
 
   private resize(): void {
+    if (!this.host) return;
     this.width = Math.max(1, this.host.clientWidth);
     this.height = Math.max(1, this.host.clientHeight);
     this.renderer.setSize(this.width, this.height);
     this.labels.setSize(this.width, this.height);
     this.camera.aspect = this.width / this.height;
     this.camera.updateProjectionMatrix();
+    // Fit the truck to the box, whatever its shape: the narrower of the two fields of view decides.
+    const vertical = THREE.MathUtils.degToRad(this.camera.fov);
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * this.camera.aspect);
+    const distance = (this.fitRadius * 1.08) / Math.sin(Math.min(vertical, horizontal) / 2);
+    const offset = this.camera.position.clone().sub(this.controls.target).setLength(distance);
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.controls.update();
     this.requestRender();
   }
 
   private readonly requestRender = () => {
-    if (this.frame) return;
+    if (this.frame || !this.compiled || !this.host) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
       this.camera.updateMatrixWorld();
@@ -189,4 +229,17 @@ export class DisplayPreview {
       this.labels.render(this.scene, this.camera);
     });
   };
+}
+
+let shared: DisplayPreview | null = null;
+
+/** The editor's preview, made on first use. */
+export function acquireDisplayPreview(): DisplayPreview {
+  return (shared ??= new DisplayPreview());
+}
+
+/** Frees the preview's WebGL context (the editor closes). */
+export function releaseDisplayPreview(): void {
+  shared?.dispose();
+  shared = null;
 }

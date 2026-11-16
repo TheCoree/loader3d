@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hand, Lock, LockOpen, Scale, Scan, TriangleAlert, X } from 'lucide-react';
+import { Hand, Lock, LockOpen, Scale, Scan, SlidersHorizontal, TriangleAlert, X } from 'lucide-react';
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE, type BodyStats } from '../core/stats';
 import { formatMeters, formatPercent, formatVolume, formatWeight } from '../core/units';
 import type { ViewPreset } from '../scene/CameraRig';
 import { SceneEngine } from '../scene/SceneEngine';
 import { getEngine, setEngine } from '../scene/engineRegistry';
 import { useStore } from '../store/useStore';
+import { useUi } from '../store/useUi';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useActiveVehicle, useStats } from './hooks';
 import { VehiclePanel } from './VehiclePanel';
 import { XrayControl } from './XrayControl';
+import { activePreset } from './displayPresets';
 
 const HINT_KEY = 'loader3d:hint-dismissed';
 
@@ -78,6 +80,23 @@ const VIEWS: Array<{ id: ViewPreset; label: string; title: string }> = [
   { id: 'rear', label: 'Сзади', title: 'Вид со стороны дверей' },
 ];
 
+/** Opens «Настройки отображения»; names the current display mode. */
+function DisplayButton() {
+  const preset = useStore((s) => activePreset(s.settings));
+  const setOpen = useUi((s) => s.setDisplayOpen);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1.5 px-2 text-xs" onClick={() => setOpen(true)}>
+          <SlidersHorizontal />
+          <span className="hidden lg:inline">{preset?.name ?? 'Свой вид'}</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Настройки отображения: что показывать в сцене</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** Camera presets, "show all" and the optional camera lock. */
 function ViewToolbar() {
   const locked = useStore((s) => s.settings.cameraLocked);
@@ -101,6 +120,7 @@ function ViewToolbar() {
         </Tooltip>
       ))}
       <span className="mx-0.5 h-5 w-px bg-border" />
+      <DisplayButton />
       <XrayControl />
       <Tooltip>
         <TooltipTrigger asChild>

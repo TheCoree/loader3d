@@ -21,6 +21,7 @@ import { Viewport } from '@/editor/Viewport';
 import { guardSceneShortcuts, useMediaQuery } from '@/editor/hooks';
 import { flush, hasUnsavedChanges, startSync, stopSync, usePlanSync } from '@/editor/planSync';
 import { startThumbnails, stopThumbnails } from '@/editor/planThumbnail';
+import { releaseDisplayPreview } from '@/scene/DisplayPreview';
 import { planKeys } from '@/lib/plansQuery';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
@@ -189,6 +190,8 @@ function PanelHandle({ hidden, onOpen }: { hidden: boolean; onOpen(): void }) {
 
 function EditorLayout() {
   useLimitOffers();
+  // The display dialog's preview keeps its WebGL context while the editor is open.
+  useEffect(() => releaseDisplayPreview, []);
   const desktop = useMediaQuery('(min-width: 768px)');
   const panelWidth = useMediaQuery('(min-width: 1280px)') ? PANEL_WIDTH_WIDE : PANEL_WIDTH;
   const panelHidden = useUi((s) => s.panelHidden);
