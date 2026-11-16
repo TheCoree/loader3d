@@ -15,6 +15,7 @@ import {
   Pencil,
   Redo2,
   RefreshCw,
+  SlidersHorizontal,
   Sparkles,
   TriangleAlert,
   Undo2,
@@ -50,6 +51,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useMediaQuery, usePlacements } from './hooks';
 import { flush, renamePlan, usePlanSync } from './planSync';
 import { XRAY_MODES } from './XrayControl';
+import { DISPLAY_PRESETS, activePreset } from './displayPresets';
 
 export function EditorHeader() {
   const navigate = useNavigate();
@@ -253,7 +255,10 @@ function useOverflowCount(): number {
 function DisplayItems() {
   const settings = useStore((s) => s.settings);
   const setSetting = useStore((s) => s.setSetting);
+  const updateSettings = useStore((s) => s.updateSettings);
+  const setDisplayOpen = useUi((s) => s.setDisplayOpen);
   const overflow = useOverflowCount();
+  const preset = activePreset(settings);
 
   const toggle = (key: Toggle, label: string, extra?: React.ReactNode) => (
     <DropdownMenuCheckboxItem checked={settings[key]} onSelect={keepOpen} onCheckedChange={(v) => setSetting(key, v)}>
@@ -264,6 +269,26 @@ function DisplayItems() {
 
   return (
     <>
+      <DropdownMenuLabel>Режим отображения</DropdownMenuLabel>
+      <DropdownMenuRadioGroup
+        value={preset?.id ?? ''}
+        onValueChange={(id) => {
+          const p = DISPLAY_PRESETS.find((x) => x.id === id);
+          if (p) updateSettings(p.values);
+        }}
+      >
+        {DISPLAY_PRESETS.map((p) => (
+          <DropdownMenuRadioItem key={p.id} value={p.id} onSelect={keepOpen} title={p.hint}>
+            {p.name}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      <DropdownMenuItem onSelect={() => setDisplayOpen(true)}>
+        <SlidersHorizontal />
+        Все настройки отображения…
+        {!preset && <span className="ml-auto text-xs text-muted-foreground">свои</span>}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuLabel>Отображение</DropdownMenuLabel>
       {toggle('showDimensions', 'Размерные линии')}
       {toggle('showLabels', 'Номера на грузах')}

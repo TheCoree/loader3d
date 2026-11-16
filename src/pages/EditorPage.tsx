@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/
 import { AutoloadDialog } from '@/editor/AutoloadDialog';
 import { CargoPanel } from '@/editor/CargoPanel';
 import { ConflictDialog } from '@/editor/ConflictDialog';
+import { DisplaySettingsDialog } from '@/editor/DisplaySettingsDialog';
 import { EditorHeader } from '@/editor/EditorHeader';
 import { HelpDialog } from '@/editor/HelpDialog';
 import { PdfExportDialog } from '@/editor/PdfExportDialog';
@@ -58,7 +59,7 @@ export function EditorPage() {
       .then((record) => {
         if (cancelled) return;
         useStore.getState().openPlan(record.data);
-        useUi.setState({ drawerOpen: false, autoloadOpen: false, pdfOpen: false });
+        useUi.setState({ drawerOpen: false, autoloadOpen: false, pdfOpen: false, displayOpen: false });
         startSync(record);
         startThumbnails(record, () => void queryClient.invalidateQueries({ queryKey: planKeys.all }));
         setState({ status: 'ready' });
@@ -238,6 +239,7 @@ function EditorLayout() {
       <HelpDialog />
       <AutoloadDialog />
       <PdfExportDialog />
+      <DisplaySettingsDialog />
       <ConflictDialog />
       {TIERS_ENABLED && <UpgradeDialog />}
     </div>

@@ -15,11 +15,29 @@ import { DimensionLine } from './DimensionLine';
 import { boxEdges, disposeTree, fatMaterial, fatSegments } from './lines';
 import { COLORS } from './theme';
 
+/** Parts of the vehicles that can be hidden; the edges (frame) and the deck of the bodies always show. */
+export interface VehicleParts {
+  /** Translucent walls, roof and front wall of the bodies. */
+  walls: boolean;
+  /** Side posts and roof bows: the lines between the edges. */
+  posts: boolean;
+  /** Loading-metre marks across the floor, every metre from the front wall. */
+  floorMarks: boolean;
+  /** Cab, chassis, axles and wheels. */
+  chassis: boolean;
+}
+
+export const ALL_PARTS: VehicleParts = { walls: true, posts: true, floorMarks: true, chassis: true };
+
+/** Opacity of the translucent side walls and roof (the front wall is a little denser). */
+export const DEFAULT_WALL_OPACITY = 0.08;
+
 export interface VehicleViewOptions {
   units: Units;
   showDimensions: boolean;
-  /** Translucent walls, roof and side posts of the bodies (default true); the frame and floor marks always show. */
-  showWalls?: boolean;
+  /** Missing parts show (ALL_PARTS). */
+  parts?: Partial<VehicleParts>;
+  wallOpacity?: number;
   /** Highlighted name tag when there are several vehicles. */
   activeVehicleId?: string | null;
 }
@@ -121,8 +139,15 @@ export class VehicleView {
   onVehicleClick: ((id: string) => void) | null = null;
   private readonly dimensions = new THREE.Group();
   private readonly tags = new Map<string, HTMLElement>();
-  /** Translucent walls, roof and side posts of every body (the «Стенки кузова» setting). */
-  private readonly walls: THREE.Object3D[] = [];
+  /** Objects of each part that can be hidden (see {@link setParts}). */
+  private readonly partObjects: Record<keyof VehicleParts, THREE.Object3D[]> = {
+    walls: [],
+    posts: [],
+    floorMarks: [],
+    chassis: [],
+  };
+  /** While set, `add()` files the objects under this part. */
+  private part: keyof VehicleParts | null = null;
   /** Where `add()` puts objects: the root, or the group of the vehicle being built. */
   private parent: THREE.Object3D = this.root;
 
@@ -164,7 +189,7 @@ export class VehicleView {
     wall: new THREE.MeshStandardMaterial({
       color: COLORS.wall,
       transparent: true,
-      opacity: 0.08,
+      opacity: DEFAULT_WALL_OPACITY,
       depthWrite: false,
       side: THREE.DoubleSide,
       roughness: 0.4,
@@ -211,8 +236,10 @@ export class VehicleView {
       this.parent = group;
       const bodies = pv.bodies.map((pb) => ({ ...pb, box: shiftZ(pb.box, -pv.lane) }));
       for (const pb of bodies) this.buildBody(pb);
+      this.part = 'chassis';
       this.buildCouplings(bodies);
       this.buildCab(pv, bodies);
+      this.part = null;
       if (layout.vehicles.length > 1) this.buildTag(pv, bodies);
       this.parent = this.root;
     }
@@ -220,12 +247,21 @@ export class VehicleView {
     this.dimensions.visible = options.showDimensions;
     this.root.add(this.dimensions);
     this.setActive(options.activeVehicleId ?? null);
-    this.setWallsVisible(options.showWalls ?? true);
+    this.setParts({ ...ALL_PARTS, ...options.parts });
+    this.setWallOpacity(options.wallOpacity ?? DEFAULT_WALL_OPACITY);
   }
 
-  /** Shows or hides the translucent walls, roof and side posts; the frame stays. */
-  setWallsVisible(visible: boolean): void {
-    for (const obj of this.walls) obj.visible = visible;
+  /** Shows or hides parts of the vehicles; the frame and the deck of the bodies stay. */
+  setParts(parts: VehicleParts): void {
+    for (const key of Object.keys(this.partObjects) as Array<keyof VehicleParts>) {
+      for (const obj of this.partObjects[key]) obj.visible = parts[key];
+    }
+  }
+
+  /** Opacity of the translucent walls (the front wall is drawn denser, as before). */
+  setWallOpacity(opacity: number): void {
+    this.mats.wall.opacity = opacity;
+    this.mats.bulkhead.opacity = Math.min(1, opacity * 2.5);
   }
 
   /** Highlights the name tag of the active vehicle. */
@@ -255,7 +291,7 @@ export class VehicleView {
 
   private clear(): void {
     this.tags.clear();
-    this.walls.length = 0;
+    for (const list of Object.values(this.partObjects)) list.length = 0;
     for (const child of [...this.root.children]) {
       disposeTree(child);
       this.root.remove(child);
@@ -272,6 +308,7 @@ export class VehicleView {
       }
     });
     this.parent.add(obj);
+    if (this.part) this.partObjects[this.part].push(obj);
     return obj;
   }
 
@@ -373,7 +410,7 @@ export class VehicleView {
     this.add(this.box([L, 10, W + 6], this.mats.floor, [cx, -5, 0]), { receive: true });
     const marks: number[] = [];
     for (let x = max.x - 100; x > min.x + 1; x -= 100) marks.push(x, 0.2, min.z, x, 0.2, max.z);
-    this.add(this.lines(marks, this.mats.floorLines));
+    this.partObjects.floorMarks.push(this.add(this.lines(marks, this.mats.floorLines)));
 
     // Translucent walls, pushed out a little to avoid z-fighting with cargo touching them.
     const o = 0.6;
@@ -387,9 +424,9 @@ export class VehicleView {
     const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), this.mats.bulkhead);
     front.rotation.y = Math.PI / 2;
     front.position.set(max.x + o, H / 2, 0);
-    this.walls.push(this.add(new THREE.Group().add(left, right, roof, front)));
+    this.partObjects.walls.push(this.add(new THREE.Group().add(left, right, roof, front)));
 
-    // Frame (always) and side posts (with the walls).
+    // Frame (always) and side posts.
     this.add(fatSegments(boxEdges(min, max), this.frameMaterial));
     const posts: number[] = [];
     const count = Math.max(1, Math.round(L / 120));
@@ -397,9 +434,10 @@ export class VehicleView {
       const x = min.x + (L * i) / count;
       posts.push(x, 0, min.z, x, H, min.z, x, 0, max.z, x, H, max.z, x, H, min.z, x, H, max.z);
     }
-    this.walls.push(this.add(this.lines(posts, this.mats.posts)));
+    this.partObjects.posts.push(this.add(this.lines(posts, this.mats.posts)));
 
     // Chassis, axles and wheels.
+    this.part = 'chassis';
     this.add(this.box([L - 60, 26, W - 90], this.mats.chassis, [cx, -23, 0]), { cast: true });
     const halfTrack = W / 2 - 28;
     const rear =
@@ -453,6 +491,7 @@ export class VehicleView {
       });
       this.add(this.box([3, 12, 34], this.mats.tailLight, [min.x - 1, -23, side * (W / 2 - 26)]));
     }
+    this.part = null;
 
     const tag = new CSS2DObject(Object.assign(document.createElement('div'), { className: 'body-tag', textContent: body.name }));
     tag.position.set(max.x - 40, H + 6, min.z);

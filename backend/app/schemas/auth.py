@@ -171,6 +171,13 @@ class DisplaySettingsIn(ApiModel):
     show_dimensions: bool | None = None
     show_labels: bool | None = None
     show_body_walls: bool | None = None
+    # src/store/useStore.ts WALL_OPACITY_RANGE.
+    wall_opacity: Annotated[float, Field(ge=0.03, le=0.4)] | None = None
+    show_body_posts: bool | None = None
+    show_floor_marks: bool | None = None
+    show_chassis: bool | None = None
+    show_load_length: bool | None = None
+    show_shadows: bool | None = None
     lock_cargo: bool | None = None
     snapping: bool | None = None
     resize_handles: bool | None = None

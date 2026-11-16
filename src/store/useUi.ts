@@ -15,6 +15,8 @@ interface UiState {
   addFormCollapsed: boolean;
   autoloadOpen: boolean;
   pdfOpen: boolean;
+  /** The «Настройки отображения» dialog. */
+  displayOpen: boolean;
   pdfOptions: PdfPreferences;
   setHelpOpen(open: boolean): void;
   setPanelHidden(hidden: boolean): void;
@@ -23,6 +25,7 @@ interface UiState {
   setAddFormCollapsed(collapsed: boolean): void;
   setAutoloadOpen(open: boolean): void;
   setPdfOpen(open: boolean): void;
+  setDisplayOpen(open: boolean): void;
   setPdfOptions(patch: Partial<PdfPreferences>): void;
 }
 
@@ -36,6 +39,7 @@ export const useUi = create<UiState>()((set) => ({
   addFormCollapsed: false,
   autoloadOpen: false,
   pdfOpen: false,
+  displayOpen: false,
   pdfOptions: { orientation: 'landscape', mode: 'overview', direction: 'rear', projection: 'orthographic' },
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setPanelHidden: (panelHidden) => set({ panelHidden }),
@@ -44,5 +48,6 @@ export const useUi = create<UiState>()((set) => ({
   setAddFormCollapsed: (addFormCollapsed) => set({ addFormCollapsed }),
   setAutoloadOpen: (autoloadOpen) => set({ autoloadOpen }),
   setPdfOpen: (pdfOpen) => set({ pdfOpen }),
+  setDisplayOpen: (displayOpen) => set({ displayOpen }),
   setPdfOptions: (patch) => set((s) => ({ pdfOptions: { ...s.pdfOptions, ...patch } })),
 }));
