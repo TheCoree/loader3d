@@ -71,6 +71,11 @@ class User(Base):
     verify_code_expires_at: Mapped[datetime | None]
     verify_code_sent_at: Mapped[datetime | None]
     verify_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+    # A pending code for resetting a forgotten password, the same way (app/verification.py).
+    reset_code_hash: Mapped[str | None] = mapped_column(String(64))
+    reset_code_expires_at: Mapped[datetime | None]
+    reset_code_sent_at: Mapped[datetime | None]
+    reset_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
 
     # Subscription (app/tiers.py): "free", "pro" or "custom" (by contract, set by an admin).
     # A paid tier past `tier_expires_at` works as "free" until it is renewed; null — no end date.

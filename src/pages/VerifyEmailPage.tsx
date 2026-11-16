@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 import { AuthShell } from './AuthPage';
 
-const CODE_LENGTH = 6;
+export const CODE_LENGTH = 6;
 /** The server lets a new code be requested once a minute; registration has just sent the first one. */
 const RESEND_SECONDS = 60;
 
@@ -108,29 +108,7 @@ export function VerifyEmailPage() {
             if (code.length === CODE_LENGTH) void verify(code);
           }}
         >
-          <InputOTP
-            maxLength={CODE_LENGTH}
-            pattern={REGEXP_ONLY_DIGITS}
-            value={code}
-            onChange={setCode}
-            onComplete={(value: string) => void verify(value)}
-            disabled={pending}
-            autoFocus
-            autoComplete="one-time-code"
-            inputMode="numeric"
-            aria-label="Код из письма"
-            containerClassName="justify-between"
-          >
-            <InputOTPGroup className="w-full justify-between gap-2 *:data-[slot=input-otp-slot]:rounded-xl *:data-[slot=input-otp-slot]:border-l">
-              {Array.from({ length: CODE_LENGTH }, (_, i) => (
-                <InputOTPSlot
-                  key={i}
-                  index={i}
-                  className="size-13 border-transparent bg-[#f4f4f6] font-display text-2xl font-medium data-[active=true]:border-ink/20 data-[active=true]:bg-white data-[active=true]:ring-4 data-[active=true]:ring-ink/[0.05]"
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+          <CodeInput value={code} onChange={setCode} onComplete={(value) => void verify(value)} disabled={pending} />
 
           <Button
             type="submit"
@@ -167,5 +145,46 @@ export function VerifyEmailPage() {
         </p>
       </div>
     </AuthShell>
+  );
+}
+
+/** Six big cells for a code from an email (also on the password reset page). */
+export function CodeInput({
+  value,
+  onChange,
+  onComplete,
+  disabled,
+  autoFocus = true,
+}: {
+  value: string;
+  onChange(value: string): void;
+  onComplete?(value: string): void;
+  disabled?: boolean;
+  autoFocus?: boolean;
+}) {
+  return (
+    <InputOTP
+      maxLength={CODE_LENGTH}
+      pattern={REGEXP_ONLY_DIGITS}
+      value={value}
+      onChange={onChange}
+      onComplete={onComplete}
+      disabled={disabled}
+      autoFocus={autoFocus}
+      autoComplete="one-time-code"
+      inputMode="numeric"
+      aria-label="Код из письма"
+      containerClassName="justify-between"
+    >
+      <InputOTPGroup className="w-full justify-between gap-2 *:data-[slot=input-otp-slot]:rounded-xl *:data-[slot=input-otp-slot]:border-l">
+        {Array.from({ length: CODE_LENGTH }, (_, i) => (
+          <InputOTPSlot
+            key={i}
+            index={i}
+            className="size-13 border-transparent bg-[#f4f4f6] font-display text-2xl font-medium data-[active=true]:border-ink/20 data-[active=true]:bg-white data-[active=true]:ring-4 data-[active=true]:ring-ink/[0.05]"
+          />
+        ))}
+      </InputOTPGroup>
+    </InputOTP>
   );
 }

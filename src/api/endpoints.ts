@@ -36,6 +36,12 @@ export const authApi = {
   revokeOtherSessions: () => api<void>('/auth/sessions', { method: 'DELETE' }),
   verifyEmail: (code: string) => api<User>('/auth/verify-email', { method: 'POST', body: { code } }),
   resendVerification: () => api<{ retryAfter: number }>('/auth/verify-email/resend', { method: 'POST' }),
+  /** Emails a reset code; the answer is the same whether or not the account exists. */
+  forgotPassword: (email: string) =>
+    api<{ retryAfter: number }>('/auth/password/forgot', { method: 'POST', body: { email }, auth: false }),
+  /** New password with the code: every other session ends, this one logs in. */
+  resetPassword: (email: string, code: string, password: string) =>
+    api<AuthResponse>('/auth/password/reset', { method: 'POST', body: { email, code, password }, auth: false }),
 };
 
 export const userApi = {

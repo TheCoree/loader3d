@@ -10,7 +10,7 @@ import { useStore, type Theme } from '@/store/useStore';
  */
 
 /** Pages that are designed light-only. */
-const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/verify-email'];
+const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/reset-password', '/verify-email'];
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 

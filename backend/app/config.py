@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     mail_backend: Literal["console"] = "console"
     # Subscription tiers (app/tiers.py). Off: no limits, and neither the API nor the site mention tiers.
     tiers_enabled: bool = False
+    # Addresses of the reverse proxy whose X-Forwarded-For is trusted for the client's IP (rate limits,
+    # the sessions list). Compose sets "*": the api is reachable only through Caddy there.
+    forwarded_allow_ips: str = "127.0.0.1"
     # Comma-separated origins allowed to call the API cross-origin.
     # Empty: same-origin only, which is how Caddy (production) and the Vite proxy (development) serve it.
     cors_origins: Annotated[list[str], NoDecode] = []

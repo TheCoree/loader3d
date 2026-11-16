@@ -6,6 +6,7 @@ import { AuthPage } from './pages/AuthPage';
 import { HomePage } from './pages/HomePage';
 import { LandingRoute } from './pages/LandingPage';
 import { LegalPage } from './pages/LegalPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { TIERS_ENABLED } from './lib/tiers';
 
@@ -23,6 +24,7 @@ export function App() {
       <Route path="/privacy" element={<LegalPage doc="privacy" />} />
       <Route path="/login" element={<PublicOnly><AuthPage mode="login" /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><AuthPage mode="register" /></PublicOnly>} />
+      <Route path="/reset-password" element={<PublicOnly><ResetPasswordPage /></PublicOnly>} />
       <Route path="/verify-email" element={<RequireAuth unverified><VerifyEmailPage /></RequireAuth>} />
       <Route path="/plans" element={<RequireAuth><HomePage /></RequireAuth>} />
       <Route

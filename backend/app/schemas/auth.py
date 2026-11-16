@@ -16,6 +16,8 @@ LoginEmail = Annotated[
 ]
 NewPassword = Annotated[str, StringConstraints(min_length=8, max_length=128)]
 Password = Annotated[str, StringConstraints(min_length=1, max_length=128)]
+# A one-time code from an email (app/verification.py).
+Code = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{6}$")]
 DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
@@ -28,7 +30,7 @@ class RegisterIn(ApiModel):
 
 
 class VerifyEmailIn(ApiModel):
-    code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{6}$")]
+    code: Code
 
 
 class VerifyResendOut(ApiModel):
@@ -39,6 +41,21 @@ class VerifyResendOut(ApiModel):
 class LoginIn(ApiModel):
     email: LoginEmail
     password: Password
+
+
+class ForgotPasswordIn(ApiModel):
+    email: LoginEmail
+
+
+class ForgotPasswordOut(ApiModel):
+    # Seconds until another code may be requested.
+    retry_after: int
+
+
+class ResetPasswordIn(ApiModel):
+    email: LoginEmail
+    code: Code
+    password: NewPassword
 
 
 class LimitsOut(ApiModel):

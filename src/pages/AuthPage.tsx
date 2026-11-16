@@ -34,10 +34,10 @@ const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = 
 };
 
 /** Filled fields of the public pages: grey at rest, white with a soft ring in focus. */
-const fieldClass =
+export const fieldClass =
   'h-12 rounded-xl border-transparent bg-[#f4f4f6] px-4 text-[15px] md:text-[15px] placeholder:text-ink/35 focus-visible:border-ink/20 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-ink/[0.05]';
 const docLink = 'text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink';
-const groupClass =
+export const groupClass =
   'h-12 rounded-xl border-transparent bg-[#f4f4f6] has-[[data-slot=input-group-control]:focus-visible]:border-ink/20 has-[[data-slot=input-group-control]:focus-visible]:bg-white has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-ink/[0.05]';
 
 export function AuthPage({ mode }: { mode: Mode }) {
@@ -130,7 +130,18 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </Field>
 
           <Field data-invalid={!!fieldErrors.password}>
-            <FieldLabel htmlFor="password">Пароль</FieldLabel>
+            <div className="flex items-baseline justify-between gap-3">
+              <FieldLabel htmlFor="password">Пароль</FieldLabel>
+              {mode === 'login' && (
+                <Link
+                  to="/reset-password"
+                  state={{ ...(location.state as object | null), email: email.trim() }}
+                  className="text-[13px] text-ink/50 transition-colors hover:text-ink"
+                >
+                  Забыли пароль?
+                </Link>
+              )}
+            </div>
             <InputGroup className={groupClass}>
               <InputGroupInput
                 id="password"

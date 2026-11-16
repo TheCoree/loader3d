@@ -13,3 +13,9 @@ async def send_verification_code(settings: Settings, email: str, code: str) -> N
         # print: uvicorn does not configure the root logger, and the code must be visible in development.
         print(f"[mail] Verification code for {email}: {code}", flush=True)
         logger.info("verification code sent to %s", email)
+
+
+async def send_password_reset_code(settings: Settings, email: str, code: str) -> None:
+    if settings.mail_backend == "console":
+        print(f"[mail] Password reset code for {email}: {code}", flush=True)
+        logger.info("password reset code sent to %s", email)
