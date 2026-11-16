@@ -34,6 +34,14 @@ export const authApi = {
   sessions: () => api<SessionInfo[]>('/auth/sessions'),
   revokeSession: (id: string) => api<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
   revokeOtherSessions: () => api<void>('/auth/sessions', { method: 'DELETE' }),
+  verifyEmail: (code: string) => api<User>('/auth/verify-email', { method: 'POST', body: { code } }),
+  resendVerification: () => api<{ retryAfter: number }>('/auth/verify-email/resend', { method: 'POST' }),
+  /** Emails a reset code; the answer is the same whether or not the account exists. */
+  forgotPassword: (email: string) =>
+    api<{ retryAfter: number }>('/auth/password/forgot', { method: 'POST', body: { email }, auth: false }),
+  /** New password with the code: every other session ends, this one logs in. */
+  resetPassword: (email: string, code: string, password: string) =>
+    api<AuthResponse>('/auth/password/reset', { method: 'POST', body: { email, code, password }, auth: false }),
 };
 
 export const userApi = {
@@ -65,6 +73,11 @@ export const planApi = {
   duplicate: (id: string, name?: string) =>
     api<PlanRecord>(`/plans/${id}/duplicate`, { method: 'POST', body: { name } }),
   remove: (id: string) => api<void>(`/plans/${id}`, { method: 'DELETE' }),
+  /** The preview picture rendered by the editor (lib/planThumbnail.ts); not an edit, the version stays. */
+  putThumbnail: (id: string, image: Blob) =>
+    api<{ thumbnailAt: string }>(`/plans/${id}/thumbnail`, { method: 'PUT', body: image }),
+  thumbnail: (id: string, thumbnailAt: string, signal?: AbortSignal) =>
+    api<Blob>(`/plans/${id}/thumbnail`, { query: { v: thumbnailAt }, responseType: 'blob', signal }),
 };
 
 /** Public: works with or without a login (a logged-in user is linked to the request). */

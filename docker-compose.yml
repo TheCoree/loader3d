@@ -54,6 +54,10 @@ services:
       ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-15}
       REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
       REGISTRATION_OPEN: ${REGISTRATION_OPEN:-true}
+      EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-true}
+      MAIL_BACKEND: ${MAIL_BACKEND:-console}
+      # The api is reachable only from the compose network (through Caddy), so its X-Forwarded-For is trusted.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
       TIERS_ENABLED: ${TIERS_ENABLED:-false}
     depends_on:
       db:

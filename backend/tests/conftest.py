@@ -11,10 +11,10 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import update
 
+from app import ratelimit
 from app.config import Settings
 from app.main import create_app
 from app.models import Base, User
-from app.routers import leads
 
 TEST_JWT_SECRET = "test-secret-0123456789abcdef0123456789abcdef"
 PASSWORD = "correct horse battery"
@@ -26,6 +26,8 @@ def make_settings(tmp_path: Path, **overrides: Any) -> Settings:
         "database_url": url,
         "jwt_secret": TEST_JWT_SECRET,
         "environment": "development",
+        # Most tests do not care about it; tests/test_email_verification.py turns it on.
+        "email_verification": False,
     }
     return Settings(_env_file=None, **(values | overrides))  # type: ignore[call-arg]
 
@@ -96,8 +98,8 @@ def error_code(response: httpx.Response) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _reset_lead_rate_limit():
-    leads._recent.clear()
+def _reset_rate_limits():
+    ratelimit.clear_all()
 
 
 async def make_admin(app: FastAPI, email: str = "anna@example.com") -> None:

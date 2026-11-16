@@ -123,8 +123,31 @@ async def test_display_settings_follow_the_account(client, make_client: ClientFa
 
 async def test_display_settings_are_validated(client):
     await register(client)
-    for bad in ({"units": "inch"}, {"xrayOpacity": 2}, {"unknownSetting": True}, {"snapping": "maybe"}):
+    for bad in (
+        {"units": "inch"},
+        {"xrayOpacity": 2},
+        {"wallOpacity": 0.9},
+        {"unknownSetting": True},
+        {"snapping": "maybe"},
+    ):
         assert (await client.patch("/api/users/me/settings", json=bad)).status_code == 422
+
+
+async def test_display_modes_are_saved(client):
+    """The «Только рёбра» preset and the finer display options (src/editor/displayPresets.ts)."""
+    await register(client)
+    body = {
+        "showBodyWalls": False,
+        "showBodyPosts": False,
+        "showFloorMarks": False,
+        "showChassis": False,
+        "showShadows": False,
+        "showLoadLength": False,
+        "wallOpacity": 0.2,
+    }
+    saved = await client.patch("/api/users/me/settings", json=body)
+    assert saved.status_code == 200, saved.text
+    assert saved.json() == body
 
 
 async def test_lead_from_the_landing_page(client):

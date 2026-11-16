@@ -33,6 +33,8 @@ export interface User {
   displayName: string;
   createdAt: string;
   isAdmin: boolean;
+  /** false: the email is not confirmed yet — the app shows the code screen, plans are closed. */
+  emailVerified: boolean;
   /** Editor display settings as last saved; null — never changed. */
   settings: Record<string, unknown> | null;
   /** null when tiers are off (TIERS_ENABLED): nothing is limited. */
@@ -65,6 +67,8 @@ export interface PlanSummary {
   itemCount: number;
   createdAt: string;
   updatedAt: string;
+  /** When the preview picture was last replaced; null — none yet. */
+  thumbnailAt: string | null;
 }
 
 export interface PlanRecord extends PlanSummary {

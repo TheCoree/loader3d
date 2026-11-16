@@ -34,8 +34,16 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = Field(30, ge=1, le=365)
 
     registration_open: bool = True
+    # New accounts confirm their email with a 6-digit code before they can use plans (app/verification.py).
+    # Off: accounts count as confirmed right away.
+    email_verification: bool = True
+    # How the code is delivered. "console": written to the API log (until a mailbox for the domain exists).
+    mail_backend: Literal["console"] = "console"
     # Subscription tiers (app/tiers.py). Off: no limits, and neither the API nor the site mention tiers.
     tiers_enabled: bool = False
+    # Addresses of the reverse proxy whose X-Forwarded-For is trusted for the client's IP (rate limits,
+    # the sessions list). Compose sets "*": the api is reachable only through Caddy there.
+    forwarded_allow_ips: str = "127.0.0.1"
     # Comma-separated origins allowed to call the API cross-origin.
     # Empty: same-origin only, which is how Caddy (production) and the Vite proxy (development) serve it.
     cors_origins: Annotated[list[str], NoDecode] = []

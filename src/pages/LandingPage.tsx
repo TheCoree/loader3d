@@ -2,29 +2,24 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router';
 import {
   ArrowRight,
-  Boxes,
   Check,
-  Container,
-  Factory,
   FileText,
-  Gauge,
   Layers,
-  Magnet,
   Plus,
   Rotate3d,
   Route,
+  Scale,
   ScanEye,
-  ShieldCheck,
   TabletSmartphone,
-  Truck,
-  WandSparkles,
-  Warehouse,
+  type LucideIcon,
 } from 'lucide-react';
 import { LeadForm } from '@/components/LeadForm';
 import { Logo } from '@/components/Logo';
 import { SessionLoader } from '@/components/RouteGuards';
+import { SiteFooter } from '@/components/SiteFooter';
+import { DitherBackground, displayTitle, glassButton, inkButton, lineButton, whiteButton } from '@/components/site';
 import { Button } from '@/components/ui/button';
-import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, type TierInfo } from '@/lib/tiers';
+import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, tierInfo, type TierInfo } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
 import { useAuth, wasSignedIn } from '@/store/useAuth';
 
@@ -33,6 +28,8 @@ import { useAuth, wasSignedIn } from '@/store/useAuth';
  * engines, so it renders without a browser too: no window access while rendering). A logged-in user
  * goes on to their plans; `/pricing` shows the same page at the tariffs, without the redirect.
  * With TIERS_ENABLED off the page says nothing about tariffs.
+ *
+ * The pictures in public/landing are screenshots of the real editor (a demo plan: euro truck, 51 places).
  */
 export function LandingRoute({ section }: { section?: 'pricing' }) {
   const status = useAuth((s) => s.status);
@@ -63,8 +60,8 @@ const ALL_FAQ: Array<{ q: string; a: string; tiers?: boolean }> = [
     a: 'Да. У каждого груза есть вес, у кузова — грузоподъёмность. Статистика показывает массу, LDM, заполнение и центр тяжести, а автозагрузка не превышает грузоподъёмность и ставит лёгкое на тяжёлое только с полной опорой.',
   },
   {
-    q: 'Что будет после пробного периода «Профи»?',
-    a: `Через ${TRIAL_DAYS} дней аккаунт перейдёт на бесплатный тариф «Старт», все схемы сохранятся. Подключить «Профи» можно в любой момент — без автоматических списаний.`,
+    q: 'Что будет после пробного периода «Pro»?',
+    a: `Через ${TRIAL_DAYS} дней аккаунт перейдёт на бесплатный тариф «Старт», все схемы сохранятся. Подключить «Pro» можно в любой момент — без автоматических списаний.`,
     tiers: true,
   },
   {
@@ -81,56 +78,31 @@ const ALL_FAQ: Array<{ q: string; a: string; tiers?: boolean }> = [
 
 export const FAQ = ALL_FAQ.filter((f) => f.tiers === undefined || f.tiers === TIERS_ENABLED).map(({ q, a }) => ({ q, a }));
 
-const AUDIENCE = [
-  { icon: Route, label: 'Экспедиторам' },
-  { icon: Warehouse, label: 'Складам и 3PL' },
-  { icon: Truck, label: 'Перевозчикам' },
-  { icon: Factory, label: 'Производителям' },
-  { icon: Container, label: 'Отделам ВЭД' },
-];
+const AUDIENCE = ['экспедиторов', 'складов и 3PL', 'перевозчиков', 'производителей', 'отделов ВЭД'];
 
-const BENEFITS = [
+const BENEFITS: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
+    icon: Route,
     title: 'Меньше рейсов',
     text: 'Сразу видно, сколько на самом деле помещается в кузов. Машина не уезжает полупустой, а груз не остаётся на складе.',
   },
   {
+    icon: Scale,
     title: 'Без перегруза',
     text: 'Вес, грузоподъёмность и центр тяжести под контролем ещё до погрузки — а не на весах и не в дороге.',
   },
   {
+    icon: FileText,
     title: 'Понятно складу и водителю',
     text: 'PDF со схемой, списком мест и порядком погрузки вместо устных указаний и рисунков от руки.',
   },
 ];
 
-const FEATURES: Array<{ icon: typeof Boxes; title: string; text: string; wide?: boolean }> = [
-  {
-    icon: Magnet,
-    title: 'Раскладка руками, как в жизни',
-    text: 'Тяните груз мышью или пальцем: он встаёт на пол или на другой груз, не висит и не проходит сквозь соседей, прилипает к стенкам и граням. Стопка едет целиком, под «мостик» из грузов можно подсунуть то, что туда влезает.',
-    wide: true,
-  },
-  {
-    icon: WandSparkles,
-    title: 'Автозагрузка',
-    text: 'Тяжёлое — на пол и ближе к середине, лёгкое — сверху. С предпросмотром и одной кнопкой отмены.',
-  },
-  {
-    icon: Gauge,
-    title: 'LDM, вес и центр тяжести',
-    text: 'Погрузочные метры, заполнение по объёму, масса и ЦТ — пересчитываются на лету.',
-  },
+const SMALL_FEATURES: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
     icon: Layers,
     title: 'Несколько машин и сцепки',
     text: 'До 10 машин в одной схеме: перекладывайте груз между ними, общий или отдельный док.',
-  },
-  {
-    icon: FileText,
-    title: 'PDF для водителя и склада',
-    text: 'Виды сверху и сбоку с номерами мест, итог по кузову и пошаговая инструкция погрузки.',
-    wide: true,
   },
   {
     icon: ScanEye,
@@ -140,37 +112,61 @@ const FEATURES: Array<{ icon: typeof Boxes; title: string; text: string; wide?: 
   {
     icon: Rotate3d,
     title: 'Кантование',
-    text: 'Шесть положений груза: на бок, на торец, поворот по вертикали. Физика честно учитывает новую высоту.',
-    wide: true,
+    text: 'Шесть положений груза: на бок, на торец, поворот. Физика честно учитывает новую высоту.',
   },
   {
     icon: TabletSmartphone,
     title: 'На планшете у рампы',
-    text: 'Интерфейс для пальцев: проверяйте и правьте схему прямо на складе, изменения сохраняются сами.',
-    wide: true,
+    text: 'Интерфейс для пальцев: правьте схему прямо на складе, изменения сохраняются сами.',
   },
+];
+
+/** The numbers of the demo plan in the screenshots. */
+const METRICS = [
+  { label: 'LDM', value: '13,4', unit: 'м' },
+  { label: 'Масса', value: '18', unit: 'из 20 т' },
+  { label: 'Заполнение', value: '53', unit: '%' },
+  { label: 'Центр тяжести', value: '50', unit: '% длины' },
 ];
 
 const STEPS = [
   {
     title: 'Выберите транспорт',
     text: 'Еврофура, мега, реф, сцепка, контейнер — или свои размеры кузова и грузоподъёмность.',
+    image: {
+      src: '/landing/transport.webp',
+      width: 640,
+      height: 450,
+      alt: 'Панель «Транспорт»: размеры кузова и грузоподъёмность',
+    },
   },
   {
     title: 'Добавьте грузы',
     text: 'Типовые паллеты и IBC в один клик или свои места: размеры, вес, количество.',
+    image: {
+      src: '/landing/cargo.webp',
+      width: 716,
+      height: 839,
+      alt: 'Форма «Новый груз»: типовые грузы, размеры, вес и количество',
+    },
   },
   {
     title: 'Разложите и отправьте',
     text: 'Вручную или автозагрузкой. Схема сохраняется сама, PDF — в один клик.',
+    image: {
+      src: '/landing/pdf.webp',
+      width: 896,
+      height: 1056,
+      alt: 'Диалог «Экспорт в PDF»: имя файла, ориентация, режим экспорта и тип камеры',
+    },
   },
 ];
 
 const FACTS = [
   { value: '6', label: 'положений груза' },
-  { value: 'до 10', label: 'машин в схеме' },
+  { value: '10', label: 'машин в одной схеме' },
   { value: '5000', label: 'грузов в схеме' },
-  { value: '1 клик', label: 'до PDF-схемы' },
+  { value: '1 клик', label: 'до PDF для водителя' },
 ];
 
 export function LandingPage({ section }: { section?: 'pricing' }) {
@@ -181,11 +177,10 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
   }, [hash, section]);
 
   return (
-    <div className="min-h-dvh bg-white text-[#0b1220]">
+    <div className="min-h-dvh bg-ink text-ink antialiased selection:bg-primary/25">
       <LandingHeader />
       <main>
         <Hero />
-        <Audience />
         <Benefits />
         <Features />
         <Steps />
@@ -194,30 +189,75 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
         <Contact />
         <FinalCta />
       </main>
-      <Footer />
+      <SiteFooter />
     </div>
   );
 }
 
 // ------------------------------------------------------------------ building blocks
 
-function Container_({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('mx-auto w-full max-w-6xl px-5 sm:px-8', className)}>{children}</div>;
+function Container({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('mx-auto w-full max-w-[1200px] px-5 sm:px-8', className)}>{children}</div>;
 }
 
-function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
+function SectionHeader({
+  title,
+  text,
+  center,
+  dark,
+  className,
+}: {
+  title: ReactNode;
+  text?: ReactNode;
+  center?: boolean;
+  dark?: boolean;
+  className?: string;
+}) {
   return (
-    <p className={cn('text-[13px] font-semibold tracking-[0.14em] text-primary uppercase', className)}>{children}</p>
+    <div className={cn('max-w-3xl', center && 'mx-auto text-center', className)}>
+      <h2 className={cn(displayTitle, 'text-[1.85rem] leading-[1.06] sm:text-[2.6rem] lg:text-[3rem]')}>{title}</h2>
+      {text && (
+        <p
+          className={cn(
+            'mt-5 text-lg leading-relaxed text-pretty sm:text-xl',
+            dark ? 'text-white/55' : 'text-ink/55',
+            center && 'mx-auto max-w-2xl',
+          )}
+        >
+          {text}
+        </p>
+      )}
+    </div>
   );
 }
 
-function SectionTitle({ eyebrow, title, text, center }: { eyebrow: string; title: ReactNode; text?: ReactNode; center?: boolean }) {
+/** A screenshot of the editor; below the fold it loads lazily. */
+function Shot({
+  src,
+  width,
+  height,
+  alt,
+  className,
+  eager,
+}: {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+  className?: string;
+  eager?: boolean;
+}) {
   return (
-    <div className={cn('max-w-2xl', center && 'mx-auto text-center')}>
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3 text-3xl leading-[1.1] font-semibold tracking-[-0.025em] text-balance sm:text-[2.6rem]">{title}</h2>
-      {text && <p className="mt-4 text-lg leading-relaxed text-pretty text-[#4a5568]">{text}</p>}
-    </div>
+    <img
+      src={src}
+      width={width}
+      height={height}
+      alt={alt}
+      loading={eager ? undefined : 'lazy'}
+      fetchPriority={eager ? 'high' : undefined}
+      decoding="async"
+      className={cn('block h-auto', className)}
+    />
   );
 }
 
@@ -226,245 +266,334 @@ const NAV = [
   { href: '#how', label: 'Как это работает' },
   ...(TIERS_ENABLED ? [{ href: '#pricing', label: 'Тарифы' }] : []),
   { href: '#faq', label: 'Вопросы' },
+  { href: '#contact', label: 'Контакты' },
 ];
 
 function LandingHeader() {
   const user = useAuth((s) => s.user);
   return (
-    <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-white/75 backdrop-blur-xl">
-      <Container_ className="flex h-16 items-center gap-6">
+    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-ink/90 text-white backdrop-blur-xl backdrop-saturate-150">
+      <Container className="flex h-16 items-center gap-6">
         <Logo />
-        <nav aria-label="Разделы" className="hidden flex-1 items-center justify-center gap-7 text-sm text-[#4a5568] md:flex">
+        <nav aria-label="Разделы" className="hidden flex-1 items-center justify-center gap-8 text-sm text-white/60 md:flex">
           {NAV.map((n) => (
-            <a key={n.href} href={n.href} className="transition-colors hover:text-[#0b1220]">
+            <a key={n.href} href={n.href} className="transition-colors hover:text-white">
               {n.label}
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2 md:ml-0">
+        <div className="ml-auto flex items-center gap-1 md:ml-0">
           {user ? (
-            <Button asChild className="rounded-full px-4">
+            <Button asChild className={cn(whiteButton, 'h-9 px-4 text-sm')}>
               <Link to="/plans">
                 Мои схемы <ArrowRight />
               </Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost" className="rounded-full">
+              <Button
+                asChild
+                variant="ghost"
+                className="h-9 rounded-full px-3.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+              >
                 <Link to="/login">Войти</Link>
               </Button>
-              <Button asChild className="rounded-full px-4">
+              <Button asChild className={cn(whiteButton, 'h-9 px-4 text-sm')}>
                 <Link to="/register">Начать бесплатно</Link>
               </Button>
             </>
           )}
         </div>
-      </Container_>
+      </Container>
     </header>
   );
 }
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      {/* Blueprint grid fading out from the top. */}
+    <section className="relative isolate overflow-hidden bg-ink text-white">
+      <DitherBackground className="-z-10" />
+      {/* Keeps the headline readable over the waves. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            'linear-gradient(to right, rgba(47,111,237,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(47,111,237,0.07) 1px, transparent 1px)',
-          backgroundSize: '56px 56px',
-          maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%)',
-        }}
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_50%_at_50%_30%,rgba(10,11,13,0.9)_0%,rgba(10,11,13,0.6)_55%,rgba(10,11,13,0)_100%)]"
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(47,111,237,0.18),transparent)] blur-2xl"
-      />
-      <Container_ className="relative pt-16 pb-10 text-center sm:pt-24">
-        <div className="landing-rise mx-auto inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-[#334155] shadow-sm">
-          <span className="size-1.5 rounded-full bg-primary" />
+      <Container className="pt-20 text-center sm:pt-28 lg:pt-32">
+        <p className="landing-rise mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[13px] text-white/70 backdrop-blur">
+          <span className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_2px_rgba(47,111,237,0.7)]" />
           3D-планировщик загрузки фуры и контейнера
-        </div>
-        <h1 className="landing-rise mx-auto mt-6 max-w-5xl text-[2.6rem] leading-[1.04] font-semibold tracking-[-0.035em] text-balance [animation-delay:60ms] sm:text-6xl lg:text-[4.1rem]">
-          Загрузите фуру в 3D <span className="text-primary lg:block">до того, как приедет машина</span>
-        </h1>
-        <p className="landing-rise mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty text-[#4a5568] [animation-delay:120ms] sm:text-xl">
-          Раскладывайте паллеты и коробки по кузову с физикой и магнитами, следите за LDM, весом и центром тяжести и
-          отдавайте водителю PDF-схему погрузки. В браузере, без установки.
         </p>
-        <div className="landing-rise mt-9 flex flex-col items-center justify-center gap-3 [animation-delay:180ms] sm:flex-row">
-          <Button asChild size="lg" className="h-12 rounded-full px-7 text-base shadow-lg shadow-primary/25">
+        <h1
+          className={cn(
+            displayTitle,
+            'landing-rise mx-auto mt-7 max-w-4xl text-[2.3rem] leading-[1.05] tracking-[-0.022em] [animation-delay:60ms] sm:text-[3.25rem] lg:text-[4.5rem]',
+          )}
+        >
+          Загрузите фуру в 3D до того, как приедет машина
+        </h1>
+        <p className="landing-rise mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty text-white/60 [animation-delay:120ms] sm:text-xl">
+          Раскладывайте паллеты и коробки по кузову с физикой и магнитами, следите за LDM, весом и центром тяжести и отдавайте
+          водителю PDF-схему погрузки. В браузере, без установки.
+        </p>
+        <div className="landing-rise mt-10 flex flex-col items-center justify-center gap-3 [animation-delay:180ms] sm:flex-row">
+          <Button asChild size="lg" className={cn(whiteButton, 'h-12 px-7 text-base')}>
             <Link to="/register">
               Начать бесплатно <ArrowRight />
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className="h-12 rounded-full bg-white px-7 text-base">
+          <Button asChild size="lg" variant="outline" className={cn(glassButton, 'h-12 px-7 text-base')}>
             {TIERS_ENABLED ? <a href="#pricing">Тарифы</a> : <a href="#features">Возможности</a>}
           </Button>
         </div>
-        <p className="landing-rise mt-4 text-sm text-[#64748b] [animation-delay:220ms]">
+        <p className="landing-rise mt-5 text-sm text-white/40 [animation-delay:220ms]">
           {TIERS_ENABLED
-            ? `Бесплатный тариф навсегда · «Профи» ${TRIAL_DAYS} дней без оплаты · Без карты`
+            ? `Бесплатный тариф навсегда · «${tierInfo('pro').name}» ${TRIAL_DAYS} дней без оплаты · Без карты`
             : 'Без установки · В браузере и на планшете · Схемы сохраняются в аккаунте'}
         </p>
+      </Container>
 
-        <ProductShot />
-      </Container_>
-    </section>
-  );
-}
-
-function ProductShot() {
-  return (
-    <div className="landing-rise relative mx-auto mt-14 max-w-5xl [animation-delay:280ms] sm:mt-16">
-      <div className="rounded-[22px] border border-black/[0.08] bg-white/70 p-1.5 shadow-[0_30px_80px_-20px_rgba(15,35,80,0.35)] backdrop-blur sm:p-2">
-        <div className="overflow-hidden rounded-[16px] border border-black/[0.06] bg-[#e7ebf0]">
-          <div className="flex items-center gap-1.5 border-b border-black/[0.06] bg-white/80 px-4 py-2.5">
-            <span className="size-2.5 rounded-full bg-[#ff5f57]" />
-            <span className="size-2.5 rounded-full bg-[#febc2e]" />
-            <span className="size-2.5 rounded-full bg-[#28c840]" />
-            <span className="ml-3 truncate text-xs text-[#64748b]">Рейс Москва → Казань · Loader3D</span>
-          </div>
-          <img
-            src="/landing/hero.webp"
-            width={1600}
-            height={1000}
-            alt="Схема загрузки еврофуры в Loader3D: паллеты, IBC-кубы и коробки в кузове, док с грузами у задних дверей"
-            className="block h-auto w-full"
-            fetchPriority="high"
-          />
-        </div>
+      {/* The product: dark above its middle, white below — it bridges the hero and the page. */}
+      <div className="relative mt-16 sm:mt-20">
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-[38%] bg-white" />
+        <Container className="relative">
+          <figure className="landing-rise rounded-[20px] bg-white/[0.06] p-1.5 shadow-[0_40px_100px_-50px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur [animation-delay:280ms] sm:rounded-[24px] sm:p-2">
+            <Shot
+              eager
+              src="/landing/editor.webp"
+              width={2400}
+              height={1500}
+              alt="Редактор Loader3D: еврофура с 46 местами в кузове и 5 на доке, размеры кузова, список грузов и статистика — LDM, вес и центр тяжести"
+              className="w-full rounded-[14px] ring-1 ring-black/5 sm:rounded-[16px]"
+            />
+            <figcaption className="sr-only">Рабочее окно планировщика</figcaption>
+          </figure>
+        </Container>
       </div>
-      <FloatingStat className="top-[22%] -left-3 hidden sm:flex lg:-left-10" label="Погрузочные метры" value="LDM 12,8 м" />
-      <FloatingStat className="top-[52%] -right-3 hidden sm:flex lg:-right-10" label="Центр тяжести" value="В норме" ok />
-      <FloatingStat className="bottom-[10%] left-[8%] hidden md:flex" label="Вес груза" value="13,1 т из 20 т" />
-    </div>
-  );
-}
-
-function FloatingStat({ label, value, ok, className }: { label: string; value: string; ok?: boolean; className?: string }) {
-  return (
-    <div
-      className={cn(
-        'absolute items-center gap-3 rounded-2xl border border-black/[0.06] bg-white/90 px-4 py-3 text-left shadow-[0_12px_32px_-8px_rgba(15,35,80,0.25)] backdrop-blur-md',
-        className,
-      )}
-    >
-      <span className={cn('grid size-8 place-items-center rounded-full', ok ? 'bg-emerald-500/12 text-emerald-600' : 'bg-primary/10 text-primary')}>
-        {ok ? <ShieldCheck className="size-4" /> : <Gauge className="size-4" />}
-      </span>
-      <span>
-        <span className="block text-[11px] font-medium tracking-wide text-[#64748b] uppercase">{label}</span>
-        <span className="block text-sm font-semibold tabular-nums">{value}</span>
-      </span>
-    </div>
-  );
-}
-
-function Audience() {
-  return (
-    <section aria-label="Для кого" className="border-y border-black/[0.06] bg-[#fafbfd]">
-      <Container_ className="py-8 text-center">
-        <p className="text-xs font-semibold tracking-[0.14em] text-[#94a3b8] uppercase">Для тех, кто грузит каждый день</p>
-        <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-9 gap-y-3 text-[15px] font-medium text-[#475569]">
-          {AUDIENCE.map(({ icon: Icon, label }) => (
-            <li key={label} className="flex items-center gap-2">
-              <Icon className="size-4 text-primary" /> {label}
-            </li>
-          ))}
-        </ul>
-      </Container_>
+      <div className="bg-white">
+        <Container className="pt-12 pb-4 text-center sm:pt-16">
+          <p className="text-[15px] text-ink/45">
+            Для{' '}
+            {AUDIENCE.map((a, i) => (
+              <span key={a}>
+                <span className="text-ink/75">{a}</span>
+                {i < AUDIENCE.length - 2 ? ', ' : i === AUDIENCE.length - 2 ? ' и ' : ''}
+              </span>
+            ))}{' '}
+            — всех, кто грузит каждый день
+          </p>
+        </Container>
+      </div>
     </section>
   );
 }
 
 function Benefits() {
   return (
-    <section className="py-24 sm:py-28">
-      <Container_>
-        <SectionTitle
-          eyebrow="Зачем"
+    <section className="bg-white py-24 sm:py-32">
+      <Container>
+        <SectionHeader
           title="Схема загрузки — до рампы, а не на ней"
           text="Когда раскладку видно заранее, склад собирает груз в нужном порядке, а логист отправляет ровно столько машин, сколько нужно."
         />
-        <div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-black/[0.07] bg-black/[0.07] md:grid-cols-3">
-          {BENEFITS.map((b, i) => (
-            <div key={b.title} className="bg-white p-8">
-              <span className="text-sm font-semibold text-primary tabular-nums">0{i + 1}</span>
-              <h3 className="mt-4 text-xl font-semibold tracking-tight">{b.title}</h3>
-              <p className="mt-3 leading-relaxed text-[#4a5568]">{b.text}</p>
-            </div>
+        <div className="mt-14 grid gap-4 md:grid-cols-3">
+          {BENEFITS.map(({ icon: Icon, title, text }) => (
+            <article key={title} className="rounded-3xl border border-ink/[0.07] p-7 sm:p-8">
+              <span className="grid size-11 place-items-center rounded-2xl bg-ink/[0.04] text-ink">
+                <Icon className="size-5" strokeWidth={1.6} />
+              </span>
+              <h3 className="mt-10 font-display text-xl font-medium tracking-[-0.02em]">{title}</h3>
+              <p className="mt-2.5 leading-relaxed text-ink/55">{text}</p>
+            </article>
           ))}
         </div>
-      </Container_>
+      </Container>
     </section>
+  );
+}
+
+/** A card of the features grid: a title and a text, with a picture below. */
+function FeatureCard({
+  title,
+  text,
+  children,
+  className,
+}: {
+  title: string;
+  text: string;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <article className={cn('flex flex-col overflow-hidden rounded-3xl bg-white ring-1 ring-ink/[0.06]', className)}>
+      <div className="p-7 sm:p-9">
+        <h3 className="font-display text-[1.375rem] font-medium tracking-[-0.025em]">{title}</h3>
+        <p className="mt-2.5 max-w-md leading-relaxed text-ink/55">{text}</p>
+      </div>
+      {children}
+    </article>
   );
 }
 
 function Features() {
   return (
-    <section id="features" className="scroll-mt-16 bg-[#0b1220] py-24 text-white sm:py-28">
-      <Container_>
-        <div className="max-w-2xl">
-          <Eyebrow className="text-[#7aa7ff]">Возможности</Eyebrow>
-          <h2 className="mt-3 text-3xl leading-[1.1] font-semibold tracking-[-0.025em] text-balance sm:text-[2.6rem]">
-            Всё, что нужно для схемы загрузки, — в одном окне
-          </h2>
-          <p className="mt-4 text-lg leading-relaxed text-pretty text-white/60">
-            Не чертёж и не таблица: настоящая 3D-сцена, в которой груз ведёт себя как груз.
-          </p>
-        </div>
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map(({ icon: Icon, title, text, wide }) => (
-            <article
-              key={title}
-              className={cn(
-                'group rounded-3xl border border-white/[0.08] bg-white/[0.03] p-7 transition-colors hover:bg-white/[0.06]',
-                wide && 'lg:col-span-2',
-              )}
-            >
-              <span className="grid size-11 place-items-center rounded-2xl bg-primary/15 text-[#7aa7ff] ring-1 ring-primary/25">
-                <Icon className="size-5" />
-              </span>
-              <h3 className="mt-6 text-lg font-semibold tracking-tight">{title}</h3>
-              <p className="mt-2 leading-relaxed text-white/60">{text}</p>
+    <section id="features" className="scroll-mt-16 bg-[#f4f4f6] py-24 sm:py-32">
+      <Container>
+        <SectionHeader
+          title="Всё, что нужно для схемы загрузки, — в одном окне"
+          text="Не чертёж и не таблица: настоящая 3D-сцена, в которой груз ведёт себя как груз."
+        />
+        <div className="mt-14 grid gap-4 lg:grid-cols-12">
+          <FeatureCard
+            className="lg:col-span-7"
+            title="Раскладка руками, как в жизни"
+            text="Тяните груз мышью или пальцем: он встаёт на пол или на другой груз, не висит и не проходит сквозь соседей, прилипает к стенкам и граням."
+          >
+            <div className="mt-auto pl-7 sm:pl-9">
+              <Shot
+                src="/landing/scene.webp"
+                width={1752}
+                height={890}
+                alt="3D-сцена: полуприцеп с паллетами и размерными линиями, грузы на доке"
+                className="w-full rounded-tl-2xl ring-1 ring-ink/[0.06]"
+              />
+            </div>
+          </FeatureCard>
+          <FeatureCard
+            className="lg:col-span-5"
+            title="Автозагрузка"
+            text="Тяжёлое — на пол и ближе к середине, лёгкое — сверху. Сначала результат, потом решение: всё отменяется одной кнопкой."
+          >
+            <div className="mt-auto flex justify-center bg-gradient-to-b from-transparent to-[#eef0f4] px-7 pb-0 sm:px-10">
+              <Shot
+                src="/landing/autoload.webp"
+                width={1024}
+                height={954}
+                alt="Диалог автоматической загрузки: загрузим 46 из 46, центр тяжести — 50% длины"
+                className="w-full max-w-[400px] translate-y-3 rounded-2xl shadow-[0_24px_60px_-20px_rgba(10,11,13,0.35)] ring-1 ring-ink/[0.06]"
+              />
+            </div>
+          </FeatureCard>
+          <FeatureCard
+            className="lg:col-span-7"
+            title="PDF для водителя и склада"
+            text="Виды сбоку и сверху с номерами мест, итог по кузову и пошаговая инструкция погрузки."
+          >
+            <PdfPreview />
+          </FeatureCard>
+          <FeatureCard
+            className="lg:col-span-5"
+            title="LDM, вес и центр тяжести"
+            text="Погрузочные метры, заполнение, масса и центр тяжести пересчитываются на лету — при каждом движении груза."
+          >
+            <dl className="grid grid-cols-2 gap-2 px-7 sm:px-9">
+              {METRICS.map((m) => (
+                <div key={m.label} className="rounded-2xl bg-[#f4f4f6] px-4 py-3.5">
+                  <dt className="text-[13px] text-ink/50">{m.label}</dt>
+                  <dd className="mt-1 flex items-baseline gap-1.5 font-display text-2xl font-medium tracking-[-0.02em] tabular-nums">
+                    {m.value}
+                    <span className="text-sm font-normal tracking-normal text-ink/45">{m.unit}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-auto overflow-hidden pt-6 pb-9 pl-7 sm:pl-9">
+              <Shot
+                src="/landing/stats.webp"
+                width={1608}
+                height={201}
+                alt="Статистика кузова в редакторе: заполнение 53%, LDM 13,4 м, 18 т из 20 т, центр тяжести 50%"
+                className="w-[720px] max-w-none rounded-2xl shadow-[0_16px_40px_-18px_rgba(10,11,13,0.3)] ring-1 ring-ink/[0.06]"
+              />
+            </div>
+          </FeatureCard>
+          {SMALL_FEATURES.map(({ icon: Icon, title, text }) => (
+            <article key={title} className="rounded-3xl bg-white p-7 ring-1 ring-ink/[0.06] sm:p-8 lg:col-span-3">
+              <Icon className="size-5 text-ink/70" strokeWidth={1.6} />
+              <h3 className="mt-8 font-display text-lg font-medium tracking-[-0.02em]">{title}</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink/55">{text}</p>
             </article>
           ))}
         </div>
-        <dl className="mt-16 grid grid-cols-2 gap-8 border-t border-white/[0.08] pt-12 sm:grid-cols-4">
+        <dl className="mt-20 grid grid-cols-2 gap-x-6 gap-y-10 border-t border-ink/10 pt-12 sm:grid-cols-4">
           {FACTS.map((f) => (
-            <div key={f.label}>
-              <dt className="sr-only">{f.label}</dt>
-              <dd className="text-4xl font-semibold tracking-[-0.03em] tabular-nums">{f.value}</dd>
-              <dd className="mt-1 text-sm text-white/50">{f.label}</dd>
+            <div key={f.label} className="flex flex-col-reverse">
+              <dt className="mt-2 text-[15px] text-ink/50">{f.label}</dt>
+              <dd className="font-display text-[2.5rem] font-medium tracking-[-0.04em] tabular-nums sm:text-5xl">{f.value}</dd>
             </div>
           ))}
         </dl>
-      </Container_>
+      </Container>
     </section>
+  );
+}
+
+/** A page of the loading plan PDF, drawn with the editor's own side and top views. */
+function PdfPreview() {
+  return (
+    <div className="mt-auto px-7 sm:px-9">
+      <div className="translate-y-2 rounded-t-2xl bg-white p-5 shadow-[0_-10px_50px_-20px_rgba(10,11,13,0.3)] ring-1 ring-ink/[0.08] sm:p-7">
+        <div className="flex items-baseline justify-between gap-4 border-b border-ink/[0.08] pb-3">
+          <p className="font-display text-[15px] font-semibold tracking-[-0.01em]">Схема загрузки · Рейс Москва — Казань</p>
+          <p className="hidden text-xs text-ink/45 sm:block">Полуприцеп 13,6 м · 46 мест · 18 т</p>
+        </div>
+        <p className="mt-4 text-xs text-ink/45">Вид сбоку</p>
+        <Shot
+          src="/landing/side.webp"
+          width={2088}
+          height={612}
+          alt="Вид сбоку на загруженный полуприцеп"
+          className="mt-1.5 w-full rounded-lg"
+        />
+        <p className="mt-4 text-xs text-ink/45">Вид сверху</p>
+        <Shot
+          src="/landing/top.webp"
+          width={2088}
+          height={396}
+          alt="Вид сверху с номерами мест"
+          className="mt-1.5 w-full rounded-lg"
+        />
+      </div>
+    </div>
   );
 }
 
 function Steps() {
   return (
-    <section id="how" className="scroll-mt-16 py-24 sm:py-28">
-      <Container_>
-        <SectionTitle eyebrow="Как это работает" title="Три шага от заявки до схемы погрузки" center />
-        <ol className="mt-14 grid gap-6 md:grid-cols-3">
+    <section id="how" className="scroll-mt-16 bg-white py-24 sm:py-32">
+      <Container>
+        <SectionHeader
+          title="Три шага от заявки до схемы погрузки"
+          text="Без обучения и без установки: первая схема — за несколько минут."
+        />
+        <ol className="mt-14 grid gap-4 md:grid-cols-3">
           {STEPS.map((s, i) => (
-            <li key={s.title} className="relative rounded-3xl border border-black/[0.07] bg-gradient-to-b from-[#f7f9fc] to-white p-8">
-              <span className="grid size-10 place-items-center rounded-full bg-[#0b1220] text-sm font-semibold text-white tabular-nums">
-                {i + 1}
-              </span>
-              <h3 className="mt-6 text-xl font-semibold tracking-tight">{s.title}</h3>
-              <p className="mt-3 leading-relaxed text-[#4a5568]">{s.text}</p>
+            <li key={s.title} className="flex flex-col">
+              <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-3xl bg-[#f4f4f6] p-6 sm:p-8">
+                <Shot
+                  {...s.image}
+                  className="max-h-full w-auto max-w-full rounded-xl shadow-[0_20px_50px_-24px_rgba(10,11,13,0.35)] ring-1 ring-ink/[0.06]"
+                />
+              </div>
+              <div className="mt-6 flex gap-4 px-1">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-ink text-[13px] font-medium text-white tabular-nums">
+                  {i + 1}
+                </span>
+                <div>
+                  <h3 className="font-display text-xl font-medium tracking-[-0.02em]">{s.title}</h3>
+                  <p className="mt-2 leading-relaxed text-ink/55">{s.text}</p>
+                </div>
+              </div>
             </li>
           ))}
         </ol>
-      </Container_>
+        <div className="mt-12">
+          <Button asChild size="lg" className={inkButton}>
+            <Link to="/register">
+              Попробовать на своём грузе <ArrowRight />
+            </Link>
+          </Button>
+        </div>
+      </Container>
     </section>
   );
 }
@@ -472,16 +601,19 @@ function Steps() {
 function Pricing() {
   const [yearly, setYearly] = useState(false);
   return (
-    <section id="pricing" className="scroll-mt-16 border-t border-black/[0.06] bg-[#fafbfd] py-24 sm:py-28">
-      <Container_>
-        <SectionTitle
-          eyebrow="Тарифы"
-          title="Начните бесплатно. Платите, когда планировщик начнёт экономить рейсы"
-          text={`Без автоматических списаний: «Профи» можно попробовать ${TRIAL_DAYS} дней, а подключить — по счёту.`}
+    <section id="pricing" className="scroll-mt-16 bg-[#f4f4f6] py-24 sm:py-32">
+      <Container>
+        <SectionHeader
           center
+          title="Начните бесплатно. Платите, когда планировщик начнёт экономить рейсы"
+          text={`Попробуйте «${tierInfo('pro').name}» ${TRIAL_DAYS} дней бесплатно — без карты и автоматических списаний.`}
         />
         <div className="mt-10 flex justify-center">
-          <div role="radiogroup" aria-label="Период оплаты" className="inline-flex rounded-full border border-black/[0.08] bg-white p-1 text-sm shadow-sm">
+          <div
+            role="radiogroup"
+            aria-label="Период оплаты"
+            className="inline-flex rounded-full bg-white p-1 text-sm ring-1 ring-ink/[0.08]"
+          >
             {[
               { value: false, label: 'Помесячно' },
               { value: true, label: 'За год −20%' },
@@ -493,8 +625,8 @@ function Pricing() {
                 aria-checked={yearly === o.value}
                 onClick={() => setYearly(o.value)}
                 className={cn(
-                  'rounded-full px-4 py-1.5 font-medium transition-colors',
-                  yearly === o.value ? 'bg-[#0b1220] text-white' : 'text-[#475569] hover:text-[#0b1220]',
+                  'rounded-full px-4 py-1.5 font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                  yearly === o.value ? 'bg-ink text-white' : 'text-ink/55 hover:text-ink',
                 )}
               >
                 {o.label}
@@ -502,12 +634,12 @@ function Pricing() {
             ))}
           </div>
         </div>
-        <div className="mx-auto mt-10 grid max-w-5xl gap-5 lg:grid-cols-3">
+        <div className="mx-auto mt-10 grid max-w-5xl gap-4 lg:grid-cols-3">
           {TIERS.map((t) => (
             <PriceCard key={t.id} tier={t} yearly={yearly} />
           ))}
         </div>
-      </Container_>
+      </Container>
     </section>
   );
 }
@@ -515,54 +647,57 @@ function Pricing() {
 function PriceCard({ tier, yearly }: { tier: TierInfo; yearly: boolean }) {
   const href = tier.id === 'free' ? '/register' : tier.id === 'pro' ? '/register?tier=pro' : '#contact';
   const price = tier.price && (yearly ? tier.price.yearly : tier.price.monthly);
+  const dark = !!tier.highlighted;
+  const muted = dark ? 'text-white/55' : 'text-ink/50';
   return (
     <article
       className={cn(
-        'relative flex flex-col rounded-3xl border bg-white p-8',
-        tier.highlighted
-          ? 'border-primary shadow-[0_24px_60px_-24px_rgba(47,111,237,0.55)] ring-1 ring-primary'
-          : 'border-black/[0.08]',
+        'relative flex flex-col overflow-hidden rounded-3xl p-8 sm:p-9',
+        dark ? 'bg-ink text-white shadow-[0_40px_80px_-30px_rgba(10,11,13,0.55)]' : 'bg-white ring-1 ring-ink/[0.07]',
       )}
     >
-      {tier.highlighted && (
-        <span className="absolute -top-3 left-8 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white">
-          Выбор логистов
-        </span>
+      {dark && (
+        <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 size-64 rounded-full bg-primary/30 blur-3xl" />
       )}
-      <h3 className="text-lg font-semibold">{tier.name}</h3>
-      <p className="mt-1 min-h-10 text-sm text-[#64748b]">{tier.tagline}</p>
-      <div className="mt-6 flex items-baseline gap-1.5">
+      <div className="relative flex items-center justify-between gap-4">
+        <h3 className="font-display text-[1.375rem] font-medium tracking-[-0.025em]">{tier.name}</h3>
+        {dark && <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">Выбор логистов</span>}
+      </div>
+      <p className={cn('relative mt-2 min-h-10 text-sm leading-relaxed', muted)}>{tier.tagline}</p>
+      <div className="relative mt-8 flex items-baseline gap-2">
         {price === null ? (
-          <span className="text-4xl font-semibold tracking-[-0.03em]">По договору</span>
+          <span className="font-display text-[2rem] font-medium tracking-[-0.04em]">По договору</span>
         ) : price === 0 ? (
           <>
-            <span className="text-4xl font-semibold tracking-[-0.03em]">0 ₽</span>
-            <span className="text-sm text-[#64748b]">навсегда</span>
+            <span className="font-display text-[2.5rem] font-medium tracking-[-0.04em]">0 ₽</span>
+            <span className={cn('text-sm', muted)}>навсегда</span>
           </>
         ) : (
           <>
-            <span className="text-4xl font-semibold tracking-[-0.03em] tabular-nums">{formatPrice(price)}</span>
-            <span className="text-sm text-[#64748b]">/ мес</span>
+            <span className="font-display text-[2.5rem] font-medium tracking-[-0.04em] tabular-nums">{formatPrice(price)}</span>
+            <span className={cn('text-sm', muted)}>в месяц</span>
           </>
         )}
       </div>
-      <p className="mt-1 min-h-5 text-xs text-[#64748b]">
-        {tier.price && tier.price.monthly > 0 && (yearly ? `${formatPrice(tier.price.yearly * 12)} за год` : 'при оплате помесячно')}
-        {tier.price === null && 'лимиты, срок и цена — под ваши объёмы'}
+      <p className={cn('relative mt-2 min-h-5 text-[13px]', muted)}>
+        {tier.price &&
+          tier.price.monthly > 0 &&
+          (yearly ? `${formatPrice(tier.price.yearly * 12)} при оплате за год` : 'при оплате помесячно')}
+        {tier.price === null && 'Лимиты, срок и цена — под ваши объёмы'}
       </p>
       <Button
         asChild
         size="lg"
-        variant={tier.highlighted ? 'default' : 'outline'}
-        className={cn('mt-6 h-11 rounded-full', !tier.highlighted && 'bg-white')}
+        variant={dark || tier.id === 'free' ? 'default' : 'outline'}
+        className={cn('relative mt-8', dark ? whiteButton : tier.id === 'free' ? inkButton : lineButton)}
       >
         {href.startsWith('#') ? <a href={href}>{tier.cta}</a> : <Link to={href}>{tier.cta}</Link>}
       </Button>
-      <ul className="mt-8 space-y-3 text-sm">
+      <ul className={cn('relative mt-8 space-y-3 border-t pt-8 text-[15px]', dark ? 'border-white/10' : 'border-ink/[0.08]')}>
         {tier.features.map((f) => (
-          <li key={f} className="flex items-start gap-2.5">
-            <Check className={cn('mt-0.5 size-4 shrink-0', tier.highlighted ? 'text-primary' : 'text-[#94a3b8]')} />
-            <span className="text-[#334155]">{f}</span>
+          <li key={f} className="flex items-start gap-3">
+            <Check className={cn('mt-0.5 size-4 shrink-0', dark ? 'text-primary' : 'text-ink/40')} strokeWidth={2} />
+            <span className={dark ? 'text-white/85' : 'text-ink/70'}>{f}</span>
           </li>
         ))}
       </ul>
@@ -572,39 +707,39 @@ function PriceCard({ tier, yearly }: { tier: TierInfo; yearly: boolean }) {
 
 function Faq() {
   return (
-    <section id="faq" className="scroll-mt-16 py-24 sm:py-28">
-      <Container_ className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <SectionTitle
-          eyebrow="Вопросы"
+    <section id="faq" className="scroll-mt-16 bg-white py-24 sm:py-32">
+      <Container className="grid gap-12 lg:grid-cols-12">
+        <SectionHeader
+          className="lg:col-span-5"
           title="Частые вопросы"
           text="Не нашли ответ — напишите нам через форму ниже, ответим в течение рабочего дня."
         />
-        <div className="divide-y divide-black/[0.07] border-y border-black/[0.07]">
+        <div className="border-b border-ink/[0.08] lg:col-span-7">
           {FAQ.map((item) => (
-            <details key={item.q} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-lg font-medium [&::-webkit-details-marker]:hidden">
+            <details key={item.q} className="group border-t border-ink/[0.08]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-6 text-lg font-medium tracking-[-0.01em] outline-none focus-visible:text-primary [&::-webkit-details-marker]:hidden">
                 {item.q}
-                <Plus className="size-5 shrink-0 text-[#94a3b8] transition-transform group-open:rotate-45" />
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.04] transition-colors group-open:bg-ink group-open:text-white">
+                  <Plus className="size-4 transition-transform duration-200 group-open:rotate-45" />
+                </span>
               </summary>
-              <p className="mt-3 pr-10 leading-relaxed text-[#4a5568]">{item.a}</p>
+              <p className="max-w-2xl pr-12 pb-7 leading-relaxed text-ink/55">{item.a}</p>
             </details>
           ))}
         </div>
-      </Container_>
+      </Container>
     </section>
   );
 }
 
 const CONTACT = TIERS_ENABLED
   ? {
-      eyebrow: 'Индивидуальный тариф',
       title: 'Особые объёмы и условия — обсудим лично',
-      text: 'Для компаний, которым нужны свои лимиты, договор и оплата по счёту, а также помощь с внедрением: настроим транспорт и типовые грузы, обучим команду.',
+      text: 'Тариф «Индивидуальный» — для компаний, которым нужны свои лимиты, договор и оплата по счёту, а также помощь с внедрением: настроим транспорт и типовые грузы, обучим команду.',
       points: ['Условия и срок — по договору', 'Закрывающие документы', 'Персональный контакт для вопросов'],
       submit: 'Обсудить условия',
     }
   : {
-      eyebrow: 'Связаться с нами',
       title: 'Особая задача или большие объёмы — обсудим',
       text: 'Расскажите, что и как вы грузите: поможем с внедрением, заведём ваш транспорт и типовые грузы, покажем команде, как работать с планировщиком.',
       points: ['Помощь с внедрением', 'Настройка под ваш транспорт и грузы', 'Ответ в течение рабочего дня'],
@@ -613,84 +748,60 @@ const CONTACT = TIERS_ENABLED
 
 function Contact() {
   return (
-    <section id="contact" className="scroll-mt-16 pb-24 sm:pb-28">
-      <Container_>
-        <div className="grid gap-10 overflow-hidden rounded-[32px] border border-black/[0.07] bg-gradient-to-br from-[#f3f6fc] via-white to-[#eef3ff] p-8 sm:p-12 lg:grid-cols-2">
-          <div>
-            <Eyebrow>{CONTACT.eyebrow}</Eyebrow>
-            <h2 className="mt-3 text-3xl leading-[1.1] font-semibold tracking-[-0.025em] text-balance sm:text-4xl">
-              {CONTACT.title}
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-pretty text-[#4a5568]">{CONTACT.text}</p>
-            <ul className="mt-8 space-y-3 text-[#334155]">
+    <section id="contact" className="scroll-mt-16 bg-white pb-24 sm:pb-32">
+      <Container>
+        <div className="grid gap-10 rounded-[32px] bg-[#f4f4f6] p-6 sm:p-12 lg:grid-cols-2 lg:gap-16 lg:p-16">
+          <div className="lg:pt-2">
+            <h2 className={cn(displayTitle, 'text-[1.8rem] leading-[1.08] sm:text-[2.4rem]')}>{CONTACT.title}</h2>
+            <p className="mt-5 text-lg leading-relaxed text-pretty text-ink/55">{CONTACT.text}</p>
+            <ul className="mt-8 space-y-3.5">
               {CONTACT.points.map((x) => (
-                <li key={x} className="flex items-center gap-2.5">
-                  <Check className="size-4 text-primary" /> {x}
+                <li key={x} className="flex items-center gap-3 text-[15px] text-ink/75">
+                  <span className="grid size-5 place-items-center rounded-full bg-ink text-white">
+                    <Check className="size-3" strokeWidth={3} />
+                  </span>
+                  {x}
                 </li>
               ))}
             </ul>
           </div>
-          <div className="rounded-3xl border border-black/[0.06] bg-white p-6 shadow-[0_20px_50px_-24px_rgba(15,35,80,0.3)] sm:p-8">
-            <LeadForm tier={TIERS_ENABLED ? 'custom' : undefined} submitLabel={CONTACT.submit} />
+          <div className="rounded-3xl bg-white p-6 shadow-[0_30px_60px_-30px_rgba(10,11,13,0.25)] ring-1 ring-ink/[0.05] sm:p-8">
+            <LeadForm tier={TIERS_ENABLED ? 'custom' : undefined} submitLabel={CONTACT.submit} submitClassName={inkButton} />
           </div>
         </div>
-      </Container_>
+      </Container>
     </section>
   );
 }
 
 function FinalCta() {
   return (
-    <section className="relative overflow-hidden bg-[#0b1220] py-24 text-center text-white">
+    <section className="relative isolate overflow-hidden bg-ink text-white">
+      <DitherBackground className="-z-10 opacity-70" waveSpeed={0.025} />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-48 left-1/2 h-[480px] w-[880px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(47,111,237,0.45),transparent)] blur-2xl"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,rgba(10,11,13,0.92),rgba(10,11,13,0.4))]"
       />
-      <Container_ className="relative">
-        <h2 className="mx-auto max-w-3xl text-3xl leading-[1.1] font-semibold tracking-[-0.03em] text-balance sm:text-5xl">
+      <Container className="py-28 text-center sm:py-40">
+        <h2
+          className={cn(
+            displayTitle,
+            'mx-auto max-w-3xl text-[2.1rem] leading-[1.05] tracking-[-0.022em] sm:text-[3.25rem] lg:text-[4rem]',
+          )}
+        >
           Следующую машину — загрузите в Loader3D
         </h2>
-        <p className="mx-auto mt-5 max-w-xl text-lg text-white/60">
+        <p className="mx-auto mt-6 max-w-xl text-lg text-white/55">
           {TIERS_ENABLED
             ? 'Регистрация за минуту. Бесплатный тариф — без ограничения по сроку.'
             : 'Регистрация за минуту — и можно загружать первую машину.'}
         </p>
-        <Button asChild size="lg" className="mt-9 h-12 rounded-full px-8 text-base">
+        <Button asChild size="lg" className={cn(whiteButton, 'mt-10 h-12 px-8 text-base')}>
           <Link to="/register">
             Создать аккаунт <ArrowRight />
           </Link>
         </Button>
-      </Container_>
+      </Container>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-black/[0.06] py-10 text-sm text-[#64748b]">
-      <Container_ className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-        <div className="flex items-center gap-3">
-          <Logo />
-          <span className="hidden sm:inline">· 3D-планирование загрузки фуры и контейнера</span>
-        </div>
-        <nav aria-label="Ссылки" className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-          {TIERS_ENABLED && (
-            <a href="#pricing" className="hover:text-[#0b1220]">
-              Тарифы
-            </a>
-          )}
-          <a href="#faq" className="hover:text-[#0b1220]">
-            Вопросы
-          </a>
-          <a href="#contact" className="hover:text-[#0b1220]">
-            Связаться
-          </a>
-          <Link to="/login" className="hover:text-[#0b1220]">
-            Войти
-          </Link>
-        </nav>
-        <span>© {new Date().getFullYear()} Loader3D</span>
-      </Container_>
-    </footer>
   );
 }

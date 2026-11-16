@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, MetaData, String, Uuid, false
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, LargeBinary, MetaData, String, Uuid, false
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -63,6 +63,19 @@ class User(Base):
     settings: Mapped[dict[str, Any] | None]
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+    # Email confirmed with a code (app/verification.py); null — not yet, plans are closed until then.
+    email_verified_at: Mapped[datetime | None]
+    # The pending code: its HMAC, expiry, when it was sent (resend cooldown) and wrong attempts so far.
+    verify_code_hash: Mapped[str | None] = mapped_column(String(64))
+    verify_code_expires_at: Mapped[datetime | None]
+    verify_code_sent_at: Mapped[datetime | None]
+    verify_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+    # A pending code for resetting a forgotten password, the same way (app/verification.py).
+    reset_code_hash: Mapped[str | None] = mapped_column(String(64))
+    reset_code_expires_at: Mapped[datetime | None]
+    reset_code_sent_at: Mapped[datetime | None]
+    reset_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
 
     # Subscription (app/tiers.py): "free", "pro" or "custom" (by contract, set by an admin).
     # A paid tier past `tier_expires_at` works as "free" until it is renewed; null — no end date.
@@ -149,6 +162,20 @@ class Plan(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
+    # When the preview picture (PlanThumbnail) was last replaced; null — none yet. Set with a Core UPDATE
+    # that keeps `version` and `updated_at`: a new picture is not an edit of the plan.
+    thumbnail_at: Mapped[datetime | None]
+
     owner: Mapped[User] = relationship(back_populates="plans")
 
     __mapper_args__ = {"version_id_col": version}
+
+
+class PlanThumbnail(Base):
+    """The preview picture of a plan for its card on the home page, rendered by the editor."""
+
+    __tablename__ = "plan_thumbnails"
+
+    plan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plans.id", ondelete="CASCADE"), primary_key=True)
+    media_type: Mapped[str] = mapped_column(String(20))
+    image: Mapped[bytes] = mapped_column(LargeBinary)

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, KeyRound, LogOut, Monitor, ShieldAlert, Smartphone, Sparkles, UserRound } from 'lucide-react';
+import { Check, KeyRound, LogOut, Monitor, ShieldAlert, Smartphone, Sparkles, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError, errorMessage } from '@/api/client';
 import { authApi, userApi } from '@/api/endpoints';
@@ -34,15 +34,10 @@ export function AccountPage() {
   return (
     <div className="min-h-dvh">
       <AppHeader />
-      <main className="mx-auto max-w-3xl px-4 pt-6 pb-16 sm:px-6">
-        <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
-          <Link to="/plans">
-            <ArrowLeft /> Мои схемы
-          </Link>
-        </Button>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Аккаунт</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Профиль, пароль и устройства, на которых выполнен вход.</p>
-        <div className="mt-6 flex flex-col gap-5">
+      <main className="mx-auto max-w-3xl px-4 pt-12 pb-20 sm:px-6">
+        <h1 className="font-display text-[2rem] leading-tight font-medium tracking-[-0.02em]">Аккаунт</h1>
+        <p className="mt-1.5 text-[15px] text-muted-foreground">Профиль, пароль и устройства, на которых выполнен вход.</p>
+        <div className="mt-8 flex flex-col gap-5">
           <ProfileCard />
           {TIERS_ENABLED && <SubscriptionCard />}
           <PasswordCard />
@@ -60,8 +55,8 @@ function SectionIcon({ icon: Icon, tone = 'default' }: { icon: typeof UserRound;
     <span
       className={
         tone === 'danger'
-          ? 'grid size-8 place-items-center rounded-lg bg-destructive/10 text-destructive'
-          : 'grid size-8 place-items-center rounded-lg bg-primary/10 text-primary'
+          ? 'grid size-9 place-items-center rounded-xl bg-destructive/10 text-destructive'
+          : 'grid size-9 place-items-center rounded-xl bg-muted text-foreground'
       }
     >
       <Icon className="size-4" />
@@ -124,8 +119,8 @@ function limitLines(limits: TierLimits): string[] {
   return [
     limits.plans === null ? 'Схем — без ограничений' : `Схем — до ${limits.plans}`,
     `В схеме — до ${plural(limits.vehicles, ['машины', 'машин', 'машин'])} и ${plural(limits.items, ['груза', 'грузов', 'грузов'])}`,
-    limits.autoload ? 'Автозагрузка с развесовкой' : 'Автозагрузка — на «Профи»',
-    limits.pdfSteps ? 'Пошаговая PDF-инструкция' : 'Пошаговая PDF-инструкция — на «Профи»',
+    limits.autoload ? 'Автозагрузка с развесовкой' : 'Автозагрузка — на «Pro»',
+    limits.pdfSteps ? 'Пошаговая PDF-инструкция' : 'Пошаговая PDF-инструкция — на «Pro»',
   ];
 }
 
@@ -165,7 +160,7 @@ function SubscriptionCard() {
         </Button>
         {sub.tier === 'free' ? (
           <Button onClick={() => show()}>
-            {sub.trialAvailable ? `«Профи» на ${TRIAL_DAYS} дней бесплатно` : 'Подключить «Профи»'}
+            {sub.trialAvailable ? `«Pro» на ${TRIAL_DAYS} дней бесплатно` : 'Подключить «Pro»'}
           </Button>
         ) : sub.tier === 'pro' ? (
           <Button variant="outline" onClick={() => show(undefined, 'pro')}>

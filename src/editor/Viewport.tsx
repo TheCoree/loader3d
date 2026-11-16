@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Hand, Lock, LockOpen, Scale, Scan, TriangleAlert, X } from 'lucide-react';
+import { Hand, Lock, LockOpen, Scale, Scan, SlidersHorizontal, TriangleAlert, X } from 'lucide-react';
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE, type BodyStats } from '../core/stats';
 import { formatMeters, formatPercent, formatVolume, formatWeight } from '../core/units';
 import type { ViewPreset } from '../scene/CameraRig';
 import { SceneEngine } from '../scene/SceneEngine';
 import { getEngine, setEngine } from '../scene/engineRegistry';
 import { useStore } from '../store/useStore';
+import { useUi } from '../store/useUi';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useActiveVehicle, useStats } from './hooks';
 import { VehiclePanel } from './VehiclePanel';
 import { XrayControl } from './XrayControl';
+import { activePreset } from './displayPresets';
 
 const HINT_KEY = 'loader3d:hint-dismissed';
 
@@ -53,7 +55,7 @@ export function Viewport({ rightInset = 0 }: { rightInset?: number }) {
       {error && <div className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground">{error}</div>}
 
       <div
-        className="pointer-events-none absolute top-3 bottom-3 left-3 flex flex-col gap-3"
+        className="pointer-events-none absolute top-3 bottom-3 left-3 flex flex-col gap-3 transition-[right] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
         style={{ right: rightInset + 12 }}
       >
         <div className="flex min-h-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:content-start sm:items-start">
@@ -78,6 +80,23 @@ const VIEWS: Array<{ id: ViewPreset; label: string; title: string }> = [
   { id: 'rear', label: 'Сзади', title: 'Вид со стороны дверей' },
 ];
 
+/** Opens «Настройки отображения»; names the current display mode. */
+function DisplayButton() {
+  const preset = useStore((s) => activePreset(s.settings));
+  const setOpen = useUi((s) => s.setDisplayOpen);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1.5 px-2 text-xs" onClick={() => setOpen(true)}>
+          <SlidersHorizontal />
+          <span className="hidden lg:inline">{preset?.name ?? 'Свой вид'}</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Настройки отображения: что показывать в сцене</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** Camera presets, "show all" and the optional camera lock. */
 function ViewToolbar() {
   const locked = useStore((s) => s.settings.cameraLocked);
@@ -101,6 +120,7 @@ function ViewToolbar() {
         </Tooltip>
       ))}
       <span className="mx-0.5 h-5 w-px bg-border" />
+      <DisplayButton />
       <XrayControl />
       <Tooltip>
         <TooltipTrigger asChild>
@@ -164,7 +184,7 @@ function Hint() {
   };
   const kbd = 'h-4.5 border-white/15 bg-white/15 text-white';
   return (
-    <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full bg-foreground/85 py-1 pr-1 pl-3.5 text-xs text-white/85 shadow-lg backdrop-blur-md">
+    <div className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full bg-ink/85 py-1 pr-1 pl-3.5 text-xs text-white/85 shadow-lg backdrop-blur-md">
       {coarse ? (
         <span className="truncate">
           <b className="font-medium text-white">Палец по фону</b> — вращение · <b className="font-medium text-white">на грузе</b> —

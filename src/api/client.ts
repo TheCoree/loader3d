@@ -48,12 +48,14 @@ interface RequestOptions {
   /** Send the access token and refresh it on 401 (false for login, register...). */
   auth?: boolean;
   signal?: AbortSignal;
+  /** "blob": the response body as a Blob (images); JSON otherwise. */
+  responseType?: 'json' | 'blob';
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const sentToken = accessToken;
   const response = await send(path, options);
-  if (response.status !== 401 || options.auth === false) return parse<T>(response);
+  if (response.status !== 401 || options.auth === false) return parse<T>(response, options.responseType);
   // Sent with a token that another request has replaced meanwhile: repeating it with the new one is
   // enough, a second refresh would only rotate the cookie again.
   if (accessToken === null || accessToken === sentToken) {
@@ -62,7 +64,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       throw await toApiError(response);
     }
   }
-  return parse<T>(await send(path, options));
+  return parse<T>(await send(path, options), options.responseType);
 }
 
 /**
@@ -92,7 +94,9 @@ export function refreshSession(): Promise<AuthResponse | null> {
 
 function send(path: string, { method = 'GET', body, query, auth = true, signal }: RequestOptions): Promise<Response> {
   const headers: Record<string, string> = { accept: 'application/json' };
-  if (body !== undefined) headers['content-type'] = 'application/json';
+  // A Blob (an image) goes as is with its own type; anything else as JSON.
+  if (body instanceof Blob) headers['content-type'] = body.type;
+  else if (body !== undefined) headers['content-type'] = 'application/json';
   if (auth && accessToken) headers.authorization = `Bearer ${accessToken}`;
   let url = `/api${path}`;
   if (query) {
@@ -106,15 +110,16 @@ function send(path: string, { method = 'GET', body, query, auth = true, signal }
   return fetch(url, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : body instanceof Blob ? body : JSON.stringify(body),
     credentials: 'same-origin',
     signal,
   });
 }
 
-async function parse<T>(response: Response): Promise<T> {
+async function parse<T>(response: Response, type: 'json' | 'blob' = 'json'): Promise<T> {
   if (!response.ok) throw await toApiError(response);
   if (response.status === 204) return undefined as T;
+  if (type === 'blob') return (await response.blob()) as T;
   return (await response.json()) as T;
 }
 

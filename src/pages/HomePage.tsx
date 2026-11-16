@@ -19,6 +19,9 @@ import { forgetLegacyPlan, readLegacyPlan, readPlanFile } from '@/lib/planFiles'
 import { useCreatePlan, usePlanList } from '@/lib/plansQuery';
 import { useAuth } from '@/store/useAuth';
 
+/** Buttons of the page header: pills, like the site. */
+const pill = 'h-10 rounded-full px-4.5';
+
 const SORTS: Array<{ value: PlanSort; label: string }> = [
   { value: '-updatedAt', label: 'Недавно изменённые' },
   { value: '-createdAt', label: 'Недавно созданные' },
@@ -58,7 +61,7 @@ export function HomePage() {
   const planLimit = subscription?.limits.plans ?? null;
   const atPlanLimit = planLimit !== null && q === '' && !loading && total >= planLimit;
   const showUpgrade = useUpgrade((s) => s.show);
-  const limitReason = `На тарифе «${subscription?.name}» можно сохранить до ${plural(planLimit ?? 0, ['схемы', 'схем', 'схем'])}. На «Профи» — без ограничений.`;
+  const limitReason = `На тарифе «${subscription?.name}» можно сохранить до ${plural(planLimit ?? 0, ['схемы', 'схем', 'схем'])}. На «Pro» — без ограничений.`;
   const guard = (action: () => void) => () => (atPlanLimit ? showUpgrade(limitReason) : action());
 
   const importFile = async (file: File) => {
@@ -75,11 +78,11 @@ export function HomePage() {
   return (
     <div className="min-h-dvh">
       <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Мои схемы</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="font-display text-[2rem] leading-tight font-medium tracking-[-0.02em]">Мои схемы</h1>
+            <p className="mt-1.5 text-[15px] text-muted-foreground">
               {loading
                 ? 'Загружаем…'
                 : total === 0 && q === ''
@@ -88,10 +91,10 @@ export function HomePage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={guard(() => fileRef.current?.click())} disabled={create.isPending}>
+            <Button variant="outline" className={pill} onClick={guard(() => fileRef.current?.click())} disabled={create.isPending}>
               <FileUp /> Импорт JSON
             </Button>
-            <Button onClick={guard(() => setCreateOpen(true))}>
+            <Button className={pill} onClick={guard(() => setCreateOpen(true))}>
               <Plus /> Новая схема
             </Button>
           </div>
@@ -111,7 +114,7 @@ export function HomePage() {
         {planLimit !== null && q === '' && !loading && total > 0 && (
           <p className="mt-3 text-sm text-muted-foreground">
             Сохранено {total} из {planLimit} на тарифе «{subscription?.name}».{' '}
-            <button type="button" className="font-medium text-primary hover:underline" onClick={() => showUpgrade(limitReason)}>
+            <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground" onClick={() => showUpgrade(limitReason)}>
               Снять ограничение
             </button>
           </p>
@@ -120,8 +123,8 @@ export function HomePage() {
         <LegacyPlanBanner />
 
         {!nothingYet && (
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-            <InputGroup className="h-9 sm:max-w-sm">
+          <div className="mt-8 flex flex-col gap-2 sm:flex-row">
+            <InputGroup className="h-10 rounded-full bg-card px-1 sm:max-w-sm">
               <InputGroupAddon>
                 <Search />
               </InputGroupAddon>
@@ -140,7 +143,7 @@ export function HomePage() {
               )}
             </InputGroup>
             <Select value={sort} onValueChange={(v) => setSort(v as PlanSort)}>
-              <SelectTrigger className="h-9 w-full sm:ml-auto sm:w-56" aria-label="Сортировка">
+              <SelectTrigger className="h-10! w-full rounded-full bg-card px-4 sm:ml-auto sm:w-60" aria-label="Сортировка">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">
@@ -166,15 +169,15 @@ export function HomePage() {
               </AlertAction>
             </Alert>
           ) : loading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }, (_, i) => (
                 <PlanCardSkeleton key={i} />
               ))}
             </div>
           ) : nothingYet ? (
-            <Empty className="mt-6 border border-dashed bg-card py-16">
+            <Empty className="mt-8 rounded-3xl border border-dashed border-foreground/15 bg-card py-20">
               <EmptyHeader>
-                <EmptyMedia variant="icon" className="size-12 rounded-xl bg-primary/10 text-primary [&_svg]:size-6">
+                <EmptyMedia variant="icon" className="size-12 rounded-2xl bg-foreground text-background [&_svg]:size-6">
                   <PackageOpen />
                 </EmptyMedia>
                 <EmptyTitle>Пока нет ни одной схемы</EmptyTitle>
@@ -183,10 +186,10 @@ export function HomePage() {
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent className="flex-row justify-center">
-                <Button onClick={() => setCreateOpen(true)}>
+                <Button className={pill} onClick={() => setCreateOpen(true)}>
                   <Plus /> Новая схема
                 </Button>
-                <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                <Button variant="outline" className={pill} onClick={() => fileRef.current?.click()}>
                   <FileUp /> Импорт JSON
                 </Button>
               </EmptyContent>
@@ -208,7 +211,7 @@ export function HomePage() {
             </Empty>
           ) : (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {plans.map((plan) => (
                   <PlanCard key={plan.id} plan={plan} onRename={setRenaming} onDelete={setDeleting} />
                 ))}

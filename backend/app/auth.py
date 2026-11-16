@@ -297,6 +297,16 @@ async def get_optional_auth(
 OptionalAuth = Annotated[AuthContext | None, Depends(get_optional_auth)]
 
 
+async def get_verified(auth: CurrentAuth, settings: SettingsDep) -> AuthContext:
+    """A user who has confirmed their email (app/verification.py): needed for plans."""
+    if settings.email_verification and auth.user.email_verified_at is None:
+        raise ApiError(status.HTTP_403_FORBIDDEN, "email_not_verified", "Подтвердите email, чтобы продолжить")
+    return auth
+
+
+VerifiedAuth = Annotated[AuthContext, Depends(get_verified)]
+
+
 async def get_admin(auth: CurrentAuth) -> AuthContext:
     if not auth.user.is_admin:
         raise ApiError(status.HTTP_403_FORBIDDEN, "forbidden", "Нужны права администратора")

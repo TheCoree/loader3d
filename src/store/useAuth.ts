@@ -13,6 +13,8 @@ interface AuthState {
   bootstrap(): Promise<void>;
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string, displayName?: string, tier?: 'free' | 'pro'): Promise<void>;
+  /** Sets a new password with the code from the email and logs in. */
+  resetPassword(email: string, code: string, password: string): Promise<void>;
   logout(): Promise<void>;
   setUser(user: User): void;
   /** The server ended the session (revoked, expired, account deleted). */
@@ -134,6 +136,12 @@ export const useAuth = create<AuthState>()((set, get) => {
 
     async register(email, password, displayName, tier) {
       const auth = await authApi.register(email, password, displayName, tier);
+      signedIn(auth);
+      channel?.postMessage({ type: 'login', userId: auth.user.id } satisfies AuthEvent);
+    },
+
+    async resetPassword(email, code, password) {
+      const auth = await authApi.resetPassword(email, code, password);
       signedIn(auth);
       channel?.postMessage({ type: 'login', userId: auth.user.id } satisfies AuthEvent);
     },

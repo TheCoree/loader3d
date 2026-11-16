@@ -1,16 +1,15 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { LogoMark } from '@/components/Logo';
-import { Spinner } from '@/components/ui/spinner';
+import { LogoLoader } from '@/components/Logo';
 import { useAuth } from '@/store/useAuth';
 
 export function FullScreenLoader({ label = 'Загрузка…' }: { label?: string }) {
   return (
     <div className="grid min-h-dvh place-items-center bg-background">
       <div className="flex flex-col items-center gap-4 text-sm text-muted-foreground">
-        <LogoMark className="size-10" />
+        <LogoLoader className="size-11 text-foreground" label={label} />
         <span className="flex items-center gap-2">
-          <Spinner /> {label}
+          {label}
         </span>
       </div>
     </div>
@@ -23,13 +22,20 @@ export function SessionLoader() {
   return <FullScreenLoader label={reconnecting ? 'Нет связи с сервером, переподключаемся…' : undefined} />;
 }
 
-/** Pages for logged-in users; others go to /login and come back afterwards. */
-export function RequireAuth({ children }: { children: ReactNode }) {
+/**
+ * Pages for logged-in users; others go to /login and come back afterwards. An account whose email is not
+ * confirmed yet goes to /verify-email first (`unverified` lets that page itself through).
+ */
+export function RequireAuth({ children, unverified = false }: { children: ReactNode; unverified?: boolean }) {
   const status = useAuth((s) => s.status);
+  const verified = useAuth((s) => s.user?.emailVerified ?? true);
   const location = useLocation();
   if (status === 'loading') return <SessionLoader />;
   if (status === 'anonymous') {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  }
+  if (!verified && !unverified) {
+    return <Navigate to="/verify-email" replace state={{ from: location.pathname + location.search }} />;
   }
   return children;
 }

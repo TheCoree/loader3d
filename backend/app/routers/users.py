@@ -42,7 +42,7 @@ async def update_settings(body: DisplaySettingsIn, auth: CurrentAuth, db: Db) ->
 
 @router.post("/me/trial")
 async def take_trial(auth: CurrentAuth, db: Db, settings: SettingsDep) -> UserOut:
-    """Starts the free trial of «Профи» (once per account, from the «Старт» tier)."""
+    """Starts the free trial of «Pro» (once per account, from the «Старт» tier)."""
     if not settings.tiers_enabled:
         raise not_found("tiers_disabled", "Тарифы отключены")
     user = auth.user

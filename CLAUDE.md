@@ -13,7 +13,9 @@ Architecture, controls, API endpoints and extension points are in README.md — 
 - Repository: https://github.com/almbvb/loader3d (private), branch `main`. Commit only when the user asks.
 - UI: build from shadcn components in `src/components/ui` (style radix-nova; add more with
   `npx shadcn@latest add <name>`), lucide icons, Tailwind classes. Theme tokens live in `src/index.css`;
-  `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. One light theme (the scene is light).
+  `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app
+  (`Settings.theme`, `lib/theme.ts`, `.dark` tokens): use tokens (`bg-background`, `text-foreground`,
+  `bg-muted`…), not fixed colours, in app UI. The public pages stay light and the 3D scene keeps its light palette.
 - The user considers the 3D scene finished: do not change `src/scene/` or `src/scene.css` (the CSS2D
   labels) unless asked. The editor UI around it lives in `src/editor/`.
 

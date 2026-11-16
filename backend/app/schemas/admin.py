@@ -115,7 +115,7 @@ class SubscriptionIn(ApiModel):
     @model_validator(mode="after")
     def _trial_is_pro(self) -> Self:
         if self.trial and self.tier != "pro":
-            raise ValueError("Пробный период бывает только у тарифа «Профи»")
+            raise ValueError("Пробный период бывает только у тарифа «Pro»")
         return self
 
 

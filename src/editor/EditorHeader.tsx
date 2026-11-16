@@ -15,6 +15,7 @@ import {
   Pencil,
   Redo2,
   RefreshCw,
+  SlidersHorizontal,
   Sparkles,
   TriangleAlert,
   Undo2,
@@ -46,9 +47,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { timeAgo } from '@/lib/format';
 import { downloadPlan, readPlanFile } from '@/lib/planFiles';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useMediaQuery, usePlacements } from './hooks';
 import { flush, renamePlan, usePlanSync } from './planSync';
 import { XRAY_MODES } from './XrayControl';
+import { DISPLAY_PRESETS, activePreset } from './displayPresets';
 
 export function EditorHeader() {
   const navigate = useNavigate();
@@ -73,7 +76,7 @@ export function EditorHeader() {
   };
 
   return (
-    <header className="z-20 flex h-12 shrink-0 items-center gap-1 border-b bg-card px-1.5">
+    <header className="z-20 flex h-14 shrink-0 items-center gap-1 border-b bg-background px-2 text-foreground">
       <IconTip label="Все схемы">
         <Button variant="ghost" size="icon-lg" onClick={() => void leave()} aria-label="Все схемы">
           <ArrowLeft className={ICON} />
@@ -99,6 +102,7 @@ export function EditorHeader() {
           <Separator orientation="vertical" className="mx-1 h-5 data-vertical:self-center" />
           <DisplayMenu />
           <FileMenu onReplace={replace.open} />
+          <ThemeToggle />
           <IconTip label="Управление и клавиши">
             <Button variant="ghost" size="icon-lg" onClick={() => setHelpOpen(true)} aria-label="Справка">
               <CircleHelp className={ICON} />
@@ -111,7 +115,7 @@ export function EditorHeader() {
         {replace.input}
         <Button
           variant={panelShown ? 'secondary' : 'outline'}
-          className="ml-1 h-9 gap-1.5 px-2.5"
+          className="ml-1.5 h-9 gap-1.5 rounded-full px-3"
           onClick={() => (desktop ? setPanelHidden(!panelHidden) : setDrawerOpen(true))}
           aria-pressed={desktop ? panelShown : undefined}
           aria-label="Панель грузов"
@@ -162,7 +166,7 @@ function PlanName() {
     return (
       <input
         ref={inputRef}
-        className="h-9 w-full max-w-xs min-w-0 rounded-md border border-ring bg-background px-2 text-[15px] font-semibold ring-3 ring-ring/30 outline-none"
+        className="h-9 w-full max-w-xs min-w-0 rounded-lg border border-input bg-muted px-2 font-display text-base font-medium ring-3 ring-ring/20 outline-none"
         value={draft}
         maxLength={200}
         aria-label="Название схемы"
@@ -178,7 +182,7 @@ function PlanName() {
   return (
     <button
       type="button"
-      className="group/name flex h-9 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-[15px] font-semibold outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="group/name flex h-9 min-w-0 items-center gap-1.5 rounded-lg px-2 text-left font-display text-base font-medium tracking-[-0.01em] outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
       title="Переименовать"
       onClick={() => {
         setDraft(name);
@@ -251,7 +255,10 @@ function useOverflowCount(): number {
 function DisplayItems() {
   const settings = useStore((s) => s.settings);
   const setSetting = useStore((s) => s.setSetting);
+  const updateSettings = useStore((s) => s.updateSettings);
+  const setDisplayOpen = useUi((s) => s.setDisplayOpen);
   const overflow = useOverflowCount();
+  const preset = activePreset(settings);
 
   const toggle = (key: Toggle, label: string, extra?: React.ReactNode) => (
     <DropdownMenuCheckboxItem checked={settings[key]} onSelect={keepOpen} onCheckedChange={(v) => setSetting(key, v)}>
@@ -262,6 +269,26 @@ function DisplayItems() {
 
   return (
     <>
+      <DropdownMenuLabel>Режим отображения</DropdownMenuLabel>
+      <DropdownMenuRadioGroup
+        value={preset?.id ?? ''}
+        onValueChange={(id) => {
+          const p = DISPLAY_PRESETS.find((x) => x.id === id);
+          if (p) updateSettings(p.values);
+        }}
+      >
+        {DISPLAY_PRESETS.map((p) => (
+          <DropdownMenuRadioItem key={p.id} value={p.id} onSelect={keepOpen} title={p.hint}>
+            {p.name}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+      <DropdownMenuItem onSelect={() => setDisplayOpen(true)}>
+        <SlidersHorizontal />
+        Все настройки отображения…
+        {!preset && <span className="ml-auto text-xs text-muted-foreground">свои</span>}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
       <DropdownMenuLabel>Отображение</DropdownMenuLabel>
       {toggle('showDimensions', 'Размерные линии')}
       {toggle('showLabels', 'Номера на грузах')}

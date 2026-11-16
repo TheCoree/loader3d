@@ -61,6 +61,8 @@ def main() -> None:
         reload=args.reload,
         reload_dirs=[str(BACKEND_DIR / "app")] if args.reload else None,
         server_header=False,
+        proxy_headers=True,
+        forwarded_allow_ips=settings.forwarded_allow_ips,
     )
 
 

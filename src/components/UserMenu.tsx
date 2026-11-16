@@ -1,5 +1,6 @@
-import { ChevronDown, LayoutGrid, LogOut, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, ShieldCheck, Sparkles, SunMoon, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { THEME_OPTIONS } from '@/components/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,14 +9,22 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { initials } from '@/lib/format';
 import { useAuth } from '@/store/useAuth';
+import { useStore, type Theme } from '@/store/useStore';
 
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const user = useAuth((s) => s.user);
+  const theme = useStore((s) => s.settings.theme);
+  const setSetting = useStore((s) => s.setSetting);
   const logout = useAuth((s) => s.logout);
   const navigate = useNavigate();
   if (!user) return null;
@@ -28,9 +37,9 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 gap-2 px-1.5 data-[state=open]:bg-muted" aria-label="Меню аккаунта">
+        <Button variant="ghost" className="h-9 gap-2 rounded-full px-1.5 data-[state=open]:bg-muted sm:pr-2.5" aria-label="Меню аккаунта">
           <Avatar className="size-7">
-            <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+            <AvatarFallback className="bg-foreground text-xs font-semibold text-background">
               {initials(user.displayName)}
             </AvatarFallback>
           </Avatar>
@@ -70,6 +79,24 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
             </DropdownMenuItem>
           </>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <SunMoon /> Тема
+            <span className="ml-auto text-xs text-muted-foreground">
+              {THEME_OPTIONS.find((o) => o.value === theme)?.label}
+            </span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-48">
+            <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setSetting('theme', v as Theme)}>
+              {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                <DropdownMenuRadioItem key={value} value={value}>
+                  <Icon /> {label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOut /> Выйти

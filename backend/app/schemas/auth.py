@@ -16,6 +16,8 @@ LoginEmail = Annotated[
 ]
 NewPassword = Annotated[str, StringConstraints(min_length=8, max_length=128)]
 Password = Annotated[str, StringConstraints(min_length=1, max_length=128)]
+# A one-time code from an email (app/verification.py).
+Code = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{6}$")]
 DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
@@ -27,9 +29,33 @@ class RegisterIn(ApiModel):
     tier: Literal["free", "pro"] = "free"
 
 
+class VerifyEmailIn(ApiModel):
+    code: Code
+
+
+class VerifyResendOut(ApiModel):
+    # Seconds until the next code may be requested.
+    retry_after: int
+
+
 class LoginIn(ApiModel):
     email: LoginEmail
     password: Password
+
+
+class ForgotPasswordIn(ApiModel):
+    email: LoginEmail
+
+
+class ForgotPasswordOut(ApiModel):
+    # Seconds until another code may be requested.
+    retry_after: int
+
+
+class ResetPasswordIn(ApiModel):
+    email: LoginEmail
+    code: Code
+    password: NewPassword
 
 
 class LimitsOut(ApiModel):
@@ -82,6 +108,8 @@ class UserOut(ApiModel):
     display_name: str
     created_at: datetime
     is_admin: bool
+    # false: the email is not confirmed yet (app/verification.py), plans are closed.
+    email_verified: bool
     # Editor display settings as last saved (camelCase keys); null — never changed.
     settings: dict[str, Any] | None
     # null when tiers are off (TIERS_ENABLED): nothing is limited.
@@ -95,6 +123,7 @@ class UserOut(ApiModel):
             display_name=user.display_name,
             created_at=user.created_at,
             is_admin=user.is_admin,
+            email_verified=user.email_verified_at is not None,
             settings=user.settings,
             subscription=SubscriptionOut.of(user) if tiers_enabled else None,
         )
@@ -142,6 +171,13 @@ class DisplaySettingsIn(ApiModel):
     show_dimensions: bool | None = None
     show_labels: bool | None = None
     show_body_walls: bool | None = None
+    # src/store/useStore.ts WALL_OPACITY_RANGE.
+    wall_opacity: Annotated[float, Field(ge=0.03, le=0.4)] | None = None
+    show_body_posts: bool | None = None
+    show_floor_marks: bool | None = None
+    show_chassis: bool | None = None
+    show_load_length: bool | None = None
+    show_shadows: bool | None = None
     lock_cargo: bool | None = None
     snapping: bool | None = None
     resize_handles: bool | None = None
@@ -151,3 +187,5 @@ class DisplaySettingsIn(ApiModel):
     xray: Literal["off", "selection", "auto", "all"] | None = None
     # src/store/useStore.ts XRAY_OPACITY_RANGE.
     xray_opacity: Annotated[float, Field(ge=0.08, le=0.8)] | None = None
+    # Colour theme of the app; "system" follows the OS.
+    theme: Literal["system", "light", "dark"] | None = None

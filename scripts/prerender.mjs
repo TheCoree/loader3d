@@ -24,7 +24,7 @@ try {
 
   const json = (data) => JSON.stringify(data).replace(/</g, '\\u003c');
   const head = [
-    '<link rel="preload" as="image" href="/landing/hero.webp" fetchpriority="high" />',
+    '<link rel="preload" as="image" href="/landing/editor.webp" fetchpriority="high" />',
     ...structuredData(SITE_URL).map((d) => `<script type="application/ld+json">${json(d)}</script>`),
   ];
   let html = template;
@@ -37,11 +37,11 @@ try {
     .replace('<div id="root"></div>', `<div id="root">${renderLanding()}</div>`);
   writeFileSync('dist/index.html', html);
 
-  const robots = ['User-agent: *', 'Allow: /', 'Disallow: /plans', 'Disallow: /account', 'Disallow: /admin', 'Disallow: /api/'];
+  const robots = ['User-agent: *', 'Allow: /', 'Disallow: /plans', 'Disallow: /verify-email', 'Disallow: /account', 'Disallow: /admin', 'Disallow: /api/'];
   if (SITE_URL) robots.push('', `Sitemap: ${SITE_URL}/sitemap.xml`);
   writeFileSync('dist/robots.txt', `${robots.join('\n')}\n`);
   if (SITE_URL) {
-    const urls = ['/', '/register'].map((path) => `  <url><loc>${SITE_URL}${path}</loc></url>`);
+    const urls = ['/', '/register', '/terms', '/privacy'].map((path) => `  <url><loc>${SITE_URL}${path}</loc></url>`);
     writeFileSync(
       'dist/sitemap.xml',
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,

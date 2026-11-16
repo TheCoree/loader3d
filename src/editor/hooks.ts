@@ -73,10 +73,10 @@ export function useFeature(feature: 'autoload' | 'pdfSteps'): boolean {
   return useAuth((s) => s.user?.subscription?.limits[feature] ?? true);
 }
 
-/** Opens the automatic loading dialog, or the offer of «Профи» on tiers without it. */
+/** Opens the automatic loading dialog, or the offer of «Pro» on tiers without it. */
 export function useOpenAutoload(): () => void {
   const allowed = useFeature('autoload');
   const setAutoloadOpen = useUi((s) => s.setAutoloadOpen);
   const show = useUpgrade((s) => s.show);
-  return () => (allowed ? setAutoloadOpen(true) : show('Автозагрузка с развесовкой доступна на тарифе «Профи».'));
+  return () => (allowed ? setAutoloadOpen(true) : show('Автозагрузка с развесовкой доступна на тарифе «Pro».'));
 }

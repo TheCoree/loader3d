@@ -1,10 +1,9 @@
 import { cn } from "cn"
-import { Loader2Icon } from "lucide-react"
+import { LogoLoader } from "@/components/Logo"
 
-function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
-  return (
-    <Loader2Icon data-slot="spinner" role="status" aria-label="Loading" className={cn("size-4 animate-spin", className)} {...props} />
-  )
+/** The brand loader at icon size (buttons, inline states). */
+function Spinner({ className }: { className?: string }) {
+  return <LogoLoader label="Загрузка" className={cn("size-4", className)} />
 }
 
 export { Spinner }

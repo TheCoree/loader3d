@@ -176,6 +176,8 @@ async def create_user(body: AdminUserCreate, auth: AdminAuth, db: Db, settings: 
         password_hash=await hash_password(body.password),
         display_name=body.display_name or body.email.split("@", 1)[0][:100],
         is_admin=body.is_admin,
+        # Created by an admin: the address is trusted.
+        email_verified_at=utcnow(),
     )
     if settings.tiers_enabled:
         user.tier = body.tier
@@ -216,7 +218,7 @@ async def update_user(
 async def set_subscription(
     user_id: uuid.UUID, body: SubscriptionIn, auth: AdminAuth, db: Db, settings: SettingsDep
 ) -> AdminUserOut:
-    """Assigns a tier: activates or renews «Профи», sets up «Индивидуальный» with its own limits."""
+    """Assigns a tier: activates or renews «Pro», sets up «Индивидуальный» with its own limits."""
     if not settings.tiers_enabled:
         raise _tiers_disabled()
     user = await _get_user(db, user_id)

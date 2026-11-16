@@ -30,8 +30,20 @@ export interface Settings {
   highlightOverflow: boolean;
   showDimensions: boolean;
   showLabels: boolean;
-  /** Translucent walls, roof and side posts of the bodies; the frame and the floor marks always show. */
+  /** Translucent walls and roof of the bodies; the edges (frame) and the deck always show. */
   showBodyWalls: boolean;
+  /** Opacity of those walls, WALL_OPACITY_RANGE. */
+  wallOpacity: number;
+  /** Side posts and roof bows of the bodies: the lines between the edges. */
+  showBodyPosts: boolean;
+  /** Loading-metre marks across the floor. */
+  showFloorMarks: boolean;
+  /** Cab, chassis and wheels. */
+  showChassis: boolean;
+  /** Rulers on the ground: load length and the free length to the rear doors. */
+  showLoadLength: boolean;
+  /** Shadows of the cargo and the vehicle. */
+  showShadows: boolean;
   /** View mode: cargo is not dragged or resized with the mouse (a press orbits the camera, a tap selects). */
   lockCargo: boolean;
   snapping: boolean;
@@ -43,15 +55,20 @@ export interface Settings {
   xray: XrayMode;
   /** Opacity of see-through cargo, XRAY_OPACITY_RANGE. */
   xrayOpacity: number;
+  /** Colour theme of the app (lib/theme.ts); "system" follows the OS. The public pages stay light. */
+  theme: Theme;
 }
 
+export type Theme = 'system' | 'light' | 'dark';
+
 export const XRAY_OPACITY_RANGE: [number, number] = [0.08, 0.8];
+export const WALL_OPACITY_RANGE: [number, number] = [0.03, 0.4];
 
 /** Limits of the account's tier for one plan (src/lib/tiers.ts); null — only the plan maximums. */
 export interface PlanLimits {
   vehicles: number;
   items: number;
-  /** Shown in messages: «Старт», «Профи»… */
+  /** Shown in messages: «Старт», «Pro»… */
   tierName: string;
 }
 
@@ -127,6 +144,8 @@ export interface AppState extends PlanState {
   setActiveVehicle(id: string): void;
 
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void;
+  /** Several settings at once (a display preset). */
+  updateSettings(patch: Partial<Settings>): void;
   /** All settings at once: the saved settings of the account that logged in (store/settingsSync.ts). */
   replaceSettings(settings: Settings): void;
   setLimits(limits: PlanLimits | null): void;
@@ -146,6 +165,12 @@ export const DEFAULT_SETTINGS: Settings = {
   showDimensions: true,
   showLabels: true,
   showBodyWalls: true,
+  wallOpacity: 0.08,
+  showBodyPosts: true,
+  showFloorMarks: true,
+  showChassis: true,
+  showLoadLength: true,
+  showShadows: true,
   lockCargo: false,
   snapping: true,
   resizeHandles: true,
@@ -154,10 +179,12 @@ export const DEFAULT_SETTINGS: Settings = {
   allowTilt: false,
   xray: 'selection',
   xrayOpacity: 0.22,
+  theme: 'system',
 };
 
 const UNITS: readonly Units[] = ['mm', 'cm', 'm'];
 const XRAY_MODES: readonly XrayMode[] = ['off', 'selection', 'auto', 'all'];
+const THEMES: readonly Theme[] = ['system', 'light', 'dark'];
 
 /** Settings from the server (or an old browser) with unknown keys dropped and bad values replaced by defaults. */
 export function sanitizeSettings(raw: unknown): Settings {
@@ -169,8 +196,11 @@ export function sanitizeSettings(raw: unknown): Settings {
   }
   if (!UNITS.includes(out.units)) out.units = DEFAULT_SETTINGS.units;
   if (!XRAY_MODES.includes(out.xray)) out.xray = DEFAULT_SETTINGS.xray;
+  if (!THEMES.includes(out.theme)) out.theme = DEFAULT_SETTINGS.theme;
   const [lo, hi] = XRAY_OPACITY_RANGE;
   if (!(out.xrayOpacity >= lo && out.xrayOpacity <= hi)) out.xrayOpacity = DEFAULT_SETTINGS.xrayOpacity;
+  const [wlo, whi] = WALL_OPACITY_RANGE;
+  if (!(out.wallOpacity >= wlo && out.wallOpacity <= whi)) out.wallOpacity = DEFAULT_SETTINGS.wallOpacity;
   return out;
 }
 
@@ -587,6 +617,10 @@ export const useStore = create<AppState>()(
 
       setSetting(key, value) {
         set({ settings: { ...get().settings, [key]: value } });
+      },
+
+      updateSettings(patch) {
+        set({ settings: { ...get().settings, ...patch } });
       },
 
       replaceSettings(settings) {

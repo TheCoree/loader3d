@@ -4,8 +4,7 @@ import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import { planApi } from '@/api/endpoints';
 import type { PlanSummary } from '@/api/types';
-import { CARGO_COLORS } from '@/core/presets';
-import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -19,11 +18,29 @@ import { fullDate, plural, timeAgo } from '@/lib/format';
 import { downloadPlan } from '@/lib/planFiles';
 import { useDuplicatePlan } from '@/lib/plansQuery';
 
-/** A stable colour per plan, so cards are easy to tell apart. */
-function planColor(id: string): string {
-  let hash = 0;
-  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-  return CARGO_COLORS[Math.abs(hash) % CARGO_COLORS.length];
+function toDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * The picture of the plan rendered by the editor (editor/planThumbnail.ts). Fetched with the access
+ * token (an <img src> could not send it) and kept as a data URL; a new thumbnailAt is a new picture.
+ */
+function usePlanThumbnail(plan: PlanSummary): string | undefined {
+  const { data } = useQuery({
+    queryKey: ['plan-thumbnail', plan.id, plan.thumbnailAt],
+    queryFn: async ({ signal }) => toDataUrl(await planApi.thumbnail(plan.id, plan.thumbnailAt!, signal)),
+    enabled: plan.thumbnailAt !== null,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+    retry: false,
+  });
+  return data;
 }
 
 interface PlanCardProps {
@@ -35,7 +52,7 @@ interface PlanCardProps {
 export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
   const navigate = useNavigate();
   const duplicate = useDuplicatePlan();
-  const color = planColor(plan.id);
+  const thumbnail = usePlanThumbnail(plan);
   const href = `/plans/${plan.id}`;
 
   const exportJson = async () => {
@@ -48,34 +65,30 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
   };
 
   return (
-    <Card className="group/plan relative gap-0 py-0 transition-shadow hover:shadow-lg hover:shadow-foreground/5 hover:ring-primary/35 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring">
-      <div className="flex items-start gap-3 p-4">
-        <span
-          className="grid size-11 shrink-0 place-items-center rounded-lg"
-          style={{ background: `color-mix(in oklab, ${color} 16%, white)`, color: `color-mix(in oklab, ${color} 80%, black)` }}
-        >
-          <Truck className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1 pt-0.5">
-          <h3 className="truncate leading-snug font-medium">
-            <Link to={href} className="outline-none after:absolute after:inset-0 after:rounded-xl" title={plan.name}>
-              {plan.name}
-            </Link>
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground" title={`Изменено ${fullDate(plan.updatedAt)}`}>
-            Изменено {timeAgo(plan.updatedAt)}
-          </p>
-        </div>
+    <Card className="plan-card group/plan relative gap-0 rounded-2xl py-0">
+      <div className="relative aspect-[16/10] overflow-hidden border-b bg-[#eceff3]">
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt=""
+            className="size-full object-cover transition-transform duration-500 ease-out group-hover/plan:scale-[1.035]"
+            draggable={false}
+          />
+        ) : (
+          <div className="grid size-full place-items-center text-ink/25">
+            <Truck className="size-9" strokeWidth={1.25} />
+          </div>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="relative z-10 -mt-1 -mr-1 text-muted-foreground opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover/plan:opacity-100 sm:focus-visible:opacity-100"
+            {/* A plain button: it sits on the light picture in both themes, so no theme-aware variant. */}
+            <button
+              type="button"
+              className="absolute top-3 right-3 z-10 grid size-8 place-items-center rounded-full bg-white/90 text-ink/70 ring-1 ring-ink/10 backdrop-blur transition outline-none hover:bg-white hover:text-ink focus-visible:ring-3 focus-visible:ring-ink/30 data-[state=open]:bg-ink data-[state=open]:text-white data-[state=open]:ring-ink sm:opacity-0 sm:group-hover/plan:opacity-100 sm:focus-visible:opacity-100 sm:data-[state=open]:opacity-100"
               aria-label="Действия со схемой"
             >
-              <Ellipsis />
-            </Button>
+              <Ellipsis className="size-4" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onSelect={() => navigate(href)}>
@@ -105,16 +118,26 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Package className="size-3.5" />
-          {plural(plan.itemCount, ['груз', 'груза', 'грузов'])}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Truck className="size-3.5" />
-          {plan.vehicleCount > 1 && `${plural(plan.vehicleCount, ['машина', 'машины', 'машин'])} · `}
-          {plural(plan.bodyCount, ['кузов', 'кузова', 'кузовов'])}
-        </span>
+      <div className="px-5 pt-4 pb-5">
+        <h3 className="truncate font-display text-[17px] leading-snug font-medium tracking-[-0.01em]">
+          <Link to={href} className="outline-none after:absolute after:inset-0 after:rounded-2xl" title={plan.name}>
+            {plan.name}
+          </Link>
+        </h3>
+        <p className="mt-1 text-[13px] text-muted-foreground" title={`Изменено ${fullDate(plan.updatedAt)}`}>
+          Изменено {timeAgo(plan.updatedAt)}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
+            <Package className="size-3.5" />
+            {plural(plan.itemCount, ['груз', 'груза', 'грузов'])}
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
+            <Truck className="size-3.5" />
+            {plan.vehicleCount > 1 && `${plural(plan.vehicleCount, ['машина', 'машины', 'машин'])} · `}
+            {plural(plan.bodyCount, ['кузов', 'кузова', 'кузовов'])}
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -122,16 +145,12 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
 
 export function PlanCardSkeleton() {
   return (
-    <Card className="gap-0 py-0">
-      <div className="flex items-start gap-3 p-4">
-        <Skeleton className="size-11 rounded-lg" />
-        <div className="flex-1 space-y-2 pt-1">
-          <Skeleton className="h-4 w-3/5" />
-          <Skeleton className="h-3 w-2/5" />
-        </div>
-      </div>
-      <div className="border-t px-4 py-3">
-        <Skeleton className="h-3 w-1/2" />
+    <Card className="gap-0 rounded-2xl py-0">
+      <Skeleton className="aspect-[16/10] rounded-none" />
+      <div className="space-y-2.5 px-5 pt-4 pb-5">
+        <Skeleton className="h-4 w-3/5" />
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="mt-4 h-6 w-1/2 rounded-full" />
       </div>
     </Card>
   );

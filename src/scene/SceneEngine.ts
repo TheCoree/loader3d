@@ -23,6 +23,7 @@ import { GuidesView } from './GuidesView';
 import { InteractionManager } from './InteractionManager';
 import { LoadLengthView } from './LoadLengthView';
 import { SelectionView } from './SelectionView';
+import { partsChanged, vehicleParts } from './displayParts';
 import { VehicleView } from './VehicleView';
 import { COLORS } from './theme';
 
@@ -91,7 +92,7 @@ export class SceneEngine {
     this.scene.fog = new THREE.Fog(COLORS.background, 9000, 30000);
 
     const hemi = new THREE.HemisphereLight('#ffffff', '#aab3bf', 1.55);
-    this.sun.castShadow = true;
+    this.sun.castShadow = useStore.getState().settings.showShadows;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 1.5;
@@ -318,8 +319,10 @@ export class SceneEngine {
     if (bodiesChanged || viewChanged) this.rebuildVehicle();
     else {
       if (s.activeVehicleId !== prev.activeVehicleId) this.vehicle.setActive(s.activeVehicleId);
-      if (st.showBodyWalls !== pt.showBodyWalls) this.vehicle.setWallsVisible(st.showBodyWalls);
+      if (partsChanged(st, pt)) this.vehicle.setParts(vehicleParts(st));
+      if (st.wallOpacity !== pt.wallOpacity) this.vehicle.setWallOpacity(st.wallOpacity);
     }
+    if (st.showShadows !== pt.showShadows) this.sun.castShadow = st.showShadows;
     if (
       bodiesChanged ||
       s.items !== prev.items ||
@@ -328,7 +331,9 @@ export class SceneEngine {
     ) {
       this.syncCargo();
     }
-    if (bodiesChanged || viewChanged || s.items !== prev.items) this.syncLoadLength();
+    if (bodiesChanged || viewChanged || s.items !== prev.items || st.showLoadLength !== pt.showLoadLength) {
+      this.syncLoadLength();
+    }
     if (
       bodiesChanged ||
       viewChanged ||
@@ -355,7 +360,8 @@ export class SceneEngine {
     this.vehicle.build(layout, {
       units: s.settings.units,
       showDimensions: s.settings.showDimensions,
-      showWalls: s.settings.showBodyWalls,
+      parts: vehicleParts(s.settings),
+      wallOpacity: s.settings.wallOpacity,
       activeVehicleId: s.activeVehicleId,
     });
     this.updateShadowCamera(layout);
@@ -441,7 +447,7 @@ export class SceneEngine {
     const s = useStore.getState();
     this.loadLength.update(this.displayItems, layoutOf(s), {
       units: s.settings.units,
-      show: s.settings.showDimensions,
+      show: s.settings.showLoadLength,
     });
   }
 

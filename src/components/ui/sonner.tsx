@@ -1,7 +1,7 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
-// The app has a single light theme (the 3D scene is light), so no theme provider here.
+// The theme comes from the app shell (lib/theme.ts) through the `theme` prop.
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
