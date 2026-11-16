@@ -41,7 +41,7 @@ export function LegalPage({ doc }: { doc: LegalDoc }) {
       </header>
 
       <main className="mx-auto w-full max-w-[760px] px-5 pt-16 pb-24 sm:px-8 sm:pt-24 sm:pb-32">
-        <h1 className={cn(displayTitle, 'text-[2rem] leading-[1.08] sm:text-[2.6rem]')}>{title}</h1>
+        <h1 className={cn(displayTitle, 'text-[1.8rem] leading-[1.1] sm:text-[2.2rem]')}>{title}</h1>
         <p className="mt-4 text-[15px] text-ink/50">Редакция от {DOCS_DATE}</p>
         <nav aria-label="Документы" className="mt-8 flex flex-wrap gap-2">
           {(Object.keys(DOCS) as LegalDoc[]).map((d) => (

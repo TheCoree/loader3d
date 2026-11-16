@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, OctagonAlert } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { Logo } from '@/components/Logo';
-import { DitherBackground, displayTitle } from '@/components/site';
+import { AsciiBackground, displayTitle } from '@/components/site';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -84,7 +84,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
   return (
     <AuthShell>
       <form onSubmit={submit} className="w-full max-w-[400px]" noValidate>
-        <h1 className={cn(displayTitle, 'text-[2.1rem] leading-[1.05] sm:text-[2.6rem]')}>{copy.title}</h1>
+        <h1 className={cn(displayTitle, 'text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>{copy.title}</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-ink/55">{copy.subtitle}</p>
 
         {error && (
@@ -247,10 +247,10 @@ export function AuthPage({ mode }: { mode: Mode }) {
   );
 }
 
-/** The layout of the sign-in pages: the dark brand panel and a white column for the form. */
+/** The layout of the sign-in pages: the light brand panel and a white column for the form. */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-ink text-ink antialiased lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:bg-white">
+    <div className="min-h-dvh bg-[#f4f6fa] text-ink antialiased lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:bg-white">
       <BrandPanel />
 
       <main className="relative -mt-8 flex min-h-[calc(100dvh-12rem)] flex-col rounded-t-[28px] bg-white px-5 pt-8 pb-6 sm:px-10 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:py-8">
@@ -279,13 +279,13 @@ export function AuthShell({ children }: { children: ReactNode }) {
   );
 }
 
-function BackHome({ dark }: { dark?: boolean }) {
+function BackHome() {
   return (
     <Link
       to="/"
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        dark ? 'text-white/65 hover:bg-white/10 hover:text-white' : 'text-ink/55 hover:bg-ink/[0.04] hover:text-ink',
+        'text-ink/55 hover:bg-ink/[0.04] hover:text-ink',
       )}
     >
       <ArrowLeft className="size-3.5" /> На главную
@@ -334,33 +334,33 @@ function TierChoice({ value, onChange }: { value: ChosenTier; onChange(tier: Cho
 
 const HIGHLIGHTS = ['Физика и магниты', 'LDM, вес и центр тяжести', 'PDF для водителя'];
 
-/** The dark side: the dithered waves and the promise, text only. On phones — a band on top. */
+/** The brand side: the ASCII gradient (as on the landing page) and the promise, text only. On phones — a band on top. */
 function BrandPanel() {
   return (
-    <aside className="relative isolate overflow-hidden bg-ink text-white lg:sticky lg:top-0 lg:h-dvh">
-      <DitherBackground className="-z-10" waveColor={[0.3, 0.33, 0.4]} />
+    <aside className="relative isolate overflow-hidden bg-[#f4f6fa] text-ink lg:sticky lg:top-0 lg:h-dvh lg:border-r lg:border-ink/[0.06]">
+      <AsciiBackground className="-z-10" />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,11,13,0.85)_0%,rgba(10,11,13,0.55)_40%,rgba(10,11,13,0.92)_100%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(244,246,250,0.8)_0%,rgba(244,246,250,0.35)_45%,rgba(244,246,250,0.92)_100%)]"
       />
       <div className="flex h-full flex-col px-5 pt-5 pb-16 sm:px-10 sm:pt-7 lg:px-12 lg:pt-8 lg:pb-12 xl:px-14">
         <div className="flex items-center justify-between">
           <Logo />
           <div className="lg:hidden">
-            <BackHome dark />
+            <BackHome />
           </div>
         </div>
 
         <div className="mt-10 max-w-lg lg:mt-auto">
-          <h2 className={cn(displayTitle, 'text-[1.9rem] leading-[1.06] sm:text-4xl xl:text-[3.25rem] xl:leading-[1.02]')}>
+          <h2 className={cn(displayTitle, 'text-[1.75rem] leading-[1.08] sm:text-[2.1rem] xl:text-[2.6rem] xl:leading-[1.05]')}>
             Соберите фуру в 3D до того, как приедет машина
           </h2>
-          <p className="mt-5 hidden max-w-md text-[17px] leading-relaxed text-white/55 lg:block">
+          <p className="mt-5 hidden max-w-md text-[17px] leading-relaxed text-ink/60 lg:block">
             Раскладка паллет с физикой, контроль веса и центра тяжести, PDF-схема для водителя — в браузере, без установки.
           </p>
         </div>
 
-        <ul className="mt-10 hidden flex-wrap gap-x-6 gap-y-2 text-sm text-white/50 lg:flex">
+        <ul className="mt-10 hidden flex-wrap gap-x-6 gap-y-2 text-sm text-ink/50 lg:flex">
           {HIGHLIGHTS.map((h) => (
             <li key={h} className="flex items-center gap-2">
               <span className="size-1 rounded-full bg-primary" />

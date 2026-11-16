@@ -17,7 +17,7 @@ import { LeadForm } from '@/components/LeadForm';
 import { Logo } from '@/components/Logo';
 import { SessionLoader } from '@/components/RouteGuards';
 import { SiteFooter } from '@/components/SiteFooter';
-import { DitherBackground, displayTitle, glassButton, inkButton, lineButton, whiteButton } from '@/components/site';
+import { AsciiBackground, displayTitle, inkButton, lineButton, whiteButton } from '@/components/site';
 import { Button } from '@/components/ui/button';
 import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, tierInfo, type TierInfo } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
@@ -177,7 +177,7 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
   }, [hash, section]);
 
   return (
-    <div className="min-h-dvh bg-ink text-ink antialiased selection:bg-primary/25">
+    <div className="min-h-dvh bg-[#f4f6fa] text-ink antialiased selection:bg-primary/25">
       <LandingHeader />
       <main>
         <Hero />
@@ -215,7 +215,7 @@ function SectionHeader({
 }) {
   return (
     <div className={cn('max-w-3xl', center && 'mx-auto text-center', className)}>
-      <h2 className={cn(displayTitle, 'text-[1.85rem] leading-[1.06] sm:text-[2.6rem] lg:text-[3rem]')}>{title}</h2>
+      <h2 className={cn(displayTitle, 'text-[1.7rem] leading-[1.1] sm:text-[2.2rem] lg:text-[2.5rem]')}>{title}</h2>
       {text && (
         <p
           className={cn(
@@ -272,19 +272,19 @@ const NAV = [
 function LandingHeader() {
   const user = useAuth((s) => s.user);
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-ink/90 text-white backdrop-blur-xl backdrop-saturate-150">
+    <header className="sticky top-0 z-40 border-b border-ink/[0.06] bg-white/80 text-ink backdrop-blur-xl backdrop-saturate-150">
       <Container className="flex h-16 items-center gap-6">
         <Logo />
-        <nav aria-label="Разделы" className="hidden flex-1 items-center justify-center gap-8 text-sm text-white/60 md:flex">
+        <nav aria-label="Разделы" className="hidden flex-1 items-center justify-center gap-8 text-sm text-ink/55 md:flex">
           {NAV.map((n) => (
-            <a key={n.href} href={n.href} className="transition-colors hover:text-white">
+            <a key={n.href} href={n.href} className="transition-colors hover:text-ink">
               {n.label}
             </a>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           {user ? (
-            <Button asChild className={cn(whiteButton, 'h-9 px-4 text-sm')}>
+            <Button asChild className={cn(inkButton, 'h-9 px-4 text-sm')}>
               <Link to="/plans">
                 Мои схемы <ArrowRight />
               </Link>
@@ -294,11 +294,11 @@ function LandingHeader() {
               <Button
                 asChild
                 variant="ghost"
-                className="h-9 rounded-full px-3.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                className="h-9 rounded-full px-3.5 text-sm text-ink/70 hover:bg-ink/[0.04] hover:text-ink"
               >
                 <Link to="/login">Войти</Link>
               </Button>
-              <Button asChild className={cn(whiteButton, 'h-9 px-4 text-sm')}>
+              <Button asChild className={cn(inkButton, 'h-9 px-4 text-sm')}>
                 <Link to="/register">Начать бесплатно</Link>
               </Button>
             </>
@@ -311,52 +311,52 @@ function LandingHeader() {
 
 function Hero() {
   return (
-    <section className="relative isolate overflow-hidden bg-ink text-white">
-      <DitherBackground className="-z-10" />
-      {/* Keeps the headline readable over the waves. */}
+    <section className="relative isolate overflow-hidden bg-[#f4f6fa] text-ink">
+      <AsciiBackground className="-z-10" />
+      {/* Keeps the headline readable over the glyphs. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_50%_at_50%_30%,rgba(10,11,13,0.9)_0%,rgba(10,11,13,0.6)_55%,rgba(10,11,13,0)_100%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_48%_at_50%_28%,rgba(244,246,250,0.95)_0%,rgba(244,246,250,0.7)_55%,rgba(244,246,250,0)_100%)]"
       />
-      <Container className="pt-20 text-center sm:pt-28 lg:pt-32">
-        <p className="landing-rise mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[13px] text-white/70 backdrop-blur">
-          <span className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_2px_rgba(47,111,237,0.7)]" />
+      <Container className="pt-16 text-center sm:pt-24 lg:pt-28">
+        <p className="landing-rise mx-auto inline-flex items-center gap-2 rounded-full border border-ink/[0.08] bg-white/70 px-3.5 py-1.5 text-[13px] text-ink/65 backdrop-blur">
+          <span className="size-1.5 rounded-full bg-primary shadow-[0_0_8px_2px_rgba(47,111,237,0.45)]" />
           3D-планировщик загрузки фуры и контейнера
         </p>
         <h1
           className={cn(
             displayTitle,
-            'landing-rise mx-auto mt-7 max-w-4xl text-[2.3rem] leading-[1.05] tracking-[-0.022em] [animation-delay:60ms] sm:text-[3.25rem] lg:text-[4.5rem]',
+            'landing-rise mx-auto mt-6 max-w-3xl text-[2rem] leading-[1.08] tracking-[-0.02em] [animation-delay:60ms] sm:text-[2.75rem] lg:text-[3.4rem]',
           )}
         >
           Загрузите фуру в 3D до того, как приедет машина
         </h1>
-        <p className="landing-rise mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty text-white/60 [animation-delay:120ms] sm:text-xl">
+        <p className="landing-rise mx-auto mt-5 max-w-2xl text-base leading-relaxed text-pretty text-ink/60 [animation-delay:120ms] sm:text-lg">
           Раскладывайте паллеты и коробки по кузову с физикой и магнитами, следите за LDM, весом и центром тяжести и отдавайте
           водителю PDF-схему погрузки. В браузере, без установки.
         </p>
-        <div className="landing-rise mt-10 flex flex-col items-center justify-center gap-3 [animation-delay:180ms] sm:flex-row">
-          <Button asChild size="lg" className={cn(whiteButton, 'h-12 px-7 text-base')}>
+        <div className="landing-rise mt-8 flex flex-col items-center justify-center gap-3 [animation-delay:180ms] sm:flex-row">
+          <Button asChild size="lg" className={cn(inkButton, 'h-11 px-6')}>
             <Link to="/register">
               Начать бесплатно <ArrowRight />
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className={cn(glassButton, 'h-12 px-7 text-base')}>
+          <Button asChild size="lg" variant="outline" className={cn(lineButton, 'h-11 bg-white/60 px-6 backdrop-blur')}>
             {TIERS_ENABLED ? <a href="#pricing">Тарифы</a> : <a href="#features">Возможности</a>}
           </Button>
         </div>
-        <p className="landing-rise mt-5 text-sm text-white/40 [animation-delay:220ms]">
+        <p className="landing-rise mt-4 text-sm text-ink/40 [animation-delay:220ms]">
           {TIERS_ENABLED
             ? `Бесплатный тариф навсегда · «${tierInfo('pro').name}» ${TRIAL_DAYS} дней без оплаты · Без карты`
             : 'Без установки · В браузере и на планшете · Схемы сохраняются в аккаунте'}
         </p>
       </Container>
 
-      {/* The product: dark above its middle, white below — it bridges the hero and the page. */}
-      <div className="relative mt-16 sm:mt-20">
+      {/* The product: on the hero above its middle, white below — it bridges the hero and the page. */}
+      <div className="relative mt-14 sm:mt-16">
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-[38%] bg-white" />
         <Container className="relative">
-          <figure className="landing-rise rounded-[20px] bg-white/[0.06] p-1.5 shadow-[0_40px_100px_-50px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur [animation-delay:280ms] sm:rounded-[24px] sm:p-2">
+          <figure className="landing-rise rounded-[20px] bg-white/60 p-1.5 shadow-[0_40px_100px_-50px_rgba(10,11,13,0.35)] ring-1 ring-ink/[0.06] backdrop-blur [animation-delay:280ms] sm:rounded-[24px] sm:p-2">
             <Shot
               eager
               src="/landing/editor.webp"
@@ -518,7 +518,7 @@ function Features() {
           {FACTS.map((f) => (
             <div key={f.label} className="flex flex-col-reverse">
               <dt className="mt-2 text-[15px] text-ink/50">{f.label}</dt>
-              <dd className="font-display text-[2.5rem] font-medium tracking-[-0.04em] tabular-nums sm:text-5xl">{f.value}</dd>
+              <dd className="font-display text-[2.2rem] font-medium tracking-[-0.04em] tabular-nums sm:text-[2.6rem]">{f.value}</dd>
             </div>
           ))}
         </dl>
@@ -752,7 +752,7 @@ function Contact() {
       <Container>
         <div className="grid gap-10 rounded-[32px] bg-[#f4f4f6] p-6 sm:p-12 lg:grid-cols-2 lg:gap-16 lg:p-16">
           <div className="lg:pt-2">
-            <h2 className={cn(displayTitle, 'text-[1.8rem] leading-[1.08] sm:text-[2.4rem]')}>{CONTACT.title}</h2>
+            <h2 className={cn(displayTitle, 'text-[1.7rem] leading-[1.1] sm:text-[2.2rem]')}>{CONTACT.title}</h2>
             <p className="mt-5 text-lg leading-relaxed text-pretty text-ink/55">{CONTACT.text}</p>
             <ul className="mt-8 space-y-3.5">
               {CONTACT.points.map((x) => (
@@ -777,26 +777,26 @@ function Contact() {
 function FinalCta() {
   return (
     <section className="relative isolate overflow-hidden bg-ink text-white">
-      <DitherBackground className="-z-10 opacity-70" waveSpeed={0.025} />
+      <AsciiBackground className="-z-10" tone="dark" shape="rise" />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,rgba(10,11,13,0.92),rgba(10,11,13,0.4))]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_60%_at_50%_45%,rgba(10,11,13,0.9),rgba(10,11,13,0.3))]"
       />
-      <Container className="py-28 text-center sm:py-40">
+      <Container className="py-24 text-center sm:py-32">
         <h2
           className={cn(
             displayTitle,
-            'mx-auto max-w-3xl text-[2.1rem] leading-[1.05] tracking-[-0.022em] sm:text-[3.25rem] lg:text-[4rem]',
+            'mx-auto max-w-2xl text-[1.85rem] leading-[1.08] tracking-[-0.02em] sm:text-[2.5rem] lg:text-[3rem]',
           )}
         >
           Следующую машину — загрузите в Loader3D
         </h2>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-white/55">
+        <p className="mx-auto mt-5 max-w-xl text-base text-white/55 sm:text-lg">
           {TIERS_ENABLED
             ? 'Регистрация за минуту. Бесплатный тариф — без ограничения по сроку.'
             : 'Регистрация за минуту — и можно загружать первую машину.'}
         </p>
-        <Button asChild size="lg" className={cn(whiteButton, 'mt-10 h-12 px-8 text-base')}>
+        <Button asChild size="lg" className={cn(whiteButton, 'mt-8 h-11 px-7')}>
           <Link to="/register">
             Создать аккаунт <ArrowRight />
           </Link>

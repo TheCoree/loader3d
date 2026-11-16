@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import type { DitherProps } from '@/components/Dither';
+import type { GradientASCIIProps } from '@/components/GradientASCII';
 import { cn } from '@/lib/utils';
 
 /**
@@ -17,14 +17,23 @@ export const glassButton =
 /** Big headline of the public pages. */
 export const displayTitle = 'font-display font-medium tracking-[-0.015em] text-balance';
 
-const Dither = lazy(() => import('@/components/Dither'));
+const GradientASCII = lazy(() => import('@/components/GradientASCII'));
+
+/** Loader3D's blues: the accent (`--primary`, COLORS.accent) and lighter tints of it. */
+const LIGHT_COLORS = ['#2f6fed', '#f4f6fa', '#b8cdf8', '#6b98f2'];
+const DARK_COLORS = ['#1f4fc4', '#0a0b0d', '#5b8def', '#2f6fed'];
 
 /**
- * The animated dithered waves (React Bits «Dither», WebGL2) as a background. Loaded lazily and only after
- * mount: the prerendered HTML and the first client render show the plain dark backdrop, then the waves
- * fade in. Dither itself freezes with prefers-reduced-motion and pauses off screen.
+ * The animated ASCII gradient (React Bits «Gradient ASCII», WebGL2) in Loader3D's blues, as a background:
+ * `light` over the light sections (like the editor), `dark` over the ink ones. Loaded lazily and only after
+ * mount: the prerendered HTML and the first client render show the plain backdrop, then the glyphs fade
+ * in. It freezes with prefers-reduced-motion and pauses off screen.
  */
-export function DitherBackground({ className, ...props }: Omit<DitherProps, 'className'> & { className?: string }) {
+export function AsciiBackground({
+  className,
+  tone = 'light',
+  ...props
+}: Omit<GradientASCIIProps, 'className' | 'lightMode'> & { className?: string; tone?: 'light' | 'dark' }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   return (
@@ -32,17 +41,18 @@ export function DitherBackground({ className, ...props }: Omit<DitherProps, 'cla
       {mounted && (
         <Suspense fallback={null}>
           <div className="size-full animate-in duration-1000 fade-in">
-            <Dither
-              waveColor={[0.42, 0.46, 0.55]}
-              backgroundColor="#0a0b0d"
-              colorNum={4}
-              pixelSize={2}
-              waveSpeed={0.035}
-              waveFrequency={3}
-              waveAmplitude={0.3}
-              mouseRadius={0.25}
+            <GradientASCII
+              colors={tone === 'light' ? LIGHT_COLORS : DARK_COLORS}
+              lightMode={tone === 'light'}
+              shape="horizon"
+              cellSize={14}
+              glyphOpacity={tone === 'light' ? 0.7 : 0.8}
+              gradientOpacity={tone === 'light' ? 0.75 : 0.9}
+              speed={0.6}
+              flicker={0.15}
+              grain={0.04}
               intro={false}
-              clickRipple={false}
+              clickEffect="none"
               {...props}
             />
           </div>

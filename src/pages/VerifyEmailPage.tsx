@@ -88,7 +88,7 @@ export function VerifyEmailPage() {
         <span className="grid size-12 place-items-center rounded-2xl bg-ink text-white">
           <MailCheck className="size-6" />
         </span>
-        <h1 className={cn(displayTitle, 'mt-7 text-[2.1rem] leading-[1.05] sm:text-[2.6rem]')}>Подтвердите email</h1>
+        <h1 className={cn(displayTitle, 'mt-7 text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>Подтвердите email</h1>
         <p className="mt-3 text-[15px] leading-relaxed text-ink/55">
           {sent ? 'Отправили новый код на ' : 'Мы отправили 6-значный код на '}
           <span className="font-medium text-ink">{user.email}</span>. Введите его, чтобы открыть схемы.

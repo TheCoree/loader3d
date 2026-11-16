@@ -125,7 +125,7 @@ export function ResetPasswordPage() {
 
         {step === 'email' ? (
           <form onSubmit={submitEmail} noValidate>
-            <h1 className={cn(displayTitle, 'mt-7 text-[2.1rem] leading-[1.05] sm:text-[2.6rem]')}>
+            <h1 className={cn(displayTitle, 'mt-7 text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>
               Восстановление пароля
             </h1>
             <p className="mt-3 text-[15px] leading-relaxed text-ink/55">
@@ -158,7 +158,7 @@ export function ResetPasswordPage() {
           </form>
         ) : (
           <form onSubmit={submitReset} noValidate>
-            <h1 className={cn(displayTitle, 'mt-7 text-[2.1rem] leading-[1.05] sm:text-[2.6rem]')}>Новый пароль</h1>
+            <h1 className={cn(displayTitle, 'mt-7 text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>Новый пароль</h1>
             <p className="mt-3 text-[15px] leading-relaxed text-ink/55">
               Если аккаунт с адресом <span className="font-medium text-ink">{email.trim()}</span> есть, мы отправили
               на него 6-значный код.
