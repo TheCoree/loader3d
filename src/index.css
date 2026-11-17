@@ -159,6 +159,21 @@
   animation: lp-breathe 7s ease-in-out infinite;
 }
 
+/* The light behind the hero cube (GlowCube) brightens and dims slowly. */
+@keyframes lp-glow {
+  0%,
+  100% {
+    opacity: 0.86;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.lp-glow {
+  animation: lp-glow 6s ease-in-out infinite;
+}
+
 /* The strip of vehicle templates under the hero: the list is there twice, so -50% loops seamlessly. */
 @keyframes lp-marquee {
   to {
@@ -297,6 +312,7 @@
 @media (prefers-reduced-motion: reduce) {
   .landing-rise,
   .lp-breathe,
+  .lp-glow,
   .lp-marquee,
   .lp-reveal,
   .lp-fill,

@@ -303,7 +303,7 @@ function Hero() {
     <section className="relative overflow-hidden">
       <Container className="relative grid min-h-[calc(100svh-4rem)] grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] pt-10 pb-10 lg:max-h-[900px] lg:min-h-[740px]">
         <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.35fr)_auto_minmax(0,0.65fr)] lg:gap-10">
-          <GlowCube className="landing-rise order-first mx-auto -my-6 scale-[0.62] sm:my-0 sm:scale-75 lg:order-none lg:scale-100" size={190} />
+          <GlowCube className="landing-rise order-first mx-auto mt-14 mb-10 scale-[0.72] sm:scale-90 lg:order-none lg:my-0 lg:scale-100" size={190} />
           <div className="order-first">
             <h1
               className={cn(

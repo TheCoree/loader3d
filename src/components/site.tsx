@@ -24,52 +24,58 @@ export const displayTitle = 'font-geist font-semibold tracking-[-0.045em] text-b
 /** Secondary text: Vercel-like neutral grey. */
 export const mutedText = 'text-[#a1a1a1]';
 
+/** The cube's outline and its three faces (the logo's), in a 200 × 230 box centred on (100, 115). */
+const CUBE_OUTLINE = 'M100 8 187 58v114l-87 50-87-50V58Z';
+const CUBE_FACES = ['M100 8 187 58 100 108 13 58Z', 'M13 58 100 108v114L13 172Z', 'M187 58 100 108v114l87-50Z'];
+/** Each face shrunk a little about its own centre: the seams between them, as in the logo. */
+const FACE_CENTRES = [
+  [100, 58],
+  [56.5, 140],
+  [143.5, 140],
+];
+
 /**
- * The Loader3D cube as a black silhouette lit from behind by a slowly breathing glow, with a hint of the
- * brand blue on its right face. Pure SVG and CSS.
+ * The Loader3D cube as a flat black silhouette lit from behind — the light hugs its outline, brightest along
+ * the top edges, and leaks through the seams between the faces. Pure SVG; the glow breathes slowly (CSS).
  */
 export function GlowCube({ className, size = 220 }: { className?: string; size?: number }) {
   return (
-    <div aria-hidden className={cn('pointer-events-none relative grid place-items-center', className)}>
-      <div
-        className="lp-breathe absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
-        style={{
-          width: size * 2.6,
-          height: size * 2.6,
-          background:
-            'radial-gradient(circle, #fff 0%, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0.5) 39%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.04) 62%, transparent 72%)',
-        }}
-      />
-      <div
-        className="absolute top-1/2 left-1/2 rounded-full blur-3xl"
-        style={{
-          width: size * 1.5,
-          height: size * 1.5,
-          transform: 'translate(-20%, -30%)',
-          background: 'radial-gradient(circle, rgba(47,111,237,0.45), transparent 62%)',
-        }}
-      />
-      <svg viewBox="0 0 200 230" width={size} height={size * 1.15} className="relative">
+    <div aria-hidden className={cn('pointer-events-none relative', className)} style={{ width: size, height: size * 1.15 }}>
+      {/* Larger than the cube's box, so the light spills over the neighbours without moving them. */}
+      <svg
+        viewBox="-130 -140 460 500"
+        width={size * 2.3}
+        height={size * 2.5}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ overflow: 'visible' }}
+      >
         <defs>
-          <linearGradient id="gc-top" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#141416" />
-            <stop offset="1" stopColor="#050506" />
-          </linearGradient>
-          <linearGradient id="gc-left" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#060607" />
-            <stop offset="1" stopColor="#000" />
-          </linearGradient>
-          <linearGradient id="gc-right" x1="1" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#0d1a3a" />
-            <stop offset="0.55" stopColor="#04060c" />
-            <stop offset="1" stopColor="#000" />
-          </linearGradient>
+          <radialGradient id="gc-haze" cx="50%" cy="44%" r="50%">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.2" />
+            <stop offset="0.3" stopColor="#fff" stopOpacity="0.085" />
+            <stop offset="0.65" stopColor="#fff" stopOpacity="0.02" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0" />
+          </radialGradient>
+          <filter id="gc-corona" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="46" />
+          </filter>
+          <filter id="gc-rim" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="5" />
+          </filter>
         </defs>
-        <path d="M100 8 187 58 100 108 13 58Z" fill="url(#gc-top)" />
-        <path d="M13 58 100 108v114L13 172Z" fill="url(#gc-left)" />
-        <path d="M187 58 100 108v114l87-50Z" fill="url(#gc-right)" />
-        <path d="M13 58 100 108 187 58M100 108v114" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.8" />
-        <path d="M100 8 187 58M100 8 13 58" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.8" />
+        {/* A faint haze around, then the corona (shifted up: the light is behind and above) and a bright rim. */}
+        <ellipse cx="100" cy="90" rx="300" ry="300" fill="url(#gc-haze)" />
+        <g className="lp-glow">
+          <ellipse cx="100" cy="45" rx="140" ry="110" fill="#fff" opacity="0.22" filter="url(#gc-corona)" />
+          <path d={CUBE_OUTLINE} fill="#fff" opacity="0.5" filter="url(#gc-corona)" transform="translate(100 92) scale(1.1) translate(-100 -115)" />
+          <path d={CUBE_OUTLINE} fill="#fff" opacity="0.95" filter="url(#gc-rim)" transform="translate(100 108) scale(1.014) translate(-100 -115)" />
+        </g>
+        {/* Under the faces: only a little of the light gets through the seams. */}
+        <path d={CUBE_OUTLINE} fill="#000" opacity="0.82" />
+        {CUBE_FACES.map((d, i) => {
+          const [cx, cy] = FACE_CENTRES[i];
+          return <path key={d} d={d} fill="#000" transform={`translate(${cx} ${cy}) scale(0.985) translate(${-cx} ${-cy})`} />;
+        })}
       </svg>
     </div>
   );
