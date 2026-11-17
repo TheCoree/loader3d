@@ -50,7 +50,7 @@ export function AsciiBackground({ className, ...props }: Omit<GradientASCIIProps
           <div className="size-full animate-in duration-1000 fade-in">
             <GradientASCII
               colors={['#1d4fc4', '#000000', '#5b8def', '#2f6fed']}
-              shape="horizon"
+              shape="rise"
               cellSize={14}
               glyphOpacity={0.75}
               gradientOpacity={0.85}
