@@ -15,7 +15,11 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   `npx shadcn@latest add <name>`), lucide icons, Tailwind classes. Theme tokens live in `src/index.css`;
   `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app
   (`Settings.theme`, `lib/theme.ts`, `.dark` tokens): use tokens (`bg-background`, `text-foreground`,
-  `bg-muted`…), not fixed colours, in app UI. The public pages stay light and the 3D scene keeps its light palette.
+  `bg-muted`…), not fixed colours, in app UI. The public pages (landing, sign-in, documents) are dark only, in the
+  manner of vercel.com (`publicRoot` and the shared kit in `components/site.tsx`, Geist). The 3D scene follows the
+  app theme: `LIGHT_COLORS` / `DARK_COLORS` in `scene/theme.ts`, read when materials are made, so the editor
+  re-creates the engine on a theme change; the PDF report and plan previews are always light (`withScenePalette`).
+  The landing pictures in `public/landing` are screenshots of the editor in its dark theme (side/top: light, as print).
 - The user considers the 3D scene finished: do not change `src/scene/` or `src/scene.css` (the CSS2D
   labels) unless asked. The editor UI around it lives in `src/editor/`.
 

@@ -114,12 +114,12 @@ export function ResetPasswordPage() {
     </Alert>
   );
 
-  const submitClass = 'group mt-3 h-12 w-full rounded-xl bg-ink text-[15px] font-medium text-white hover:bg-ink/85';
+  const submitClass = 'group mt-3 h-12 w-full rounded-full bg-white text-[15px] font-medium text-black hover:bg-white/85';
 
   return (
     <AuthShell>
       <div className="w-full max-w-[400px]">
-        <span className="grid size-12 place-items-center rounded-2xl bg-ink text-white">
+        <span className="grid size-12 place-items-center rounded-xl border border-white/10 bg-white/[0.06] text-white">
           <KeyRound className="size-6" />
         </span>
 
@@ -128,7 +128,7 @@ export function ResetPasswordPage() {
             <h1 className={cn(displayTitle, 'mt-7 text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>
               Восстановление пароля
             </h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-ink/55">
+            <p className="mt-3 text-[15px] leading-relaxed text-white/55">
               Укажите email аккаунта — пришлём код, чтобы задать новый пароль.
             </p>
             {errorAlert}
@@ -159,8 +159,8 @@ export function ResetPasswordPage() {
         ) : (
           <form onSubmit={submitReset} noValidate>
             <h1 className={cn(displayTitle, 'mt-7 text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>Новый пароль</h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-ink/55">
-              Если аккаунт с адресом <span className="font-medium text-ink">{email.trim()}</span> есть, мы отправили
+            <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+              Если аккаунт с адресом <span className="font-medium text-white">{email.trim()}</span> есть, мы отправили
               на него 6-значный код.
             </p>
             {errorAlert}
@@ -180,7 +180,7 @@ export function ResetPasswordPage() {
                   <InputGroupInput
                     ref={passwordRef}
                     id="password"
-                    className="px-4 text-[15px] placeholder:text-ink/35 md:text-[15px]"
+                    className="px-4 text-[15px] placeholder:text-white/35 md:text-[15px]"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="Не короче 8 символов"
@@ -192,7 +192,7 @@ export function ResetPasswordPage() {
                   <InputGroupAddon align="inline-end" className="pr-3">
                     <InputGroupButton
                       size="icon-sm"
-                      className="rounded-lg text-ink/45 hover:text-ink"
+                      className="rounded-lg text-white/45 hover:text-white"
                       aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
                       onClick={() => setShowPassword((v) => !v)}
                     >
@@ -211,11 +211,11 @@ export function ResetPasswordPage() {
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
               {wait > 0 ? (
-                <span className="text-ink/45 tabular-nums">Новый код — через {wait} с</span>
+                <span className="text-white/45 tabular-nums">Новый код — через {wait} с</span>
               ) : (
                 <button
                   type="button"
-                  className="font-medium text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink disabled:opacity-50"
+                  className="font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-white disabled:opacity-50"
                   onClick={() => void resend()}
                   disabled={resending}
                 >
@@ -224,7 +224,7 @@ export function ResetPasswordPage() {
               )}
               <button
                 type="button"
-                className="text-ink/45 transition-colors hover:text-ink"
+                className="text-white/45 transition-colors hover:text-white"
                 onClick={() => {
                   setStep('email');
                   setError(null);
@@ -235,7 +235,7 @@ export function ResetPasswordPage() {
               </button>
             </div>
 
-            <p className="mt-9 border-t border-ink/[0.08] pt-6 text-xs leading-relaxed text-ink/45">
+            <p className="mt-9 border-t border-white/10 pt-6 text-xs leading-relaxed text-white/45">
               Письмо не пришло? Проверьте папку «Спам». Код действует 15 минут. После смены пароля вход на других
               устройствах завершится.
             </p>
@@ -243,12 +243,12 @@ export function ResetPasswordPage() {
         )}
 
         {step === 'email' && (
-          <p className="mt-9 text-center text-sm text-ink/50">
+          <p className="mt-9 text-center text-sm text-white/50">
             Вспомнили пароль?{' '}
             <Link
               to="/login"
               state={navState?.from ? { from: navState.from } : undefined}
-              className="font-medium text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink"
+              className="font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-white"
             >
               Войти
             </Link>

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, OctagonAlert } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { Logo } from '@/components/Logo';
-import { AsciiBackground, displayTitle } from '@/components/site';
+import { GlowCube, displayTitle, publicRoot } from '@/components/site';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,10 +35,10 @@ const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = 
 
 /** Filled fields of the public pages: grey at rest, white with a soft ring in focus. */
 export const fieldClass =
-  'h-12 rounded-xl border-transparent bg-[#f4f4f6] px-4 text-[15px] md:text-[15px] placeholder:text-ink/35 focus-visible:border-ink/20 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-ink/[0.05]';
-const docLink = 'text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink';
+  'h-12 rounded-lg border-white/10 bg-white/[0.04] px-4 text-[15px] text-white md:text-[15px] placeholder:text-white/30 focus-visible:border-white/35 focus-visible:bg-white/[0.06] focus-visible:ring-4 focus-visible:ring-white/[0.06]';
+const docLink = 'text-white underline decoration-white/30 underline-offset-4 hover:decoration-white';
 export const groupClass =
-  'h-12 rounded-xl border-transparent bg-[#f4f4f6] has-[[data-slot=input-group-control]:focus-visible]:border-ink/20 has-[[data-slot=input-group-control]:focus-visible]:bg-white has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-ink/[0.05]';
+  'h-12 rounded-lg border-white/10 bg-white/[0.04] text-white has-[[data-slot=input-group-control]:focus-visible]:border-white/35 has-[[data-slot=input-group-control]:focus-visible]:bg-white/[0.06] has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-white/[0.06]';
 
 export function AuthPage({ mode }: { mode: Mode }) {
   const login = useAuth((s) => s.login);
@@ -85,7 +85,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     <AuthShell>
       <form onSubmit={submit} className="w-full max-w-[400px]" noValidate>
         <h1 className={cn(displayTitle, 'text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>{copy.title}</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-ink/55">{copy.subtitle}</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-white/55">{copy.subtitle}</p>
 
         {error && (
           <Alert variant="destructive" className="mt-7 rounded-xl">
@@ -136,7 +136,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 <Link
                   to="/reset-password"
                   state={{ ...(location.state as object | null), email: email.trim() }}
-                  className="text-[13px] text-ink/50 transition-colors hover:text-ink"
+                  className="text-[13px] text-white/50 transition-colors hover:text-white"
                 >
                   Забыли пароль?
                 </Link>
@@ -145,7 +145,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
             <InputGroup className={groupClass}>
               <InputGroupInput
                 id="password"
-                className="px-4 text-[15px] placeholder:text-ink/35 md:text-[15px]"
+                className="px-4 text-[15px] placeholder:text-white/35 md:text-[15px]"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 placeholder={mode === 'register' ? 'Не короче 8 символов' : undefined}
@@ -157,7 +157,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
               <InputGroupAddon align="inline-end" className="pr-3">
                 <InputGroupButton
                   size="icon-sm"
-                  className="rounded-lg text-ink/45 hover:text-ink"
+                  className="rounded-lg text-white/45 hover:text-white"
                   aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
                   onClick={() => setShowPassword((v) => !v)}
                 >
@@ -177,7 +177,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="terms"
-                  className="mt-0.5 size-[18px] rounded-[5px] border-ink/25 data-checked:border-ink data-checked:bg-ink"
+                  className="mt-0.5 size-[18px] rounded-[5px] border-white/25 data-checked:border-white data-checked:bg-white data-checked:text-black"
                   checked={accepted}
                   aria-invalid={!!fieldErrors.terms}
                   onCheckedChange={(v) => {
@@ -185,7 +185,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                     setFieldErrors(({ terms: _, ...rest }) => rest);
                   }}
                 />
-                <label htmlFor="terms" className="text-[13px] leading-relaxed text-ink/60">
+                <label htmlFor="terms" className="text-[13px] leading-relaxed text-white/60">
                   Принимаю{' '}
                   <Link to="/terms" target="_blank" className={docLink}>
                     пользовательское соглашение
@@ -203,7 +203,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           <Button
             type="submit"
             size="lg"
-            className="group mt-3 h-12 w-full rounded-xl bg-ink text-[15px] font-medium text-white hover:bg-ink/85"
+            className="group mt-3 h-12 w-full rounded-full bg-white text-[15px] font-medium text-black hover:bg-white/85"
             disabled={pending}
           >
             {pending && <Spinner />}
@@ -213,11 +213,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
         </FieldGroup>
 
         {mode === 'register' && (
-          <p className="mt-5 text-center text-xs leading-relaxed text-ink/45">
+          <p className="mt-5 text-center text-xs leading-relaxed text-white/45">
             {TIERS_ENABLED ? (
               <>
                 Компаниям с особыми задачами — тариф «Индивидуальный» по договору.{' '}
-                <Link to="/#contact" className="text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">
+                <Link to="/#contact" className="text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">
                   Оставить заявку
                 </Link>
               </>
@@ -227,16 +227,16 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </p>
         )}
 
-        <div className="mt-9 flex items-center gap-4 text-sm text-ink/50">
-          <span className="h-px flex-1 bg-ink/[0.08]" />
+        <div className="mt-9 flex items-center gap-4 text-sm text-white/50">
+          <span className="h-px flex-1 bg-white/10" />
           {mode === 'login' ? 'Впервые в Loader3D?' : 'Уже есть аккаунт?'}
-          <span className="h-px flex-1 bg-ink/[0.08]" />
+          <span className="h-px flex-1 bg-white/10" />
         </div>
         <Button
           asChild
           variant="outline"
           size="lg"
-          className="mt-5 h-12 w-full rounded-xl border-ink/10 bg-white text-[15px] font-medium hover:bg-ink/[0.03]"
+          className="mt-5 h-12 w-full rounded-full border-white/15 bg-black text-[15px] font-medium text-white hover:bg-white/[0.06] hover:text-white"
         >
           <Link to={mode === 'login' ? '/register' : '/login'} state={location.state}>
             {mode === 'login' ? 'Создать аккаунт' : 'Войти'}
@@ -247,29 +247,29 @@ export function AuthPage({ mode }: { mode: Mode }) {
   );
 }
 
-/** The layout of the sign-in pages: the light brand panel and a white column for the form. */
+/** The layout of the sign-in pages (dark, like the landing page): the brand panel and a column for the form. */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh bg-[#f4f6fa] text-ink antialiased lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)] lg:bg-white">
+    <div className={cn(publicRoot, 'lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]')}>
       <BrandPanel />
 
-      <main className="relative -mt-8 flex min-h-[calc(100dvh-12rem)] flex-col rounded-t-[28px] bg-white px-5 pt-8 pb-6 sm:px-10 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:py-8">
+      <main className="relative -mt-8 flex min-h-[calc(100dvh-12rem)] flex-col rounded-t-[28px] border-t border-white/10 bg-black px-5 pt-8 pb-6 sm:px-10 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:border-t-0 lg:py-8">
         <div className="hidden justify-end lg:flex">
           <BackHome />
         </div>
 
         <div className="flex flex-1 items-center justify-center py-4 lg:py-12">{children}</div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-ink/40">
+        <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-white/40">
           <span>© {new Date().getFullYear()} Loader3D</span>
           <span className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link to="/terms" className="transition-colors hover:text-ink">
+            <Link to="/terms" className="transition-colors hover:text-white">
               Соглашение
             </Link>
-            <Link to="/privacy" className="transition-colors hover:text-ink">
+            <Link to="/privacy" className="transition-colors hover:text-white">
               Конфиденциальность
             </Link>
-            <a href={`mailto:${SUPPORT.email}`} className="transition-colors hover:text-ink">
+            <a href={`mailto:${SUPPORT.email}`} className="transition-colors hover:text-white">
               Поддержка
             </a>
           </span>
@@ -285,7 +285,7 @@ function BackHome() {
       to="/"
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        'text-ink/55 hover:bg-ink/[0.04] hover:text-ink',
+        'text-white/55 hover:bg-white/[0.06] hover:text-white',
       )}
     >
       <ArrowLeft className="size-3.5" /> На главную
@@ -312,15 +312,15 @@ function TierChoice({ value, onChange }: { value: ChosenTier; onChange(tier: Cho
             onClick={() => onChange(o.id)}
             className={cn(
               'relative rounded-2xl p-4 text-left transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              active ? 'bg-ink text-white shadow-[0_16px_30px_-16px_rgba(10,11,13,0.6)]' : 'bg-[#f4f4f6] hover:bg-[#ececef]',
+              active ? 'bg-white text-black' : 'border border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
             )}
           >
-            <span className="block font-display text-[17px] font-medium tracking-[-0.01em]">{o.title}</span>
-            <span className={cn('mt-0.5 block text-[13px]', active ? 'text-white/60' : 'text-ink/50')}>{o.note}</span>
+            <span className="block font-geist text-[17px] font-medium tracking-[-0.01em]">{o.title}</span>
+            <span className={cn('mt-0.5 block text-[13px]', active ? 'text-black/55' : 'text-white/50')}>{o.note}</span>
             <span
               className={cn(
                 'absolute top-4 right-4 grid size-[18px] place-items-center rounded-full transition-colors',
-                active ? 'bg-white text-ink' : 'ring-1 ring-ink/15',
+                active ? 'bg-black text-white' : 'ring-1 ring-white/25',
               )}
             >
               {active && <Check className="size-3" strokeWidth={3} />}
@@ -334,18 +334,14 @@ function TierChoice({ value, onChange }: { value: ChosenTier; onChange(tier: Cho
 
 const HIGHLIGHTS = ['Физика и магниты', 'LDM, вес и центр тяжести', 'PDF для водителя'];
 
-/** The brand side: the ASCII gradient (as on the landing page) and the promise, text only. On phones — a band on top. */
+/** The brand side: the glowing cube (as on the landing page) and the promise. On phones — a band on top. */
 function BrandPanel() {
   return (
-    <aside className="relative isolate overflow-hidden bg-[#f4f6fa] text-ink lg:sticky lg:top-0 lg:h-dvh lg:border-r lg:border-ink/[0.06]">
-      <AsciiBackground className="-z-10" />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(244,246,250,0.8)_0%,rgba(244,246,250,0.35)_45%,rgba(244,246,250,0.92)_100%)]"
-      />
+    <aside className="relative isolate overflow-hidden bg-black text-white lg:sticky lg:top-0 lg:h-dvh lg:border-r lg:border-white/10">
+      <GlowCube className="absolute top-[38%] left-1/2 -z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:grid" size={150} />
       <div className="flex h-full flex-col px-5 pt-5 pb-16 sm:px-10 sm:pt-7 lg:px-12 lg:pt-8 lg:pb-12 xl:px-14">
         <div className="flex items-center justify-between">
-          <Logo />
+          <Logo className="text-white" />
           <div className="lg:hidden">
             <BackHome />
           </div>
@@ -355,12 +351,12 @@ function BrandPanel() {
           <h2 className={cn(displayTitle, 'text-[1.75rem] leading-[1.08] sm:text-[2.1rem] xl:text-[2.6rem] xl:leading-[1.05]')}>
             Соберите фуру в 3D до того, как приедет машина
           </h2>
-          <p className="mt-5 hidden max-w-md text-[17px] leading-relaxed text-ink/60 lg:block">
+          <p className="mt-5 hidden max-w-md text-[17px] leading-relaxed text-white/60 lg:block">
             Раскладка паллет с физикой, контроль веса и центра тяжести, PDF-схема для водителя — в браузере, без установки.
           </p>
         </div>
 
-        <ul className="mt-10 hidden flex-wrap gap-x-6 gap-y-2 text-sm text-ink/50 lg:flex">
+        <ul className="mt-10 hidden flex-wrap gap-x-6 gap-y-2 text-sm text-white/50 lg:flex">
           {HIGHLIGHTS.map((h) => (
             <li key={h} className="flex items-center gap-2">
               <span className="size-1 rounded-full bg-primary" />

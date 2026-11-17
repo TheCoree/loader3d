@@ -19,6 +19,9 @@
   --font-heading: var(--font-sans);
   /* Headlines and the wordmark of the public pages (Inter Tight, loaded in index.html). */
   --font-display: "Inter Tight", var(--font-sans);
+  /* The public pages (landing, sign-in, documents): Geist and Geist Mono, loaded in index.html. */
+  --font-geist: "Geist", var(--font-sans);
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -139,19 +142,182 @@
   animation: landing-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+/* The glow behind the hero cube breathes slowly. */
+@keyframes lp-breathe {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.lp-breathe {
+  animation: lp-breathe 7s ease-in-out infinite;
+}
+
+/* The strip of vehicle templates under the hero: the list is there twice, so -50% loops seamlessly. */
+@keyframes lp-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.lp-marquee {
+  animation: lp-marquee 48s linear infinite;
+}
+
+.lp-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Sections rise in as they scroll into view (where the browser supports scroll-driven animations). */
+@supports (animation-timeline: view()) {
+  .lp-reveal {
+    animation: landing-rise linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 28%;
+  }
+}
+
+/* Feature cards: bars filling, the centre of gravity settling, cargo turning see-through, a box tumbling. */
+@keyframes lp-fill {
+  0%,
+  12% {
+    transform: scaleX(0);
+  }
+  55%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.lp-fill {
+  transform-origin: left;
+  animation: lp-fill 5s cubic-bezier(0.3, 0.7, 0.2, 1) infinite;
+}
+
+@keyframes lp-cog {
+  0%,
+  12% {
+    left: 18%;
+  }
+  40% {
+    left: 64%;
+  }
+  60%,
+  100% {
+    left: 50%;
+  }
+}
+
+.lp-cog {
+  animation: lp-cog 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes lp-xray {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  45%,
+  80% {
+    opacity: 0.12;
+  }
+  95%,
+  100% {
+    opacity: 1;
+  }
+}
+
+.lp-xray {
+  animation: lp-xray 6s ease-in-out infinite;
+}
+
+@keyframes lp-tumble {
+  0%,
+  14% {
+    transform: rotateX(-24deg) rotateY(-38deg);
+  }
+  30%,
+  44% {
+    transform: rotateX(-24deg) rotateY(-128deg);
+  }
+  60%,
+  74% {
+    transform: rotateX(66deg) rotateY(-128deg);
+  }
+  90%,
+  100% {
+    transform: rotateX(-24deg) rotateY(-398deg);
+  }
+}
+
+.lp-tumble {
+  transform-style: preserve-3d;
+  animation: lp-tumble 9s cubic-bezier(0.6, 0, 0.2, 1) infinite;
+}
+
+@keyframes lp-lane {
+  0%,
+  20% {
+    transform: translateX(0);
+  }
+  45%,
+  70% {
+    transform: translateX(34px);
+  }
+  95%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.lp-lane {
+  animation: lp-lane 6s cubic-bezier(0.5, 0, 0.2, 1) infinite;
+}
+
+@keyframes lp-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.lp-blink {
+  animation: lp-blink 2.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .landing-rise {
+  .landing-rise,
+  .lp-breathe,
+  .lp-marquee,
+  .lp-reveal,
+  .lp-fill,
+  .lp-cog,
+  .lp-xray,
+  .lp-tumble,
+  .lp-lane,
+  .lp-blink {
     animation: none;
   }
 }
 
 /*
  * The dark theme of the app (Settings.theme, applied by lib/theme.ts as class="dark" on <html>).
- * The public pages (landing, sign-in, documents) always stay light; the 3D scene keeps its own light
- * palette (src/scene/theme.ts) in both themes. --primary stays equal to COLORS.accent.
+ * The public pages (landing, sign-in, documents) are always dark; the 3D scene switches to its dark
+ * palette (DARK_COLORS in src/scene/theme.ts, --scene = its background). --primary stays equal to
+ * COLORS.accent.
  */
 .dark {
   color-scheme: dark;
+  --scene: #0c0c0e;
   --background: #0b0c0e;
   --foreground: #f2f2f3;
   --card: #131417;

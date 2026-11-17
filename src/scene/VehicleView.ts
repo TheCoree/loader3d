@@ -174,7 +174,7 @@ export class VehicleView {
   });
 
   private readonly dockTextTexture = canvasTexture(1024, 128, (ctx) => {
-    ctx.fillStyle = 'rgba(47, 58, 75, 0.32)';
+    ctx.fillStyle = COLORS.dockText;
     ctx.font = '700 76px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

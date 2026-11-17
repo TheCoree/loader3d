@@ -5,7 +5,7 @@ import { formatSeqList, type BodySummary, type CargoRow, type LoadSummary } from
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE } from '../core/stats';
 import { formatDims, formatLength, formatMeters, formatPercent, formatVolume, formatWeight, type Units } from '../core/units';
 import { plural } from '../lib/format';
-import { COLORS } from '../scene/theme';
+import { LIGHT_COLORS as COLORS } from '../scene/theme';
 import type { Snapshot } from './snapshot';
 
 export type PdfOrientation = 'landscape' | 'portrait';

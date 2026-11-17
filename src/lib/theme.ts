@@ -5,11 +5,11 @@ import { useStore, type Theme } from '@/store/useStore';
 /**
  * The colour theme. `Settings.theme` belongs to the account (store/accountSync.ts) and is "system",
  * "light" or "dark"; the app pages follow it, the public pages (landing, sign-in, documents) are always
- * light. Applied as class="dark" on <html> (dark tokens in index.css). Safe on the server: the landing
- * page is prerendered, and there everything is light.
+ * dark. Applied as class="dark" on <html> (dark tokens in index.css). Safe on the server: the landing
+ * page is prerendered, and its root carries the class `dark` itself (components/site.tsx publicRoot).
  */
 
-/** Pages that are designed light-only. */
+/** Pages that are designed dark-only. */
 const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/reset-password', '/verify-email'];
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
@@ -37,7 +37,7 @@ export function useResolvedTheme(): 'light' | 'dark' {
   const theme = useStore((s) => s.settings.theme);
   const systemDark = useSystemDark();
   const { pathname } = useLocation();
-  if (PUBLIC_PATHS.includes(pathname)) return 'light';
+  if (PUBLIC_PATHS.includes(pathname)) return 'dark';
   return resolveTheme(theme, systemDark);
 }
 
