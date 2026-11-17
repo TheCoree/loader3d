@@ -142,64 +142,6 @@
   animation: landing-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* The glow behind the hero cube breathes slowly. */
-@keyframes lp-breathe {
-  0%,
-  100% {
-    opacity: 0.82;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.04);
-  }
-}
-
-.lp-breathe {
-  animation: lp-breathe 7s ease-in-out infinite;
-}
-
-/* The light behind the hero cube (GlowCube) brightens and dims slowly. */
-@keyframes lp-glow {
-  0%,
-  100% {
-    opacity: 0.86;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.lp-glow {
-  animation: lp-glow 6s ease-in-out infinite;
-}
-
-/* The film grain on the light jumps between positions, a few times a second. */
-@keyframes lp-grain {
-  0% {
-    background-position: 0 0;
-  }
-  17% {
-    background-position: -61px 37px;
-  }
-  33% {
-    background-position: 43px -89px;
-  }
-  50% {
-    background-position: -97px -23px;
-  }
-  67% {
-    background-position: 29px 71px;
-  }
-  83% {
-    background-position: -13px -53px;
-  }
-}
-
-.lp-grain {
-  animation: lp-grain 0.9s steps(1) infinite;
-}
-
 /* The strip of vehicle templates under the hero: the list is there twice, so -50% loops seamlessly. */
 @keyframes lp-marquee {
   to {
@@ -337,9 +279,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .landing-rise,
-  .lp-breathe,
-  .lp-glow,
-  .lp-grain,
   .lp-marquee,
   .lp-reveal,
   .lp-fill,

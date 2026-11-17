@@ -6,7 +6,6 @@ import { Logo } from '@/components/Logo';
 import { SessionLoader } from '@/components/RouteGuards';
 import { SiteFooter } from '@/components/SiteFooter';
 import {
-  GlowCube,
   VehicleGlyph,
   displayTitle,
   headerPrimary,
@@ -300,15 +299,14 @@ function LandingHeader() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      <Container className="relative grid min-h-[calc(100svh-4rem)] grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] pt-10 pb-10 lg:max-h-[900px] lg:min-h-[740px]">
-        <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.35fr)_auto_minmax(0,0.65fr)] lg:gap-10">
-          <GlowCube className="landing-rise order-first mx-auto mt-14 mb-10 scale-[0.72] sm:scale-90 lg:order-none lg:my-0 lg:scale-100" size={190} />
-          <div className="order-first">
+    <section>
+      <Container className="pt-20 pb-14 sm:pt-28 lg:pt-36">
+        <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div>
             <h1
               className={cn(
                 displayTitle,
-                'landing-rise max-w-[18ch] text-[2.5rem] leading-[1.03] [animation-delay:60ms] sm:text-[3.1rem] lg:text-[3.4rem]',
+                'landing-rise max-w-[18ch] text-[2.5rem] leading-[1.03] [animation-delay:60ms] sm:text-[3.1rem] lg:text-[3.6rem]',
               )}
             >
               Загрузите фуру в 3D до приезда машины
@@ -325,7 +323,7 @@ function Hero() {
               </Button>
             </div>
           </div>
-          <ul className="landing-rise hidden space-y-3 justify-self-end text-[15px] font-medium text-white [animation-delay:240ms] lg:block">
+          <ul className="landing-rise hidden space-y-3 text-[15px] font-medium text-white [animation-delay:240ms] lg:block">
             {HERO_POINTS.map((p) => (
               <li key={p}>{p}</li>
             ))}
@@ -350,7 +348,7 @@ function TemplatesStrip() {
     </ul>
   );
   return (
-    <div className="landing-rise mt-14 min-w-0 [animation-delay:320ms]">
+    <div className="landing-rise mt-20 min-w-0 [animation-delay:320ms] sm:mt-24">
       <p className={cn(mutedText, 'mb-6 text-center text-[13px]')}>Готовые шаблоны машин и контейнеров — или свои размеры</p>
       <div className="relative flex overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">
         <div className="lp-marquee flex">

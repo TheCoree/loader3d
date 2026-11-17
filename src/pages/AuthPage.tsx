@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, OctagonAlert } from 'lucide-react';
 import { ApiError, errorMessage } from '@/api/client';
 import { Logo } from '@/components/Logo';
-import { GlowCube, displayTitle, publicRoot } from '@/components/site';
+import { displayTitle, publicRoot } from '@/components/site';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -334,11 +334,10 @@ function TierChoice({ value, onChange }: { value: ChosenTier; onChange(tier: Cho
 
 const HIGHLIGHTS = ['Физика и магниты', 'LDM, вес и центр тяжести', 'PDF для водителя'];
 
-/** The brand side: the glowing cube (as on the landing page) and the promise. On phones — a band on top. */
+/** The brand side: the promise, text only. On phones — a band on top. */
 function BrandPanel() {
   return (
     <aside className="relative isolate overflow-hidden bg-black text-white lg:sticky lg:top-0 lg:h-dvh lg:border-r lg:border-white/10">
-      <GlowCube className="absolute top-[38%] left-1/2 -z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:grid" size={150} />
       <div className="flex h-full flex-col px-5 pt-5 pb-16 sm:px-10 sm:pt-7 lg:px-12 lg:pt-8 lg:pb-12 xl:px-14">
         <div className="flex items-center justify-between">
           <Logo className="text-white" />
