@@ -7,6 +7,7 @@ import { formatLength } from '../core/units';
 import { CargoView } from '../scene/CargoView';
 import { VehicleView } from '../scene/VehicleView';
 import { boxEdges, fatMaterial, fatSegments } from '../scene/lines';
+import { withScenePalette } from '../scene/theme';
 
 export type Projection = 'orthographic' | 'perspective';
 
@@ -69,8 +70,9 @@ type ToPixel = (p: THREE.Vector3) => { x: number; y: number };
 export class SnapshotRenderer {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
-  private readonly vehicle = new VehicleView();
-  private readonly cargo = new CargoView();
+  // Made with the light palette whatever the app theme: reports and previews are always light.
+  private readonly vehicle = withScenePalette(false, () => new VehicleView());
+  private readonly cargo = withScenePalette(false, () => new CargoView());
   private readonly edgeMaterial = fatMaterial('#1e293b', 1.1, { opacity: 0.5 });
   private edges: LineSegments2 | null = null;
   private readonly raycaster = new THREE.Raycaster();
@@ -95,7 +97,7 @@ export class SnapshotRenderer {
     this.scene.add(hemi, sun, fill);
 
     // Units only matter for the dimension lines, which reports do not show.
-    this.vehicle.build(layout, { units: 'm', showDimensions: false });
+    withScenePalette(false, () => this.vehicle.build(layout, { units: 'm', showDimensions: false }));
     // The dock (everything behind the rear doors) is not part of the plan.
     const bounds = new THREE.Box3();
     for (const child of this.vehicle.root.children) {
@@ -116,6 +118,11 @@ export class SnapshotRenderer {
   }
 
   render(shot: Shot): Snapshot {
+    // Cargo materials are made while syncing: keep them light too.
+    return withScenePalette(false, () => this.renderLight(shot));
+  }
+
+  private renderLight(shot: Shot): Snapshot {
     const background = shot.background ?? BACKGROUND;
     this.scene.background = new THREE.Color(background);
     this.cargo.sync(shot.items, this.layout, { highlightOverflow: this.highlightOverflow, showLabels: false });

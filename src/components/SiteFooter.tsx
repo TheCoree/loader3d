@@ -5,7 +5,7 @@ import { SUPPORT, telegramUrl } from '@/lib/legal';
 import { TIERS_ENABLED } from '@/lib/tiers';
 
 function FooterLink({ to, children }: { to: string; children: ReactNode }) {
-  const className = 'text-white/55 transition-colors hover:text-white';
+  const className = 'text-[#a1a1a1] transition-colors hover:text-white';
   return (
     <li>
       {/^(https?:|mailto:)/.test(to) ? (
@@ -33,11 +33,11 @@ function Column({ title, children }: { title: string; children: ReactNode }) {
 /** The footer of the public pages (landing, documents): sections, account, documents and support. */
 export function SiteFooter() {
   return (
-    <footer className="border-t border-white/[0.07] bg-ink text-sm text-white">
-      <div className="mx-auto grid w-full max-w-[1200px] grid-cols-2 gap-x-6 gap-y-12 px-5 pt-16 pb-10 sm:px-8 lg:grid-cols-12">
+    <footer className="border-t border-white/10 bg-black font-geist text-sm text-white">
+      <div className="mx-auto grid w-full max-w-[1280px] grid-cols-2 gap-x-6 gap-y-12 px-5 pt-16 pb-10 sm:px-6 lg:grid-cols-12">
         <div className="col-span-2 lg:col-span-4">
-          <Logo />
-          <p className="mt-5 max-w-xs leading-relaxed text-white/45">
+          <Logo className="text-white" />
+          <p className="mt-5 max-w-xs leading-relaxed text-[#a1a1a1]">
             3D-планирование загрузки фуры и контейнера: раскладка, вес, центр тяжести и PDF-схема для водителя.
           </p>
         </div>
@@ -59,9 +59,9 @@ export function SiteFooter() {
         <Column title="Поддержка">
           <FooterLink to={telegramUrl}>Telegram @{SUPPORT.telegram}</FooterLink>
           <FooterLink to={`mailto:${SUPPORT.email}`}>{SUPPORT.email}</FooterLink>
-          <li className="text-white/40 first-letter:uppercase">{SUPPORT.hours}</li>
+          <li className="text-[#666] first-letter:uppercase">{SUPPORT.hours}</li>
         </Column>
-        <div className="col-span-2 flex flex-col gap-2 border-t border-white/[0.07] pt-8 text-white/40 sm:flex-row sm:justify-between lg:col-span-12">
+        <div className="col-span-2 flex flex-col gap-2 border-t border-white/10 pt-8 text-[#666] sm:flex-row sm:justify-between lg:col-span-12">
           <span>© {new Date().getFullYear()} Loader3D</span>
           <span>Сделано для логистов и складов</span>
         </div>

@@ -5,6 +5,8 @@ import { formatMeters, formatPercent, formatVolume, formatWeight } from '../core
 import type { ViewPreset } from '../scene/CameraRig';
 import { SceneEngine } from '../scene/SceneEngine';
 import { getEngine, setEngine } from '../scene/engineRegistry';
+import { setScenePalette } from '../scene/theme';
+import { useResolvedTheme } from '@/lib/theme';
 import { useStore } from '../store/useStore';
 import { useUi } from '../store/useUi';
 import { Button } from '@/components/ui/button';
@@ -31,8 +33,13 @@ export function Viewport({ rightInset = 0 }: { rightInset?: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The scene's palette follows the app theme; its materials are made with the engine, so a theme
+  // change makes a new engine.
+  const dark = useResolvedTheme() === 'dark';
+
   useEffect(() => {
     let engine: SceneEngine;
+    setScenePalette(dark);
     try {
       engine = new SceneEngine(hostRef.current!);
     } catch (e) {
@@ -47,7 +54,7 @@ export function Viewport({ rightInset = 0 }: { rightInset?: number }) {
       setEngine(null);
       engine.dispose();
     };
-  }, []);
+  }, [dark]);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-scene">
