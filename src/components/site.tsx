@@ -1,9 +1,11 @@
+import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
  * Shared look of the public pages (landing, sign-in, documents): always dark — black background, Geist,
  * hairline borders, white pills. Rendered on the server too (the landing page is prerendered): nothing
- * here touches window/document while rendering, and the animations are CSS only.
+ * here touches window/document while rendering; the animations are CSS (GlowCube's pointer tracking runs in
+ * an effect).
  */
 
 /** The root of a public page: the dark tokens (class `dark`) whatever the app theme. */
@@ -35,17 +37,82 @@ const FACE_CENTRES = [
 ];
 
 /**
+ * Film grain for the light: grey fractal noise (contrast stretched), tiled. Blended with `overlay`, so it
+ * shows on the glow and vanishes on black.
+ */
+const GRAIN = `url("data:image/svg+xml,${encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0.6 0.6 0.6 0 -0.4 0.6 0.6 0.6 0 -0.4 0.6 0.6 0.6 0 -0.4 0 0 0 0 1'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>",
+)}")`;
+
+/** How far the light follows the pointer, in the cube's units (it is 200 wide): the corona, the haze, the rim. */
+const FOLLOW = { corona: 30, haze: 14, rim: 5 };
+/** Pointer distance from the cube (px) at which the light is fully to that side. */
+const REACH = 560;
+
+/**
  * The Loader3D cube as a flat black silhouette lit from behind — the light hugs its outline, brightest along
- * the top edges, and leaks through the seams between the faces. Pure SVG; the glow breathes slowly (CSS).
+ * the top edges, and leaks through the seams between the faces. The light leans towards the mouse pointer
+ * (eased, not on touch screens or with reduced motion) and carries a fine film grain. SVG and CSS; only
+ * the pointer tracking runs in the browser, so the prerendered page shows the light from above.
  */
 export function GlowCube({ className, size = 220 }: { className?: string; size?: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const corona = useRef<SVGGElement>(null);
+  const haze = useRef<SVGGElement>(null);
+  const rim = useRef<SVGGElement>(null);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let target = { x: 0, y: 0 };
+    const now = { x: 0, y: 0 };
+    let frame = 0;
+    const place = (el: SVGGElement | null, k: number) =>
+      el?.setAttribute('transform', `translate(${(now.x * k).toFixed(2)} ${(now.y * k).toFixed(2)})`);
+    const step = () => {
+      now.x += (target.x - now.x) * 0.07;
+      now.y += (target.y - now.y) * 0.07;
+      place(corona.current, FOLLOW.corona);
+      place(haze.current, FOLLOW.haze);
+      place(rim.current, FOLLOW.rim);
+      frame = Math.abs(target.x - now.x) + Math.abs(target.y - now.y) > 0.0015 ? requestAnimationFrame(step) : 0;
+    };
+    const aim = (x: number, y: number) => {
+      target = { x, y };
+      if (!frame) frame = requestAnimationFrame(step);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || !box.current) return;
+      const r = box.current.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      const length = Math.hypot(dx, dy) || 1;
+      const k = Math.min(1, length / REACH) / length;
+      aim(dx * k, dy * k);
+    };
+    const onLeave = () => aim(0, 0);
+    window.addEventListener('pointermove', onMove, { passive: true });
+    document.documentElement.addEventListener('pointerleave', onLeave);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('pointermove', onMove);
+      document.documentElement.removeEventListener('pointerleave', onLeave);
+    };
+  }, []);
+
+  const w = size * 2.3;
+  const h = size * 2.5;
   return (
-    <div aria-hidden className={cn('pointer-events-none relative', className)} style={{ width: size, height: size * 1.15 }}>
+    <div
+      ref={box}
+      aria-hidden
+      className={cn('pointer-events-none relative isolate', className)}
+      style={{ width: size, height: size * 1.15 }}
+    >
       {/* Larger than the cube's box, so the light spills over the neighbours without moving them. */}
       <svg
         viewBox="-130 -140 460 500"
-        width={size * 2.3}
-        height={size * 2.5}
+        width={w}
+        height={h}
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ overflow: 'visible' }}
       >
@@ -63,12 +130,32 @@ export function GlowCube({ className, size = 220 }: { className?: string; size?:
             <feGaussianBlur stdDeviation="5" />
           </filter>
         </defs>
+        {/* Black under the light, so the grain (overlay) has nothing to show where there is no light. */}
+        <rect x="-130" y="-140" width="460" height="500" fill="#000" />
         {/* A faint haze around, then the corona (shifted up: the light is behind and above) and a bright rim. */}
-        <ellipse cx="100" cy="90" rx="300" ry="300" fill="url(#gc-haze)" />
+        <g ref={haze}>
+          <ellipse cx="100" cy="90" rx="300" ry="300" fill="url(#gc-haze)" />
+        </g>
         <g className="lp-glow">
-          <ellipse cx="100" cy="45" rx="140" ry="110" fill="#fff" opacity="0.22" filter="url(#gc-corona)" />
-          <path d={CUBE_OUTLINE} fill="#fff" opacity="0.5" filter="url(#gc-corona)" transform="translate(100 92) scale(1.1) translate(-100 -115)" />
-          <path d={CUBE_OUTLINE} fill="#fff" opacity="0.95" filter="url(#gc-rim)" transform="translate(100 108) scale(1.014) translate(-100 -115)" />
+          <g ref={corona}>
+            <ellipse cx="100" cy="45" rx="140" ry="110" fill="#fff" opacity="0.22" filter="url(#gc-corona)" />
+            <path
+              d={CUBE_OUTLINE}
+              fill="#fff"
+              opacity="0.5"
+              filter="url(#gc-corona)"
+              transform="translate(100 92) scale(1.1) translate(-100 -115)"
+            />
+          </g>
+          <g ref={rim}>
+            <path
+              d={CUBE_OUTLINE}
+              fill="#fff"
+              opacity="0.95"
+              filter="url(#gc-rim)"
+              transform="translate(100 108) scale(1.014) translate(-100 -115)"
+            />
+          </g>
         </g>
         {/* Under the faces: only a little of the light gets through the seams. */}
         <path d={CUBE_OUTLINE} fill="#000" opacity="0.82" />
@@ -77,6 +164,20 @@ export function GlowCube({ className, size = 220 }: { className?: string; size?:
           return <path key={d} d={d} fill="#000" transform={`translate(${cx} ${cy}) scale(0.985) translate(${-cx} ${-cy})`} />;
         })}
       </svg>
+      <div
+        className="lp-grain absolute top-1/2 left-1/2 opacity-70 mix-blend-overlay"
+        style={{
+          width: w,
+          height: h,
+          marginLeft: -w / 2,
+          marginTop: -h / 2,
+          backgroundImage: GRAIN,
+          backgroundSize: '220px 220px',
+          // Fades out well inside the black under the light: no edge of the layer can show.
+          maskImage: 'radial-gradient(closest-side, #000 70%, transparent 96%)',
+          WebkitMaskImage: 'radial-gradient(closest-side, #000 70%, transparent 96%)',
+        }}
+      />
     </div>
   );
 }
