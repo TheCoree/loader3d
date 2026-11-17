@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { SessionLoader } from '@/components/RouteGuards';
 import { SiteFooter } from '@/components/SiteFooter';
 import {
+  AsciiBackground,
   VehicleGlyph,
   displayTitle,
   headerPrimary,
@@ -299,7 +300,14 @@ function LandingHeader() {
 
 function Hero() {
   return (
-    <section>
+    <section className="relative isolate">
+      {/* The ASCII glow behind the hero; its lower part dissolves into the next section. */}
+      <AsciiBackground className="-z-10 -bottom-48" />
+      {/* Keeps the headline readable over the glyphs. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_55%_at_22%_42%,rgba(0,0,0,0.85),rgba(0,0,0,0.35)_60%,transparent)]"
+      />
       <Container className="pt-20 pb-14 sm:pt-28 lg:pt-36">
         <div className="grid items-end gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div>
