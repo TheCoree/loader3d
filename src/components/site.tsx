@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { startGlowLight } from '@/components/glowLight';
 import { cn } from '@/lib/utils';
 
 /**
  * Shared look of the public pages (landing, sign-in, documents): always dark — black background, Geist,
  * hairline borders, white pills. Rendered on the server too (the landing page is prerendered): nothing
- * here touches window/document while rendering; the animations are CSS (GlowCube's pointer tracking runs in
+ * here touches window/document while rendering; the animations are CSS (GlowCube's light shader runs in
  * an effect).
  */
 
@@ -44,63 +45,29 @@ const GRAIN = `url("data:image/svg+xml,${encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0.6 0.6 0.6 0 -0.4 0.6 0.6 0.6 0 -0.4 0.6 0.6 0.6 0 -0.4 0 0 0 0 1'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>",
 )}")`;
 
-/** How far the light follows the pointer, in the cube's units (it is 200 wide): the corona, the haze, the rim. */
-const FOLLOW = { corona: 30, haze: 14, rim: 5 };
-/** Pointer distance from the cube (px) at which the light is fully to that side. */
-const REACH = 560;
+/** The box (in the cube's units) that the glow covers: larger than the cube, for the light around it. */
+const VIEW = { x: -130, y: -140, w: 460, h: 500 };
 
 /**
- * The Loader3D cube as a flat black silhouette lit from behind — the light hugs its outline, brightest along
- * the top edges, and leaks through the seams between the faces. The light leans towards the mouse pointer
- * (eased, not on touch screens or with reduced motion) and carries a fine film grain. SVG and CSS; only
- * the pointer tracking runs in the browser, so the prerendered page shows the light from above.
+ * The Loader3D cube as a flat black silhouette lit from behind, in the manner of the Vercel triangle. In the
+ * browser the light is a WebGL shader (components/glowLight.ts): a hidden source drifting around behind the
+ * cube, its light scattering past the edges as rays, pulled towards the mouse pointer. On the server, in
+ * the first frame and without WebGL2 it is a static SVG glow from above. A film grain lies on the light.
  */
 export function GlowCube({ className, size = 220 }: { className?: string; size?: number }) {
   const box = useRef<HTMLDivElement>(null);
-  const corona = useRef<SVGGElement>(null);
-  const haze = useRef<SVGGElement>(null);
-  const rim = useRef<SVGGElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [live, setLive] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let target = { x: 0, y: 0 };
-    const now = { x: 0, y: 0 };
-    let frame = 0;
-    const place = (el: SVGGElement | null, k: number) =>
-      el?.setAttribute('transform', `translate(${(now.x * k).toFixed(2)} ${(now.y * k).toFixed(2)})`);
-    const step = () => {
-      now.x += (target.x - now.x) * 0.07;
-      now.y += (target.y - now.y) * 0.07;
-      place(corona.current, FOLLOW.corona);
-      place(haze.current, FOLLOW.haze);
-      place(rim.current, FOLLOW.rim);
-      frame = Math.abs(target.x - now.x) + Math.abs(target.y - now.y) > 0.0015 ? requestAnimationFrame(step) : 0;
-    };
-    const aim = (x: number, y: number) => {
-      target = { x, y };
-      if (!frame) frame = requestAnimationFrame(step);
-    };
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse' || !box.current) return;
-      const r = box.current.getBoundingClientRect();
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height / 2);
-      const length = Math.hypot(dx, dy) || 1;
-      const k = Math.min(1, length / REACH) / length;
-      aim(dx * k, dy * k);
-    };
-    const onLeave = () => aim(0, 0);
-    window.addEventListener('pointermove', onMove, { passive: true });
-    document.documentElement.addEventListener('pointerleave', onLeave);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('pointermove', onMove);
-      document.documentElement.removeEventListener('pointerleave', onLeave);
-    };
+    if (!canvas.current || !box.current) return;
+    const light = startGlowLight(canvas.current, box.current, VIEW, () => setLive(true));
+    return () => light?.dispose();
   }, []);
 
   const w = size * 2.3;
   const h = size * 2.5;
+  const layer = { width: w, height: h, marginLeft: -w / 2, marginTop: -h / 2 };
   return (
     <div
       ref={box}
@@ -109,8 +76,13 @@ export function GlowCube({ className, size = 220 }: { className?: string; size?:
       style={{ width: size, height: size * 1.15 }}
     >
       {/* Larger than the cube's box, so the light spills over the neighbours without moving them. */}
+      <canvas
+        ref={canvas}
+        className={cn('absolute top-1/2 left-1/2 transition-opacity duration-700', live ? 'opacity-100' : 'opacity-0')}
+        style={layer}
+      />
       <svg
-        viewBox="-130 -140 460 500"
+        viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`}
         width={w}
         height={h}
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
@@ -130,14 +102,12 @@ export function GlowCube({ className, size = 220 }: { className?: string; size?:
             <feGaussianBlur stdDeviation="5" />
           </filter>
         </defs>
-        {/* Black under the light, so the grain (overlay) has nothing to show where there is no light. */}
-        <rect x="-130" y="-140" width="460" height="500" fill="#000" />
-        {/* A faint haze around, then the corona (shifted up: the light is behind and above) and a bright rim. */}
-        <g ref={haze}>
+        {/* The static light (server, first frame, no WebGL2): it fades out when the shader takes over. */}
+        <g className={cn('transition-opacity duration-700', live && 'opacity-0')}>
+          {/* Black under the light, so the grain (overlay) has nothing to show where there is no light. */}
+          <rect x={VIEW.x} y={VIEW.y} width={VIEW.w} height={VIEW.h} fill="#000" />
           <ellipse cx="100" cy="90" rx="300" ry="300" fill="url(#gc-haze)" />
-        </g>
-        <g className="lp-glow">
-          <g ref={corona}>
+          <g className="lp-glow">
             <ellipse cx="100" cy="45" rx="140" ry="110" fill="#fff" opacity="0.22" filter="url(#gc-corona)" />
             <path
               d={CUBE_OUTLINE}
@@ -146,8 +116,6 @@ export function GlowCube({ className, size = 220 }: { className?: string; size?:
               filter="url(#gc-corona)"
               transform="translate(100 92) scale(1.1) translate(-100 -115)"
             />
-          </g>
-          <g ref={rim}>
             <path
               d={CUBE_OUTLINE}
               fill="#fff"
@@ -163,14 +131,13 @@ export function GlowCube({ className, size = 220 }: { className?: string; size?:
           const [cx, cy] = FACE_CENTRES[i];
           return <path key={d} d={d} fill="#000" transform={`translate(${cx} ${cy}) scale(0.985) translate(${-cx} ${-cy})`} />;
         })}
+        {/* The inner edges, barely there: enough to read a cube rather than a hexagon. */}
+        <path d="M13 58 100 108 187 58M100 108v114" fill="none" stroke="#fff" strokeOpacity="0.1" strokeWidth="0.8" />
       </svg>
       <div
         className="lp-grain absolute top-1/2 left-1/2 opacity-70 mix-blend-overlay"
         style={{
-          width: w,
-          height: h,
-          marginLeft: -w / 2,
-          marginTop: -h / 2,
+          ...layer,
           backgroundImage: GRAIN,
           backgroundSize: '220px 220px',
           // Fades out well inside the black under the light: no edge of the layer can show.

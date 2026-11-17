@@ -19,6 +19,9 @@ npm run preview    # production-сборка на http://localhost:4173 (как 
 
 Для работы в браузере запускаются оба процесса: `cd backend && uv run python -m app --reload` и
 `npm run dev`; Vite проксирует `/api` на бэкенд. Вход, регистрация и схемы — через API.
+Проще одной командой: **`./dev.sh`** (Linux, macOS, Git Bash; Ctrl+C останавливает оба) или **`dev.bat`**
+(Windows: двойной клик — API в отдельном окне, сайт в текущем). Оба ставят `node_modules` при первом запуске,
+берут `uv` или уже созданный `backend/.venv` и открывают http://localhost:5173.
 
 ## Деплой (Docker)
 
