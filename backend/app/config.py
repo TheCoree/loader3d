@@ -1,3 +1,4 @@
+from email.utils import parseaddr
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -37,8 +38,21 @@ class Settings(BaseSettings):
     # New accounts confirm their email with a 6-digit code before they can use plans (app/verification.py).
     # Off: accounts count as confirmed right away.
     email_verification: bool = True
-    # How the code is delivered. "console": written to the API log (until a mailbox for the domain exists).
-    mail_backend: Literal["console"] = "console"
+    # How the code is delivered (app/mail.py). "console": written to the API log (development, or until a
+    # mailbox for the domain exists). "smtp": sent through the SMTP server below.
+    mail_backend: Literal["console", "smtp"] = "console"
+    # Sender of the letters: "Loader3D <noreply@example.com>" or just the address. Required for "smtp".
+    mail_from: str = ""
+    smtp_host: str = ""
+    smtp_port: int = Field(465, ge=1, le=65535)
+    # "ssl": TLS from the first byte (port 465); "starttls": plain connection upgraded to TLS (port 587);
+    # "none": no encryption (a relay on the local network only).
+    smtp_security: Literal["ssl", "starttls", "none"] = "ssl"
+    # Empty username: no login (a relay that trusts the server's address).
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    # Public address of the site (https://example.com): the link at the bottom of the letters. May be empty.
+    site_url: str = ""
     # Subscription tiers (app/tiers.py). Off: no limits, and neither the API nor the site mention tiers.
     tiers_enabled: bool = False
     # Addresses of the reverse proxy whose X-Forwarded-For is trusted for the client's IP (rate limits,
@@ -61,6 +75,11 @@ class Settings(BaseSettings):
             secret = self.jwt_secret.get_secret_value()
             if secret == DEV_JWT_SECRET or len(secret) < 32:
                 raise ValueError("JWT_SECRET must be set to a random string of at least 32 characters")
+        if self.mail_backend == "smtp":
+            if not self.smtp_host:
+                raise ValueError("MAIL_BACKEND=smtp needs SMTP_HOST")
+            if "@" not in parseaddr(self.mail_from)[1]:
+                raise ValueError('MAIL_BACKEND=smtp needs MAIL_FROM, e.g. "Loader3D <noreply@example.com>"')
         return self
 
     @property

@@ -1,4 +1,5 @@
 import uuid
+from contextlib import suppress
 from datetime import timedelta
 from typing import Annotated
 
@@ -22,6 +23,7 @@ from app.config import Settings
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found, unauthorized
+from app.mail import MailError
 from app.models import AuthSession, User, utcnow
 from app.ratelimit import RateLimiter, client_ip, too_many
 from app.schemas.auth import (
@@ -38,7 +40,7 @@ from app.schemas.auth import (
 )
 from app.security import hash_password, password_needs_rehash, verify_password
 from app.tiers import start_trial
-from app.verification import RESEND_COOLDOWN, check_code, confirm, issue_code, resend_wait
+from app.verification import RESEND_COOLDOWN, check_code, confirm, issue_code, mail_failed, resend_wait
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -95,7 +97,9 @@ async def register(
     except IntegrityError:
         raise email_taken from None
     if settings.email_verification:
-        await issue_code(settings, user, now)
+        # Not sent: the account is created anyway, and the confirmation page offers a new code right away.
+        with suppress(MailError):
+            await issue_code(settings, user, now)
     tokens = await start_session(db, settings, user, request)
     await db.commit()
     return _auth_response(response, request, settings, user, tokens)
@@ -128,7 +132,10 @@ async def resend_verification(auth: CurrentAuth, db: Db, settings: SettingsDep) 
             headers={"Retry-After": str(wait)},
             retryAfter=wait,
         )
-    await issue_code(settings, user, now)
+    try:
+        await issue_code(settings, user, now)
+    except MailError:
+        raise mail_failed() from None
     await db.commit()
     return VerifyResendOut(retry_after=resend_wait(user, now))
 
@@ -170,7 +177,10 @@ async def forgot_password(
     if wait := resend_wait(user, now, "reset"):
         # The code sent a moment ago still works; the page shows the same countdown.
         return ForgotPasswordOut(retry_after=wait)
-    await issue_code(settings, user, now, "reset")
+    try:
+        await issue_code(settings, user, now, "reset")
+    except MailError:
+        raise mail_failed() from None
     await db.commit()
     return ForgotPasswordOut(retry_after=resend_wait(user, now, "reset"))
 

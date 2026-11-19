@@ -47,17 +47,26 @@ def resend_wait(user: User, now: datetime, kind: CodeKind = "verify") -> int:
     return max(0, math.ceil((sent_at + RESEND_COOLDOWN - now).total_seconds()))
 
 
+def mail_failed() -> ApiError:
+    return ApiError(
+        status.HTTP_503_SERVICE_UNAVAILABLE, "mail_failed", "Не удалось отправить письмо — попробуйте позже"
+    )
+
+
 async def issue_code(settings: Settings, user: User, now: datetime, kind: CodeKind = "verify") -> None:
-    """A new code replaces the previous one. The caller checks the cooldown and commits."""
+    """A new code replaces the previous one. The caller checks the cooldown and commits.
+
+    Raises mail.MailError if the letter was not sent; the user is not changed then (the previous code
+    keeps working and no cooldown starts)."""
     code = f"{secrets.randbelow(10**CODE_LENGTH):0{CODE_LENGTH}d}"
-    setattr(user, f"{kind}_code_hash", _digest(settings, user, kind, code))
-    setattr(user, f"{kind}_code_expires_at", now + CODE_TTL)
-    setattr(user, f"{kind}_code_sent_at", now)
-    setattr(user, f"{kind}_attempts", 0)
     if kind == "verify":
         await mail.send_verification_code(settings, user.email, code)
     else:
         await mail.send_password_reset_code(settings, user.email, code)
+    setattr(user, f"{kind}_code_hash", _digest(settings, user, kind, code))
+    setattr(user, f"{kind}_code_expires_at", now + CODE_TTL)
+    setattr(user, f"{kind}_code_sent_at", now)
+    setattr(user, f"{kind}_attempts", 0)
 
 
 def _bad_request(code: str, message: str) -> ApiError:
