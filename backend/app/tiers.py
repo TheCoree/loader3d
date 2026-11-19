@@ -7,7 +7,8 @@ enforces, and src/lib/tiers.ts repeats them for the pricing table: keep the two 
 - "pro" (Pro): the full planner; new accounts may take a free trial of it once.
 - "custom" (Индивидуальный): by contract, assigned by an admin, with limits and an end date of its own.
 
-There is no online payment yet: an admin activates and renews paid tiers in the admin panel.
+«Pro» is paid online with a PAYMENT_PROVIDER (app/billing.py, prices there); without one, and for
+«Индивидуальный», an admin activates and renews paid tiers in the admin panel.
 """
 
 from dataclasses import dataclass, replace

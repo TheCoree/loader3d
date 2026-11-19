@@ -1,6 +1,7 @@
 """Outgoing mail (app/mail.py): the letters, the SMTP backend and what the API does when sending fails."""
 
 import smtplib
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -145,3 +146,20 @@ async def test_a_failed_reset_letter_keeps_no_cooldown(
     smtp.fail = None
     forgot = await client.post("/api/auth/password/forgot", json={"email": "anna@example.com"})
     assert forgot.status_code == 200, forgot.text
+
+
+async def test_payment_and_reminder_letters(settings: Settings, smtp: type[FakeSmtp]) -> None:
+    # 21:30 UTC is already the next day in Moscow: the letters show Moscow dates.
+    until = datetime(2026, 12, 19, 21, 30, tzinfo=UTC)
+    await mail.send_payment_received(settings, "anna@example.com", "Pro", "на месяц", 1990, until)
+    await mail.send_tier_ending(settings, "anna@example.com", "Pro", until, trial=True)
+    paid, ending = (server.sent[0] for server in smtp.instances)
+
+    assert paid["Subject"] == "Оплата получена: «Pro» до 20 декабря 2026"
+    text = _body(paid, "plain")
+    assert "1 990 ₽" in text and "(на месяц)" in text
+    assert "Открыть аккаунт: https://loader3d.test/account#subscription" in text
+    assert 'href="https://loader3d.test/account#subscription"' in _body(paid, "html")
+
+    assert ending["Subject"] == "Пробный период тарифа «Pro» заканчивается 20 декабря 2026"
+    assert "Продлить «Pro»" in _body(ending, "html")

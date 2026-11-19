@@ -12,7 +12,7 @@ from app.auth import AdminAuth, revoke_sessions
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found
-from app.models import AuthSession, Lead, Plan, User, utcnow
+from app.models import AuthSession, Lead, Payment, Plan, User, utcnow
 from app.schemas.admin import (
     AdminStatsOut,
     AdminSubscriptionOut,
@@ -29,6 +29,7 @@ from app.schemas.admin import (
     PasswordResetIn,
     SubscriptionIn,
 )
+from app.schemas.billing import AdminPaymentOut, AdminPaymentPage, PaymentStatus
 from app.security import hash_password
 from app.tiers import TIERS, Tier, effective_tier
 
@@ -295,3 +296,33 @@ async def delete_lead(lead_id: uuid.UUID, auth: AdminAuth, db: Db) -> None:
     if not result.rowcount:  # type: ignore[attr-defined]
         raise not_found("lead_not_found", "Заявка не найдена")
     await db.commit()
+
+
+@router.get("/payments")
+async def list_payments(
+    auth: AdminAuth,
+    db: Db,
+    status_: Annotated[PaymentStatus | None, Query(alias="status")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AdminPaymentPage:
+    """Online payments of tiers (app/billing.py), newest first; read-only — they come from the provider."""
+    where = [Payment.status == status_] if status_ else []
+    total = await db.scalar(select(func.count()).select_from(Payment).where(*where)) or 0
+    paid_sum = await db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.status == "paid")
+    )
+    payments = await db.scalars(
+        select(Payment)
+        .where(*where)
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return AdminPaymentPage(
+        items=[AdminPaymentOut.model_validate(p) for p in payments],
+        total=total,
+        limit=limit,
+        offset=offset,
+        paid_sum=paid_sum or 0,
+    )

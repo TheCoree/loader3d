@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     site_url: str = ""
     # Subscription tiers (app/tiers.py). Off: no limits, and neither the API nor the site mention tiers.
     tiers_enabled: bool = False
+    # Online payment of tiers (app/billing.py), with TIERS_ENABLED only. "none": paid tiers by a request
+    # and an admin; "test": a fake payment page that pays or cancels at a click (development only).
+    payment_provider: Literal["none", "test"] = "none"
     # Addresses of the reverse proxy whose X-Forwarded-For is trusted for the client's IP (rate limits,
     # the sessions list). Compose sets "*": the api is reachable only through Caddy there.
     forwarded_allow_ips: str = "127.0.0.1"
@@ -75,6 +78,8 @@ class Settings(BaseSettings):
             secret = self.jwt_secret.get_secret_value()
             if secret == DEV_JWT_SECRET or len(secret) < 32:
                 raise ValueError("JWT_SECRET must be set to a random string of at least 32 characters")
+            if self.payment_provider == "test":
+                raise ValueError("PAYMENT_PROVIDER=test gives «Pro» away for free: development only")
         if self.mail_backend == "smtp":
             if not self.smtp_host:
                 raise ValueError("MAIL_BACKEND=smtp needs SMTP_HOST")

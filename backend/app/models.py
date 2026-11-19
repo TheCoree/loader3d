@@ -88,6 +88,8 @@ class User(Base):
     tier_limits: Mapped[dict[str, Any] | None]
     # Admin's note: contract, invoice, contact person.
     tier_note: Mapped[str | None] = mapped_column(String(500))
+    # The `tier_expires_at` the last «тариф заканчивается» letter was about (app/billing.py): one per period.
+    tier_reminder_for: Mapped[datetime | None]
 
     sessions: Mapped[list[AuthSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
@@ -115,6 +117,32 @@ class Lead(Base):
     # "new" until an admin handles it, then "done".
     status: Mapped[str] = mapped_column(String(20), default="new", server_default="new")
     created_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
+
+
+class Payment(Base):
+    """An online payment of a tier (app/billing.py): created at checkout, then paid or canceled through the
+    payment provider. Kept when the account is deleted (`email` stays) — it is an accounting record."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid7)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    email: Mapped[str] = mapped_column(String(320))
+    tier: Mapped[str] = mapped_column(String(20))
+    # "month" or "year" (app/billing.py PERIOD_MONTHS).
+    period: Mapped[str] = mapped_column(String(10))
+    # Roubles, from app/billing.py PRICES at checkout.
+    amount: Mapped[int]
+    # "pending" until the provider reports "paid" or "canceled".
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
+    provider: Mapped[str] = mapped_column(String(20))
+    # The provider's id of the payment and its page where the customer pays.
+    provider_payment_id: Mapped[str | None] = mapped_column(String(100), index=True)
+    payment_url: Mapped[str | None] = mapped_column(String(2000))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
+    paid_at: Mapped[datetime | None]
+    # The end of the paid period this payment gave (null until paid, or if it did not change the tier).
+    paid_until: Mapped[datetime | None]
 
 
 class AuthSession(Base):

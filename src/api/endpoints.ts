@@ -1,11 +1,15 @@
 import type { Plan } from '../core/types';
 import { api } from './client';
 import type {
+  AdminPaymentPage,
   AdminStats,
   AdminUser,
   AdminUserSort,
   AdminUserStatus,
   AuthResponse,
+  BillingInfo,
+  BillingPeriod,
+  Checkout,
   Lead,
   LeadInput,
   LeadStatus,
@@ -13,6 +17,8 @@ import type {
   PlanPage,
   PlanRecord,
   PlanSort,
+  Payment,
+  PaymentStatus,
   SessionInfo,
   SubscriptionInput,
   TierId,
@@ -85,6 +91,16 @@ export const leadApi = {
   create: (lead: LeadInput) => api<void>('/leads', { method: 'POST', body: lead }),
 };
 
+/** Online payment of tiers (backend/routers/billing.py). */
+export const billingApi = {
+  /** Public: whether tiers can be paid online, and the prices. */
+  info: () => api<BillingInfo>('/billing', { auth: false }),
+  /** A payment of «Pro»: open `paymentUrl`, the customer pays there and comes back to the account. */
+  checkout: (period: BillingPeriod) => api<Checkout>('/billing/checkout', { method: 'POST', body: { period } }),
+  payments: () => api<Payment[]>('/billing/payments'),
+  payment: (id: string) => api<Payment>(`/billing/payments/${id}`),
+};
+
 export interface AdminUserQuery {
   q?: string;
   tier?: TierId;
@@ -119,4 +135,6 @@ export const adminApi = {
   updateLead: (id: string, status: LeadStatus) =>
     api<Lead>(`/admin/leads/${id}`, { method: 'PATCH', body: { status } }),
   deleteLead: (id: string) => api<void>(`/admin/leads/${id}`, { method: 'DELETE' }),
+  payments: (query: { status?: PaymentStatus; limit?: number; offset?: number }, signal?: AbortSignal) =>
+    api<AdminPaymentPage>('/admin/payments', { query: { ...query }, signal }),
 };

@@ -71,6 +71,7 @@ services:
       # The api is reachable only from the compose network (through Caddy), so its X-Forwarded-For is trusted.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
       TIERS_ENABLED: ${TIERS_ENABLED:-false}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-none}
     depends_on:
       db:
         condition: service_healthy

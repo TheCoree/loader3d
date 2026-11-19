@@ -173,3 +173,51 @@ export interface Lead {
   userId: string | null;
   createdAt: string;
 }
+
+/** Online payment of tiers (backend/app/billing.py). */
+export type BillingPeriod = 'month' | 'year';
+export type PaymentStatus = 'pending' | 'paid' | 'canceled';
+
+export interface Price {
+  tier: 'pro';
+  period: BillingPeriod;
+  /** Roubles for the whole period. */
+  amount: number;
+  months: number;
+}
+
+export interface BillingInfo {
+  /** Tiers can be paid online (TIERS_ENABLED and a PAYMENT_PROVIDER); otherwise — by a request. */
+  enabled: boolean;
+  /** What is charged: the server's prices. */
+  prices: Price[];
+}
+
+export interface Payment {
+  id: string;
+  tier: string;
+  period: BillingPeriod;
+  amount: number;
+  status: PaymentStatus;
+  createdAt: string;
+  paidAt: string | null;
+  /** The end of the paid period this payment gave. */
+  paidUntil: string | null;
+}
+
+export interface Checkout {
+  payment: Payment;
+  /** The provider's page where the customer pays: open it. */
+  paymentUrl: string;
+}
+
+export interface AdminPayment extends Payment {
+  email: string;
+  userId: string | null;
+  provider: string;
+}
+
+export interface AdminPaymentPage extends Page<AdminPayment> {
+  /** Roubles received in total. */
+  paidSum: number;
+}

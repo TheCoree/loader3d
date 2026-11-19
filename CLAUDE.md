@@ -83,7 +83,13 @@ Architecture, controls, API endpoints and extension points are in README.md — 
 - Tiers: limits are enforced by the API (`backend/app/tiers.py`, checked in `routers/plans.py`) and mirrored
   for the UI in `src/lib/tiers.ts` (prices, texts, the pricing table) — change both. The store refuses
   vehicles/items over `limits` (`limitHit` → upgrade dialog); autoload and the step-by-step PDF are hidden
-  behind `useFeature()`. There is no online payment: admins assign paid tiers.
+  behind `useFeature()`. Admins assign «Индивидуальный» and, without online payment, «Pro».
+- Online payment (`PAYMENT_PROVIDER`, `backend/app/billing.py`, `routers/billing.py`, `src/lib/billing.ts`):
+  the server charges its own `PRICES` (the same numbers as `src/lib/tiers.ts` — change both), never an amount
+  from the client. A tier changes only in `apply_payment` (idempotent: providers repeat notifications;
+  extends from the end of the current «Pro» period) after the provider confirms; a provider's webhook must
+  check its signature first. `PAYMENT_PROVIDER=test` is refused in production. Without a provider the UI
+  falls back to requests (LeadForm).
 - The landing page (`pages/LandingPage.tsx`, `Shell.tsx`) is rendered on the server by
   `scripts/prerender.mjs` and hydrated by `main.tsx`: nothing it imports may touch `window`/`document`
   while rendering or at module level, and its first render must not depend on the browser. The FAQ there is
