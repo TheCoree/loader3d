@@ -30,18 +30,19 @@ npm run preview    # production-сборка на http://localhost:4173 (как 
 
 - `web` — [Caddy](https://caddyserver.com): статика фронтенда, HTTPS, проксирует `/api/*` в `api`;
 - `api` — бэкенд, при старте сам применяет миграции БД;
-- `db` — Postgres, наружу не публикуется, данные в томе `postgres_data`.
+- `db` — Postgres, наружу не публикуется, данные в томе `postgres_data`;
+- `mail` — по желанию, своя почта (`COMPOSE_PROFILES=mail`, см. «Своя почта» ниже).
 
 ```bash
-git clone https://github.com/almbvb/loader3d.git && cd loader3d
+git clone https://github.com/TheCoree/loader3d.git && cd loader3d
 cp .env.example .env     # задать JWT_SECRET и POSTGRES_PASSWORD (openssl rand -hex 32), остальное по желанию
 docker compose up -d
 ```
 
 Доступ к админ-панели (`/admin`) — у аккаунта с правами администратора. Выдать права существующему
 аккаунту: `docker compose exec api python -m app make-admin you@example.com` (`--revoke` — забрать).
+Проверить почту (`MAIL_BACKEND=smtp`): `docker compose exec api python -m app send-test-mail you@example.com`.
 
-Репозиторий приватный: для `git clone` на сервере нужен deploy key (SSH) или токен GitHub.
 Обновление: `git pull && docker compose up -d --build`. Логи: `docker compose logs -f`.
 Если сервер развёрнут до появления бэкенда — перед обновлением добавить в `.env` новые переменные
 из `.env.example` (без `JWT_SECRET` и `POSTGRES_PASSWORD` compose не запустится).
@@ -55,13 +56,17 @@ docker compose up -d
 |---|---|---|
 | `SITE_ADDRESS` | `:80` | Домен (`loader.example.com`) → автоматический HTTPS от Let's Encrypt; `:80` → просто HTTP |
 | `SITE_URL` | — | Публичный адрес (`https://loader.example.com`) для лендинга: canonical, Open Graph, `sitemap.xml`; после смены — `--build` |
+| `REDIRECT_ADDRESS` | — | Другие имена сайта (`www.example.com, mail.example.com`): свой сертификат и постоянный редирект на `SITE_URL` |
 | `HTTP_PORT` / `HTTPS_PORT` | `80` / `443` | Порты на хосте, можно с IP: `127.0.0.1:8080` |
 | `COMPOSE_PROJECT_NAME` | `loader3d` | Префикс имён контейнера, образа и томов |
 | `JWT_SECRET` | — (обязательно) | Ключ подписи токенов, 32+ случайных символа; смена разлогинивает всех |
 | `ACCESS_TOKEN_TTL_MINUTES` / `REFRESH_TOKEN_TTL_DAYS` | `15` / `30` | Время жизни access-токена и сессии без активности |
 | `REGISTRATION_OPEN` | `true` | `false` — новые аккаунты создавать нельзя (админ может добавить их в админ-панели) |
 | `EMAIL_VERIFICATION` | `true` | Новый аккаунт подтверждает email 6-значным кодом, до этого схемы закрыты; `false` — подтверждён сразу |
-| `MAIL_BACKEND` | `console` | Как отправлять письма (коды подтверждения и сброса пароля): `console` — код пишется в лог API (`docker compose logs api`), пока нет почты на домене |
+| `MAIL_BACKEND` | `console` | Как отправлять письма (коды подтверждения и сброса пароля): `console` — код пишется в лог API (`docker compose logs api`), пока нет почты на домене; `smtp` — через SMTP (почтового сервиса или своей почты) |
+| `MAIL_FROM` | — | Отправитель: `Loader3D <noreply@example.com>`; домену нужны SPF и DKIM от почтового сервиса, иначе письма уйдут в спам |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURITY` | — / `465` / `ssl` | SMTP-сервер сервиса; `ssl` — порт 465, `starttls` — 587, `none` — без шифрования (локальный релей) |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | — | Логин ящика и пароль (у Яндекса и Mail.ru — пароль приложения); пустой логин — без авторизации |
 | `FORWARDED_ALLOW_IPS` | `*` | Чьему `X-Forwarded-For` API верит, определяя IP посетителя (лимиты входа и регистрации, список сессий); `*` — API доступен только через Caddy |
 | `TIERS_ENABLED` | `false` | `true` — тарифы: цены на сайте, выбор при регистрации, лимиты, тариф в аккаунте и админке; `false` — о тарифах ни слова, без лимитов; после смены — `--build` |
 | `POSTGRES_PASSWORD` | — (обязательно) | Пароль БД, применяется при первом создании базы |
@@ -69,6 +74,8 @@ docker compose up -d
 | `LOG_MAX_SIZE` / `LOG_MAX_FILE` | `10m` / `3` | Ротация логов контейнеров |
 | `NODE_VERSION` / `CADDY_VERSION` / `PYTHON_VERSION` | `24` / `2` / `3.14` | Версии базовых образов (после смены — `--build`) |
 | `POSTGRES_VERSION` | `18` | Мажорная версия Postgres (18+; смена у существующей базы — через dump/restore) |
+| `COMPOSE_PROFILES` | — | `mail` — запускать и свою почту (сервис `mail`) |
+| `MAIL_HOSTNAME` / `DMS_VERSION` | `mail.example.com` / `17` | Имя почтового сервера (A, MX и PTR указывают на него; оно же в `REDIRECT_ADDRESS`) и версия docker-mailserver |
 
 Типовые варианты:
 
@@ -82,6 +89,39 @@ docker compose up -d
 Схемы и настройки отображения хранятся в аккаунте на сервере. План, который остался в браузере от версии
 без аккаунтов, страница «Мои схемы» предлагает сохранить как схему; настройки из браузера переезжают в
 аккаунт при первом входе.
+
+### Своя почта
+
+Сервис `mail` ([docker-mailserver](https://docker-mailserver.github.io/docker-mailserver/latest/)) —
+почтовый сервер на том же сервере: ящики домена (IMAP) и отправка кодов без почтового сервиса. Rspamd
+фильтрует спам и подписывает письма DKIM, fail2ban закрывает подбор паролей. TLS — сертификат, который
+Caddy получает для `MAIL_HOSTNAME`; продления подхватываются сами. Нужны открытые порты 25, 465, 587, 993
+и чтобы хостер не закрывал исходящий 25.
+
+1. DNS (на примере `example.com`, сервер `203.0.113.10`): A `mail` → `203.0.113.10`; MX `@` →
+   `mail.example.com` (приоритет 10); TXT `@` → `v=spf1 mx -all`; TXT `_dmarc` →
+   `v=DMARC1; p=none; rua=mailto:postmaster@example.com`; DKIM — после шага 3.
+2. PTR (обратная запись IP) — в панели хостера: `203.0.113.10` → `mail.example.com`. Без неё Gmail и
+   Mail.ru отклоняют письма или кладут их в спам.
+3. В `.env`: `COMPOSE_PROFILES=mail`, `MAIL_HOSTNAME=mail.example.com`, имя добавить в `REDIRECT_ADDRESS`,
+   `docker compose up -d --build`. Когда Caddy получит сертификат для `mail.example.com`:
+   ```bash
+   docker compose exec mail setup email add noreply@example.com 'ПАРОЛЬ'   # ящик, от которого уходят коды
+   docker compose exec mail setup email add you@example.com                # свой ящик (спросит пароль)
+   docker compose exec mail setup alias add postmaster@example.com you@example.com
+   docker compose exec mail setup config dkim domain example.com
+   docker compose exec mail cat /tmp/docker-mailserver/rspamd/dkim/example.com-mail.public.dns.txt
+   ```
+   Последняя команда печатает DKIM — TXT-запись `mail._domainkey`. После `setup config dkim` —
+   `docker compose restart mail`.
+4. Коды через свою почту: `MAIL_BACKEND=smtp`, `MAIL_FROM="Loader3D <noreply@example.com>"`,
+   `SMTP_HOST=mail.example.com` (внутри compose имя ведёт прямо в контейнер `mail`), `SMTP_PORT=465`,
+   `SMTP_SECURITY=ssl`, `SMTP_USERNAME=noreply@example.com`, `SMTP_PASSWORD` — пароль ящика;
+   `docker compose up -d api` и `docker compose exec api python -m app send-test-mail you@example.com`.
+
+Почтовый клиент: IMAP `mail.example.com:993` (SSL), SMTP `mail.example.com:465` (SSL), логин — адрес
+целиком. Репутация нового IP поначалу низкая: проверьте письмо на mail-tester.com и не включайте
+`p=quarantine` в DMARC, пока не убедитесь, что SPF и DKIM проходят.
 
 ### Поисковики и превью ссылок
 
@@ -113,6 +153,7 @@ uv run ruff check . && uv run ruff format --check .
 же адреса, что и в проде. Настройки бэкенда — переменные окружения, `.env` в корне репозитория (тот же, что
 для деплоя) или `backend/.env` (важнее корневого): `DATABASE_URL`, `DATABASE_PASSWORD`, `JWT_SECRET`,
 `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REGISTRATION_OPEN`, `EMAIL_VERIFICATION`, `MAIL_BACKEND`,
+`MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SITE_URL`,
 `FORWARDED_ALLOW_IPS` (без него — `127.0.0.1`), `TIERS_ENABLED`, `CORS_ORIGINS`,
 `ENVIRONMENT` (см. [config.py](backend/app/config.py)). `TIERS_ENABLED` из корневого `.env` читает и Vite —
 после его смены перезапустите оба процесса.
@@ -352,7 +393,7 @@ backend/
     auth.py          выдача, ротация и отзыв сессий; зависимость CurrentAuth
     schemas/         тела запросов/ответов; plan_data.py — валидация Plan из src/core/types.ts
     routers/         auth, users, plans, leads, admin, health
-    __main__.py      `python -m app` (миграции + сервер), `python -m app make-admin EMAIL`
+    __main__.py      `python -m app` (миграции + сервер), `make-admin EMAIL`, `send-test-mail EMAIL`
   migrations/      Alembic (SQLite и Postgres)
   tests/           pytest
 ```

@@ -10,7 +10,7 @@ Architecture, controls, API endpoints and extension points are in README.md — 
 - The user writes in Russian: reply in Russian. All UI text is Russian; code, identifiers and comments are English.
 - Units: lengths are stored in centimetres, weights in kilograms; `core/units.ts` converts for display
   (мм / см / м, кг / т). `weight` (item) and `maxLoad` (body) are optional — plans from before weights.
-- Repository: https://github.com/almbvb/loader3d (private), branch `main`. Commit only when the user asks.
+- Repository: https://github.com/TheCoree/loader3d, branch `main`. Commit only when the user asks.
 - UI: build from shadcn components in `src/components/ui` (style radix-nova; add more with
   `npx shadcn@latest add <name>`), lucide icons, Tailwind classes. Theme tokens live in `src/index.css`;
   `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app

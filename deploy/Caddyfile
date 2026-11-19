@@ -51,3 +51,10 @@
 		file_server
 	}
 }
+
+# REDIRECT_ADDRESS = other names of the site ("www.example.com, mail.example.com") -> their own
+# certificates and a permanent redirect to SITE_URL. The mail server (compose service "mail") uses the
+# certificate Caddy gets here for its name. The default http://redirect.localhost matches no request.
+{$REDIRECT_ADDRESS:http://redirect.localhost} {
+	redir {$SITE_URL}{uri} permanent
+}

@@ -1,6 +1,8 @@
 """`python -m app`: apply database migrations, then serve the API with uvicorn.
 
 `python -m app make-admin EMAIL [--revoke]`: grant (or take away) access to the admin panel.
+
+`python -m app send-test-mail EMAIL`: send a test letter with the current mail settings (MAIL_*, SMTP_*).
 """
 
 import argparse
@@ -10,6 +12,7 @@ import sys
 import uvicorn
 from sqlalchemy import select
 
+from app import mail
 from app.config import BACKEND_DIR, Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.migrate import upgrade_database
@@ -41,9 +44,21 @@ def main() -> None:
     make_admin = commands.add_parser("make-admin", help="grant access to the admin panel")
     make_admin.add_argument("email", help="e-mail of an existing account")
     make_admin.add_argument("--revoke", action="store_true", help="take the access away instead")
+    test_mail = commands.add_parser(
+        "send-test-mail", help="send a test letter with the current mail settings"
+    )
+    test_mail.add_argument("email", help="where to send it")
     args = parser.parse_args()
 
     settings = get_settings()
+    if args.command == "send-test-mail":
+        try:
+            asyncio.run(mail.send_test(settings, args.email))
+        except mail.MailError as exc:
+            sys.exit(f"Not sent: {exc}")
+        print(f"Test letter sent to {args.email} (MAIL_BACKEND={settings.mail_backend})")
+        return
+
     if not args.no_migrate:
         upgrade_database(settings)
 
