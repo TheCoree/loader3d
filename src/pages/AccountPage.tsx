@@ -1,13 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useState, type FormEvent } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, KeyRound, LogOut, Monitor, ShieldAlert, Smartphone, Sparkles, UserRound } from 'lucide-react';
+import { CreditCard, KeyRound, LogOut, Monitor, ShieldAlert, Smartphone, Sparkles, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError, errorMessage } from '@/api/client';
-import { authApi, billingApi, userApi } from '@/api/endpoints';
-import type { Payment, SessionInfo, TierLimits } from '@/api/types';
+import { authApi, userApi } from '@/api/endpoints';
+import type { SessionInfo } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
-import { UpgradeDialog, useUpgrade } from '@/components/UpgradeDialog';
+import { SubscriptionStateBadge } from '@/components/TierBadge';
+import { UpgradeDialog, useUpgradeAction } from '@/components/UpgradeDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,12 +27,14 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
-import { PERIOD_LABEL, useBilling } from '@/lib/billing';
-import { describeUserAgent, fullDate, plural, timeAgo } from '@/lib/format';
-import { TIERS_ENABLED, TRIAL_DAYS, formatPrice, subscriptionSummary } from '@/lib/tiers';
+import { describeUserAgent, fullDate, timeAgo } from '@/lib/format';
+import { TIERS_ENABLED, limitSummary, subscriptionState, subscriptionSummary } from '@/lib/tiers';
 import { useAuth } from '@/store/useAuth';
 
 export function AccountPage() {
+  const { search } = useLocation();
+  // The payment page of the provider used to return here: «Тариф и оплата» checks the payment now.
+  if (TIERS_ENABLED && new URLSearchParams(search).has('payment')) return <Navigate to={`/billing${search}`} replace />;
   return (
     <div className="min-h-dvh">
       <AppHeader />
@@ -116,144 +119,40 @@ function ProfileCard() {
   );
 }
 
-function limitLines(limits: TierLimits): string[] {
-  return [
-    limits.plans === null ? 'Схем — без ограничений' : `Схем — до ${limits.plans}`,
-    `В схеме — до ${plural(limits.vehicles, ['машины', 'машин', 'машин'])} и ${plural(limits.items, ['груза', 'грузов', 'грузов'])}`,
-    limits.autoload ? 'Автозагрузка с развесовкой' : 'Автозагрузка — на «Pro»',
-    limits.pdfSteps ? 'Пошаговая PDF-инструкция' : 'Пошаговая PDF-инструкция — на «Pro»',
-  ];
-}
-
-/** How many times the return page asks about a pending payment (every 2 s) before it stops waiting. */
-const PAYMENT_POLLS = 30;
-
-/**
- * Back from the payment page (/account?payment=<id>): waits until the provider has answered, then
- * refreshes the account, says how it went and drops `?payment` from the address. True while it waits.
- */
-function usePaymentReturn(): boolean {
-  const { search } = useLocation();
-  const navigate = useNavigate();
-  const id = new URLSearchParams(search).get('payment');
-  const setUser = useAuth((s) => s.setUser);
-  const queryClient = useQueryClient();
-  const queryKey = ['billing', 'payment', id];
-  const payment = useQuery({
-    queryKey,
-    queryFn: () => billingApi.payment(id ?? ''),
-    enabled: !!id,
-    retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.status === 'pending' && query.state.dataUpdateCount < PAYMENT_POLLS ? 2000 : false,
-  });
-  const data = payment.data;
-  // Read on every poll (dataUpdatedAt changes each time): after the last one the page stops waiting.
-  const polledAt = payment.dataUpdatedAt;
-  const gaveUp =
-    data?.status === 'pending' && polledAt > 0 && (queryClient.getQueryState(queryKey)?.dataUpdateCount ?? 0) >= PAYMENT_POLLS;
-
-  useEffect(() => {
-    if (!id || (!payment.isError && (!data || (data.status === 'pending' && !gaveUp)))) return;
-    if (payment.isError) toast.error(errorMessage(payment.error));
-    else if (data?.status === 'paid') {
-      const until = data.paidUntil
-        ? ` до ${new Date(data.paidUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`
-        : '';
-      toast.success(`Оплата прошла: «Pro» подключён${until}`);
-      void userApi.me().then(setUser);
-    } else if (data?.status === 'canceled') toast('Оплата отменена — тариф не изменился');
-    else toast('Платёж ещё обрабатывается: тариф подключится, как только придёт подтверждение');
-    void queryClient.invalidateQueries({ queryKey: ['billing', 'payments'] });
-    navigate({ search: '', hash: '#subscription' }, { replace: true });
-  }, [id, data, gaveUp, payment.isError, payment.error, navigate, setUser, queryClient]);
-
-  return !!id;
-}
-
-const PAYMENT_STATUS: Record<Payment['status'], string> = { pending: 'Ожидает оплаты', paid: 'Оплачен', canceled: 'Отменён' };
-
-function PaymentHistory() {
-  const payments = useQuery({ queryKey: ['billing', 'payments'], queryFn: billingApi.payments });
-  const shown = (payments.data ?? []).filter((p) => p.status !== 'canceled').slice(0, 5);
-  if (shown.length === 0) return null;
-  return (
-    <div className="mt-5 border-t pt-4">
-      <p className="text-sm font-medium">История оплат</p>
-      <ul className="mt-2 grid gap-1.5 text-sm">
-        {shown.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-muted-foreground tabular-nums">{fullDate(p.paidAt ?? p.createdAt)}</span>
-            <span>
-              «Pro» {PERIOD_LABEL[p.period]} · {formatPrice(p.amount)}
-            </span>
-            <Badge variant={p.status === 'paid' ? 'secondary' : 'outline'} className="ml-auto">
-              {PAYMENT_STATUS[p.status]}
-            </Badge>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
+/** The tier in short; everything about it is on «Тариф и оплата» (/billing). */
 function SubscriptionCard() {
   const sub = useAuth((s) => s.user?.subscription);
-  const show = useUpgrade((s) => s.show);
-  const billing = useBilling();
-  const returning = usePaymentReturn();
-  const { hash } = useLocation();
-  useEffect(() => {
-    if (hash === '#subscription') document.getElementById('subscription')?.scrollIntoView({ block: 'start' });
-  }, [hash]);
+  const action = useUpgradeAction();
   if (!sub) return null;
+  const state = subscriptionState(sub);
 
   return (
     <Card id="subscription" className="scroll-mt-16">
       <CardHeader className="flex items-center gap-3">
         <SectionIcon icon={Sparkles} />
-        <div className="flex-1">
-          <CardTitle className="flex items-center gap-2">
-            Тариф «{sub.name}»{sub.trial && <Badge variant="secondary">Пробный период</Badge>}
+        <div className="min-w-0 flex-1">
+          <CardTitle className="flex flex-wrap items-center gap-2">
+            Тариф «{sub.name}»
+            <SubscriptionStateBadge sub={sub} />
           </CardTitle>
-          <CardDescription>{subscriptionSummary(sub)}</CardDescription>
+          <CardDescription className={state === 'expired' || state === 'ending' ? 'text-warning' : undefined}>
+            {subscriptionSummary(sub)}
+          </CardDescription>
         </div>
       </CardHeader>
       <CardContent>
-        {returning && (
-          <p className="mb-4 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
-            <Spinner /> Проверяем оплату…
-          </p>
-        )}
-        <ul className="grid gap-2 text-sm sm:grid-cols-2">
-          {limitLines(sub.limits).map((line) => (
-            <li key={line} className="flex items-start gap-2">
-              <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-              {line}
-            </li>
-          ))}
-        </ul>
-        <PaymentHistory />
+        <p className="text-sm text-muted-foreground">{limitSummary(sub)}.</p>
       </CardContent>
       <CardFooter className="flex-wrap justify-end gap-2 border-t pt-4 pb-4">
         <Button variant="ghost" asChild>
-          <Link to="/pricing">Сравнить тарифы</Link>
+          <Link to="/billing">
+            <CreditCard /> Тариф и оплата
+          </Link>
         </Button>
-        {sub.tier === 'free' ? (
-          <Button onClick={() => show()}>
-            {sub.trialAvailable
-              ? `«Pro» на ${TRIAL_DAYS} дней бесплатно`
-              : billing?.enabled
-                ? 'Оплатить «Pro»'
-                : 'Подключить «Pro»'}
-          </Button>
-        ) : sub.tier === 'pro' ? (
-          <Button variant={billing?.enabled ? 'default' : 'outline'} onClick={() => show(undefined, 'pro')}>
-            {sub.trial ? (billing?.enabled ? 'Оплатить «Pro»' : 'Оформить подписку') : 'Продлить'}
-          </Button>
-        ) : (
-          <Button variant="outline" onClick={() => show(undefined, 'custom')}>
-            Связаться по договору
+        {action && state !== 'custom' && (
+          <Button onClick={action.run} disabled={action.pending}>
+            {action.pending && <Spinner />}
+            {action.label}
           </Button>
         )}
       </CardFooter>

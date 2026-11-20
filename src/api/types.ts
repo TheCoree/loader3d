@@ -27,6 +27,17 @@ export interface Subscription {
   limits: TierLimits;
 }
 
+/** How much of the tier's limits the account uses (GET /api/users/me/usage, tiers on only). */
+export interface Usage {
+  /** Saved plans. */
+  plans: number;
+  /** The most vehicles and cargo items in one plan: the limits are per plan. */
+  maxVehicles: number;
+  maxItems: number;
+  /** Plans with more vehicles or items than the tier allows: they open and can be edited, but do not grow. */
+  overLimit: number;
+}
+
 export interface User {
   id: string;
   email: string;

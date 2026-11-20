@@ -23,6 +23,7 @@ import type {
   SessionInfo,
   SubscriptionInput,
   TierId,
+  Usage,
   User,
 } from './types';
 
@@ -58,6 +59,8 @@ export const userApi = {
   updateSettings: (settings: Record<string, unknown>) =>
     api<Record<string, unknown>>('/users/me/settings', { method: 'PATCH', body: settings }),
   startTrial: () => api<User>('/users/me/trial', { method: 'POST' }),
+  /** Use of the tier limits (tiers on only). */
+  usage: () => api<Usage>('/users/me/usage'),
   changePassword: (currentPassword: string, newPassword: string) =>
     api<void>('/users/me/password', { method: 'POST', body: { currentPassword, newPassword } }),
   deleteAccount: (password: string) => api<void>('/users/me', { method: 'DELETE', body: { password } }),

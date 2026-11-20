@@ -41,7 +41,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { plural } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { NumberField, Stepper, WeightField } from './fields';
-import { ProBadge } from '@/components/UpgradeDialog';
+import { ProBadge, useUpgrade } from '@/components/UpgradeDialog';
+import { tierInfo } from '@/lib/tiers';
 import { useFeature, useOpenAutoload, usePinned, usePlacements, useStats, useUnits } from './hooks';
 
 const ITEMS = ['груз', 'груза', 'грузов'] as const;
@@ -254,6 +255,7 @@ function CargoList() {
           </div>
         )}
       </div>
+      <ItemLimitHint count={items.length} />
       {items.length === 0 ? (
         <Empty className="mx-4 mb-4 border border-dashed py-8">
           <EmptyHeader>
@@ -272,6 +274,30 @@ function CargoList() {
         </ul>
       )}
     </section>
+  );
+}
+
+/** On «Старт», once most of its cargo limit is used: how much is left, and «Pro» behind a click. */
+function ItemLimitHint({ count }: { count: number }) {
+  const limits = useStore((s) => s.limits);
+  const show = useUpgrade((s) => s.show);
+  const pro = tierInfo('pro').limits.items;
+  if (!limits || limits.items >= pro || count < limits.items * 0.8) return null;
+  const left = Math.max(0, limits.items - count);
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        show(`На тарифе «${limits.tierName}» в схеме не больше ${plural(limits.items, ['груза', 'грузов', 'грузов'])}. На «Pro» — до ${pro.toLocaleString('ru-RU')}.`)
+      }
+      className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-center gap-1.5 rounded-lg bg-muted/70 px-2.5 py-1.5 text-left text-xs text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span className={cn('font-medium tabular-nums', left === 0 ? 'text-warning' : 'text-foreground')}>
+        {count} из {limits.items}
+      </span>
+      грузов на «{limits.tierName}»{left > 0 ? ` · ещё ${left}` : ' · больше не добавить'}
+      <ProBadge />
+    </button>
   );
 }
 
