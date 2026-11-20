@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ChevronRight, FileUp, HardDriveUpload, PackageOpen, Plus, RefreshCw, Search, SearchX, Sparkles, X } from 'lucide-react';
+import { ChevronRight, FileUp, HardDriveUpload, PackageOpen, Plus, RefreshCw, Search, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import type { PlanSort, PlanSummary, Subscription } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
-import { LimitSegments, TIER_ICON_TONE, TIER_PANEL_TONE } from '@/components/TierBadge';
+import { LogoMark } from '@/components/Logo';
+import { LimitSegments, SubscriptionStateBadge, TIER_PANEL_TONE, TierCube, TierWordmark } from '@/components/TierBadge';
 import { UpgradeDialog, useUpgrade, useUpgradeAction } from '@/components/UpgradeDialog';
 import { PlanCard, PlanCardSkeleton } from '@/components/plans/PlanCard';
 import { CreatePlanDialog, DeletePlanDialog, RenamePlanDialog } from '@/components/plans/PlanDialogs';
@@ -294,14 +295,6 @@ function SubscriptionStrip({ sub, plans }: { sub: Subscription; plans: number | 
   const until = sub.expiresAt ? `До ${longDate(sub.expiresAt)}` : 'Без ограничения по сроку';
   const limitsText = lowerFirst(limitSummary(sub));
 
-  const title =
-    state === 'expired'
-      ? `«${tierInfo(sub.expiredTier ?? 'pro').name}» закончился`
-      : state === 'trial'
-        ? `${sub.name} · пробный период`
-        : state === 'ending'
-          ? `${sub.name} заканчивается`
-          : sub.name;
   const saved =
     plans === undefined || limit === null
       ? null
@@ -312,7 +305,7 @@ function SubscriptionStrip({ sub, plans }: { sub: Subscription; plans: number | 
     state === 'free'
       ? (saved ?? limitSummary(sub))
       : state === 'expired'
-        ? `Действуют лимиты «${sub.name}»${saved ? ` · ${lowerFirst(saved)}` : ''}`
+        ? `«${tierInfo(sub.expiredTier ?? 'pro').name}» закончился — действуют лимиты «${sub.name}»${saved ? ` · ${lowerFirst(saved)}` : ''}`
         : state === 'trial' || state === 'ending'
           ? `${until} — ${daysLeftText(left ?? 0)}`
           : `${until} · ${limitsText}`;
@@ -322,11 +315,12 @@ function SubscriptionStrip({ sub, plans }: { sub: Subscription; plans: number | 
 
   const body = (
     <>
-      <span className={cn('grid size-10 shrink-0 place-items-center rounded-xl', TIER_ICON_TONE[state])}>
-        <Sparkles className="size-[18px]" />
-      </span>
+      <TierCube sub={sub} className="size-10" />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] leading-snug font-semibold">{title}</span>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <TierWordmark sub={sub} className="text-[17px] leading-snug" />
+          {(state === 'trial' || state === 'ending') && <SubscriptionStateBadge sub={sub} />}
+        </span>
         <span className={cn('mt-0.5 block text-[13px] leading-snug text-pretty', warn ? 'text-warning' : 'text-muted-foreground')}>
           {detail}
         </span>
@@ -360,7 +354,7 @@ function SubscriptionStrip({ sub, plans }: { sub: Subscription; plans: number | 
           <Link to="/billing">{limited ? 'Сравнить тарифы' : 'Тариф и оплата'}</Link>
         </Button>
         <Button size="sm" className="rounded-full px-3.5" onClick={cta.run} disabled={cta.pending}>
-          {cta.pending ? <Spinner /> : <Sparkles />}
+          {cta.pending ? <Spinner /> : <LogoMark tone="mono" className="size-4" />}
           {cta.label}
         </Button>
       </div>

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, CircleAlert, Lock, Minus, Receipt, Sparkles } from 'lucide-react';
+import { Check, CircleAlert, Lock, Minus, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import { billingApi, userApi } from '@/api/endpoints';
 import type { BillingPeriod, Payment, Subscription, TierId, Usage } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
+import { LogoMark } from '@/components/Logo';
 import { SettingsGroup, SettingsRow } from '@/components/settings';
-import { LimitSegments, SubscriptionStateBadge, TIER_ICON_TONE, TIER_PANEL_TONE } from '@/components/TierBadge';
+import { LimitSegments, SubscriptionStateBadge, TIER_PANEL_TONE, TierCube, TierWordmark } from '@/components/TierBadge';
 import { UpgradeDialog, useUpgrade, useUpgradeAction } from '@/components/UpgradeDialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -132,13 +133,13 @@ function PlanHero({ sub }: { sub: Subscription }) {
     <section className={cn('mt-8 rounded-3xl p-5 sm:p-8', TIER_PANEL_TONE[state])} aria-label="Ваш тариф">
       <div className="flex flex-wrap items-center justify-between gap-5">
         <div className="flex min-w-0 items-center gap-4">
-          <span className={cn('grid size-12 shrink-0 place-items-center rounded-2xl', TIER_ICON_TONE[state])}>
-            <Sparkles className="size-[22px]" />
-          </span>
+          <TierCube sub={sub} className="size-14" />
           <div className="min-w-0">
             <p className="text-[13px] text-muted-foreground">Ваш тариф</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">{sub.name}</h2>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <h2>
+                <TierWordmark sub={sub} className="text-[1.75rem] leading-tight tracking-[-0.03em]" />
+              </h2>
               <SubscriptionStateBadge sub={sub} />
             </div>
           </div>
@@ -156,7 +157,7 @@ function PlanHero({ sub }: { sub: Subscription }) {
               onClick={action.run}
               disabled={action.pending}
             >
-              {action.pending ? <Spinner /> : state !== 'custom' && <Sparkles />}
+              {action.pending ? <Spinner /> : state !== 'custom' && <LogoMark tone="mono" className="size-4" />}
               {action.label}
             </Button>
           </div>

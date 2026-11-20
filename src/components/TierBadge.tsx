@@ -1,6 +1,6 @@
-import { Sparkles } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Subscription, TierId } from '@/api/types';
+import { LogoMark } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { daysLeft, daysLeftText, subscriptionState, subscriptionSummary, tierInfo, type SubscriptionState } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
@@ -23,16 +23,6 @@ export const TIER_PANEL_TONE: Record<SubscriptionState, string> = {
   custom: 'bg-amber-500/[0.08] dark:bg-amber-400/[0.1]',
 };
 
-/** The solid icon tile on such a panel. */
-export const TIER_ICON_TONE: Record<SubscriptionState, string> = {
-  free: 'bg-foreground text-background',
-  expired: 'bg-warning text-white',
-  ending: 'bg-warning text-white',
-  trial: 'bg-primary text-primary-foreground',
-  active: 'bg-primary text-primary-foreground',
-  custom: 'bg-amber-500 text-white',
-};
-
 /** A row of equal pills, `filled` of them lit: plans out of the limit, days of the trial. */
 export function LimitSegments({ total, filled, warn, className }: { total: number; filled: number; warn?: boolean; className?: string }) {
   return (
@@ -41,6 +31,29 @@ export function LimitSegments({ total, filled, warn, className }: { total: numbe
         <span key={i} className={cn('h-1.5 flex-1 rounded-full', i < filled ? (warn ? 'bg-warning' : 'bg-primary') : 'bg-foreground/10')} />
       ))}
     </div>
+  );
+}
+
+/**
+ * Our box in the tier's colour — blue for «Pro» (the trial too), amber for «Индивидуальный», the usual
+ * brand colours on «Старт». The status mark of the tariff page and of the strip above the plans.
+ */
+export function TierCube({ sub, className }: { sub: Subscription; className?: string }) {
+  const state = subscriptionState(sub);
+  if (state === 'free' || state === 'expired') return <LogoMark className={className} />;
+  return <LogoMark tone="mono" className={cn(sub.tier === 'custom' ? 'text-amber-500' : 'text-primary', className)} />;
+}
+
+/** «Loader3D Pro»: the product name with the tier in its colour (the cube goes next to it). */
+export function TierWordmark({ sub, className }: { sub: Subscription; className?: string }) {
+  const paid = sub.tier !== 'free';
+  return (
+    <span className={cn('font-display font-semibold tracking-[-0.02em]', className)}>
+      Loader3D{' '}
+      <span className={paid ? (sub.tier === 'custom' ? 'text-amber-600 dark:text-amber-400' : 'text-primary') : 'text-muted-foreground'}>
+        {sub.name}
+      </span>
+    </span>
   );
 }
 
@@ -101,7 +114,7 @@ export function SubscriptionChip() {
         className="h-8 gap-1.5 rounded-full bg-foreground/[0.06] px-3 hover:bg-foreground/10 dark:bg-foreground/10 dark:hover:bg-foreground/15"
       >
         <Link to="/billing" title={subscriptionSummary(sub)}>
-          <Sparkles className="text-primary" />
+          <LogoMark tone="mono" className="size-4 text-primary" />
           <span className="hidden sm:inline">{label}</span>
           <span className="sm:hidden">Pro</span>
         </Link>
@@ -119,7 +132,7 @@ export function SubscriptionChip() {
         state === 'ending' ? 'bg-warning/12 text-warning hover:bg-warning/18' : cn(TIER_TONE[sub.tier], 'hover:brightness-95 dark:hover:brightness-125'),
       )}
     >
-      <Sparkles className="size-3.5" />
+      <LogoMark tone="mono" className="size-4" />
       {sub.name}
       {extra && <span className="hidden font-normal opacity-80 md:inline">· {extra}</span>}
     </Link>

@@ -13,7 +13,10 @@ const FACES = [
   { d: 'M20.2 7.25 12 12v9.5l8.2-4.75Z', c: [16.1, 14.375], fill: '#2f6fed', opacity: 1, out: [0.866, 0.5] },
 ] as const;
 
-function Faces({ animated }: { animated?: boolean }) {
+/** `mono`: every face in the text colour (set it with a text-* class), shaded top → right → left. */
+const MONO_OPACITY = [1, 0.5, 0.78] as const;
+
+function Faces({ animated, mono }: { animated?: boolean; mono?: boolean }) {
   return (
     <g className={animated ? 'logo-turn' : undefined}>
       {FACES.map(({ d, c, fill, opacity, out }, i) => (
@@ -24,8 +27,8 @@ function Faces({ animated }: { animated?: boolean }) {
         >
           <path
             d={d}
-            fill={fill}
-            fillOpacity={opacity}
+            fill={mono ? 'currentColor' : fill}
+            fillOpacity={mono ? MONO_OPACITY[i] : opacity}
             transform={`translate(${c[0]} ${c[1]}) scale(0.86) translate(${-c[0]} ${-c[1]})`}
           />
         </g>
@@ -34,10 +37,11 @@ function Faces({ animated }: { animated?: boolean }) {
   );
 }
 
-export function LogoMark({ className }: { className?: string }) {
+/** `tone="mono"`: the box in one colour — the tier marks paint it blue for «Pro» (components/TierBadge.tsx). */
+export function LogoMark({ className, tone = 'brand' }: { className?: string; tone?: 'brand' | 'mono' }) {
   return (
     <svg viewBox="0 0 24 24" className={cn('size-7 shrink-0', className)} aria-hidden>
-      <Faces />
+      <Faces mono={tone === 'mono'} />
     </svg>
   );
 }

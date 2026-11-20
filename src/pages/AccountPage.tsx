@@ -2,12 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
-import { KeyRound, LogOut, MailCheck, Monitor, MonitorSmartphone, Moon, Smartphone, Sparkles, Sun, SunMoon, Trash2, UserRound } from 'lucide-react';
+import { KeyRound, LogOut, MailCheck, Monitor, MonitorSmartphone, Moon, Smartphone, Sun, SunMoon, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError, errorMessage } from '@/api/client';
 import { authApi, userApi } from '@/api/endpoints';
 import type { SessionInfo } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
+import { LogoMark } from '@/components/Logo';
 import { SettingsGroup, SettingsPanel, SettingsRow, SubPageHeader, UserAvatar } from '@/components/settings';
 import { TierBadge } from '@/components/TierBadge';
 import { SignOutDialog } from '@/components/UserMenu';
@@ -112,7 +113,7 @@ function Overview() {
 
         {sub && (
           <SettingsGroup>
-            <SettingsRow icon={Sparkles} title="Тариф и оплата" description={subscriptionSummary(sub)} trailing={<TierBadge tier={sub.tier} />} to="/billing" />
+            <SettingsRow icon={BoxMark} title="Тариф и оплата" description={subscriptionSummary(sub)} trailing={<TierBadge tier={sub.tier} />} to="/billing" />
           </SettingsGroup>
         )}
 
@@ -129,6 +130,11 @@ function Overview() {
       <SignOutDialog open={confirmOut} onOpenChange={setConfirmOut} />
     </>
   );
+}
+
+/** The tariff row's icon: our box in one colour, like the rest of the row icons. */
+function BoxMark({ className }: { className?: string }) {
+  return <LogoMark tone="mono" className={className} />;
 }
 
 const THEMES: Array<{ value: Theme; label: string; icon: typeof Sun }> = [

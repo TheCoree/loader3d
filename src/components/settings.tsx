@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
+import type { ComponentType, ReactNode } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { initials } from '@/lib/format';
@@ -20,7 +20,8 @@ export function SettingsGroup({ title, children, className }: { title?: string; 
 }
 
 interface SettingsRowProps {
-  icon: LucideIcon;
+  /** A lucide icon or any component that takes a className. */
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   title: ReactNode;
   description?: ReactNode;
   /** A page to open (shows a chevron). */
