@@ -166,115 +166,111 @@
   }
 }
 
-/* Feature cards: bars filling, the centre of gravity settling, cargo turning see-through, a box tumbling. */
+/* Feature panels: bars filling, the centre of gravity settling. */
 @keyframes lp-fill {
   0%,
-  12% {
+  6% {
     transform: scaleX(0);
   }
-  55%,
-  100% {
+  40%,
+  66% {
     transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
   }
 }
 
 .lp-fill {
   transform-origin: left;
-  animation: lp-fill 5s cubic-bezier(0.3, 0.7, 0.2, 1) infinite;
+  animation: lp-fill 7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
 @keyframes lp-cog {
   0%,
-  12% {
+  6% {
     left: 18%;
   }
-  40% {
+  28% {
     left: 64%;
   }
-  60%,
-  100% {
+  42%,
+  66% {
     left: 50%;
+  }
+  100% {
+    left: 18%;
   }
 }
 
 .lp-cog {
-  animation: lp-cog 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: lp-cog 7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
-@keyframes lp-xray {
-  0%,
-  30% {
+/*
+ * The hero truck (TruckArt in LandingPage.tsx): every pallet slides in through the rear doors to its
+ * place (--tx/--ty: the way back out, in screen pixels), stays, and fades out; the pallets are offset
+ * in time (--d), so the trailer keeps loading row after row.
+ */
+@keyframes lp-load {
+  0% {
+    transform: translate(var(--tx), var(--ty));
+    opacity: 0;
+  }
+  2% {
     opacity: 1;
   }
-  45%,
-  80% {
-    opacity: 0.12;
-  }
-  95%,
-  100% {
+  9%,
+  86% {
+    transform: none;
     opacity: 1;
   }
-}
-
-.lp-xray {
-  animation: lp-xray 6s ease-in-out infinite;
-}
-
-@keyframes lp-tumble {
-  0%,
-  14% {
-    transform: rotateX(-24deg) rotateY(-38deg);
-  }
-  30%,
-  44% {
-    transform: rotateX(-24deg) rotateY(-128deg);
-  }
-  60%,
-  74% {
-    transform: rotateX(66deg) rotateY(-128deg);
-  }
-  90%,
+  93%,
   100% {
-    transform: rotateX(-24deg) rotateY(-398deg);
+    transform: none;
+    opacity: 0;
   }
 }
 
-.lp-tumble {
-  transform-style: preserve-3d;
-  animation: lp-tumble 9s cubic-bezier(0.6, 0, 0.2, 1) infinite;
+.lp-load {
+  animation: lp-load 14s cubic-bezier(0.3, 0.7, 0.2, 1) infinite both;
+  animation-delay: var(--d);
 }
 
-@keyframes lp-lane {
-  0%,
-  20% {
-    transform: translateX(0);
+/* A short light running along the outline of the trailer. */
+@keyframes lp-streak {
+  from {
+    stroke-dashoffset: 0;
   }
-  45%,
-  70% {
-    transform: translateX(34px);
-  }
-  95%,
-  100% {
-    transform: translateX(0);
+  to {
+    stroke-dashoffset: -1600;
   }
 }
 
-.lp-lane {
-  animation: lp-lane 6s cubic-bezier(0.5, 0, 0.2, 1) infinite;
+.lp-streak {
+  stroke-dasharray: 90 1510;
+  animation: lp-streak 7s linear infinite;
 }
 
-@keyframes lp-blink {
-  0%,
-  100% {
-    opacity: 0.35;
+/* 1С → Loader3D: records running along the line between the two. */
+@keyframes lp-flow {
+  from {
+    left: 0%;
+    opacity: 0;
   }
-  50% {
+  15%,
+  85% {
     opacity: 1;
   }
+  to {
+    left: 100%;
+    opacity: 0;
+  }
 }
 
-.lp-blink {
-  animation: lp-blink 2.4s ease-in-out infinite;
+.lp-flow {
+  animation: lp-flow 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: var(--d);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -283,23 +279,21 @@
   .lp-reveal,
   .lp-fill,
   .lp-cog,
-  .lp-xray,
-  .lp-tumble,
-  .lp-lane,
-  .lp-blink {
+  .lp-load,
+  .lp-streak,
+  .lp-flow {
     animation: none;
   }
 }
 
 /*
  * The dark theme of the app (Settings.theme, applied by lib/theme.ts as class="dark" on <html>).
- * The public pages (landing, sign-in, documents) are always dark; the 3D scene switches to its dark
- * palette (DARK_COLORS in src/scene/theme.ts, --scene = its background). --primary stays equal to
+ * The public pages (landing, sign-in, documents) are always dark. The 3D scene stays light in both
+ * themes (LIGHT_COLORS in src/scene/theme.ts, --scene = its background). --primary stays equal to
  * COLORS.accent.
  */
 .dark {
   color-scheme: dark;
-  --scene: #0c0c0e;
   --background: #0b0c0e;
   --foreground: #f2f2f3;
   --card: #131417;

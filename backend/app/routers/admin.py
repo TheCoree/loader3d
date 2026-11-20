@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query, status
 from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
+from app import analytics
 from app.auth import AdminAuth, revoke_sessions
 from app.db import Db
 from app.deps import SettingsDep
@@ -29,6 +30,7 @@ from app.schemas.admin import (
     PasswordResetIn,
     SubscriptionIn,
 )
+from app.schemas.analytics import AnalyticsReport
 from app.schemas.billing import AdminPaymentOut, AdminPaymentPage, PaymentStatus
 from app.security import hash_password
 from app.tiers import TIERS, Tier, effective_tier
@@ -296,6 +298,14 @@ async def delete_lead(lead_id: uuid.UUID, auth: AdminAuth, db: Db) -> None:
     if not result.rowcount:  # type: ignore[attr-defined]
         raise not_found("lead_not_found", "Заявка не найдена")
     await db.commit()
+
+
+@router.get("/analytics")
+async def analytics_report(auth: AdminAuth, db: Db, days: Annotated[int, Query()] = 30) -> AnalyticsReport:
+    """Visits of the public pages (app/analytics.py) for the last 7, 30 or 90 days, with the period before."""
+    if days not in (7, 30, 90):
+        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, "bad_period", "Период — 7, 30 или 90 дней")
+    return AnalyticsReport.model_validate(await analytics.report(db, days, utcnow()))
 
 
 @router.get("/payments")

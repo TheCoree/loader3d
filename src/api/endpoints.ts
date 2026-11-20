@@ -2,6 +2,7 @@ import type { Plan } from '../core/types';
 import { api } from './client';
 import type {
   AdminPaymentPage,
+  AnalyticsReport,
   AdminStats,
   AdminUser,
   AdminUserSort,
@@ -135,6 +136,8 @@ export const adminApi = {
   updateLead: (id: string, status: LeadStatus) =>
     api<Lead>(`/admin/leads/${id}`, { method: 'PATCH', body: { status } }),
   deleteLead: (id: string) => api<void>(`/admin/leads/${id}`, { method: 'DELETE' }),
+  analytics: (days: 7 | 30 | 90, signal?: AbortSignal) =>
+    api<AnalyticsReport>('/admin/analytics', { query: { days }, signal }),
   payments: (query: { status?: PaymentStatus; limit?: number; offset?: number }, signal?: AbortSignal) =>
     api<AdminPaymentPage>('/admin/payments', { query: { ...query }, signal }),
 };

@@ -72,6 +72,8 @@ services:
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
       TIERS_ENABLED: ${TIERS_ENABLED:-false}
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-none}
+      ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
+      ANALYTICS_RETENTION_DAYS: ${ANALYTICS_RETENTION_DAYS:-400}
     depends_on:
       db:
         condition: service_healthy

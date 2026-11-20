@@ -1,11 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import type { GradientASCIIProps } from '@/components/GradientASCII';
 import { cn } from '@/lib/utils';
 
 /**
  * Shared look of the public pages (landing, sign-in, documents): always dark — black background, Geist,
- * hairline borders, white pills. Rendered on the server too (the landing page is prerendered): nothing
- * here touches window/document while rendering; the ASCII background starts after mount.
+ * hairline borders, light pills. Rendered on the server too (the landing page is prerendered): nothing
+ * here touches window/document while rendering.
  */
 
 /** The root of a public page: the dark tokens (class `dark`) whatever the app theme. */
@@ -13,60 +11,18 @@ export const publicRoot = 'dark min-h-dvh bg-black font-geist text-[#ededed] ant
 
 /** Classes for `Button` on the public pages. */
 export const primaryPill =
-  'h-10 rounded-full bg-white px-5 text-[15px] font-medium text-black shadow-none hover:bg-white/85 focus-visible:ring-white/40';
+  'h-10 rounded-full bg-[#ededed] px-4 text-[15px] font-medium text-[#0a0a0a] shadow-none transition-colors hover:bg-white focus-visible:ring-white/40';
 export const secondaryPill =
-  'h-10 rounded-full border border-white/15 bg-black px-5 text-[15px] font-medium text-white shadow-none hover:bg-white/[0.08] hover:text-white focus-visible:ring-white/40';
+  'h-10 rounded-full border border-[#2e2e2e] bg-[#0a0a0a] px-4 text-[15px] font-medium text-[#ededed] shadow-none transition-colors hover:border-[#454545] hover:bg-[#1a1a1a] hover:text-white focus-visible:ring-white/40';
 /** Small rectangular buttons of the header. */
 export const headerPrimary = 'h-8 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-white/85';
 export const headerSecondary =
   'h-8 rounded-md border border-white/15 bg-black px-3 text-sm font-medium text-white hover:bg-white/[0.08] hover:text-white';
 
 /** Headlines of the public pages. */
-export const displayTitle = 'font-geist font-semibold tracking-[-0.045em] text-balance text-white';
+export const displayTitle = 'font-geist font-[480] tracking-[-0.055em] text-balance text-[#ededed]';
 /** Secondary text: Vercel-like neutral grey. */
 export const mutedText = 'text-[#a1a1a1]';
-
-const GradientASCII = lazy(() => import('@/components/GradientASCII'));
-
-/**
- * The animated ASCII gradient (React Bits «Gradient ASCII», WebGL2) in Loader3D's blues on black, as the
- * backdrop of a section. Its edges dissolve into the black (a mask), so it flows into the sections around
- * with no seam. Loaded lazily and only after mount: the prerendered page shows plain black, then the glyphs
- * fade in. It freezes with prefers-reduced-motion and pauses off screen.
- */
-export function AsciiBackground({ className, ...props }: Omit<GradientASCIIProps, 'className'> & { className?: string }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const fade =
-    'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.5) 10%, #000 24%, #000 52%, rgba(0,0,0,0.55) 72%, rgba(0,0,0,0.18) 88%, transparent 100%)';
-  return (
-    <div
-      aria-hidden
-      className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)}
-      style={{ maskImage: fade, WebkitMaskImage: fade }}
-    >
-      {mounted && (
-        <Suspense fallback={null}>
-          <div className="size-full animate-in duration-1000 fade-in">
-            <GradientASCII
-              colors={['#1d4fc4', '#000000', '#5b8def', '#2f6fed']}
-              shape="rise"
-              cellSize={14}
-              glyphOpacity={0.75}
-              gradientOpacity={0.85}
-              speed={0.55}
-              flicker={0.15}
-              grain={0.03}
-              intro={false}
-              clickEffect="none"
-              {...props}
-            />
-          </div>
-        </Suspense>
-      )}
-    </div>
-  );
-}
 
 export type VehicleKind = 'semi' | 'train' | 'container' | 'truck' | 'van';
 

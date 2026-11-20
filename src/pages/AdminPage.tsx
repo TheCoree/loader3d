@@ -4,6 +4,7 @@ import {
   Ban,
   Building2,
   CalendarClock,
+  ChartColumn,
   ChevronLeft,
   ChevronRight,
   Ellipsis,
@@ -40,6 +41,7 @@ import type {
   TierId,
 } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
+import { AnalyticsTab } from '@/pages/AdminAnalytics';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,7 +130,7 @@ function shortDate(iso: string): string {
 /** /admin: accounts, their subscriptions and requests from the landing page. */
 export function AdminPage() {
   const stats = useQuery({ queryKey: ['admin', 'stats'], queryFn: adminApi.stats });
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState('analytics');
 
   return (
     <div className="min-h-dvh">
@@ -136,7 +138,7 @@ export function AdminPage() {
       <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight">Администрирование</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {TIERS_ENABLED ? 'Пользователи, тарифы и заявки с сайта.' : 'Пользователи и заявки с сайта.'}
+          {TIERS_ENABLED ? 'Посещаемость, пользователи, тарифы и заявки с сайта.' : 'Посещаемость, пользователи и заявки с сайта.'}
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -180,6 +182,9 @@ export function AdminPage() {
 
         <Tabs value={tab} onValueChange={setTab} className="mt-8">
           <TabsList>
+            <TabsTrigger value="analytics">
+              <ChartColumn /> Посещаемость
+            </TabsTrigger>
             <TabsTrigger value="users">
               <Users /> Пользователи
             </TabsTrigger>
@@ -195,6 +200,9 @@ export function AdminPage() {
               </TabsTrigger>
             )}
           </TabsList>
+          <TabsContent value="analytics" className="mt-4">
+            <AnalyticsTab />
+          </TabsContent>
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>

@@ -248,33 +248,32 @@ export function AuthPage({ mode }: { mode: Mode }) {
 }
 
 /** The layout of the sign-in pages (dark, like the landing page): the brand panel and a column for the form. */
+/**
+ * The frame of the sign-in pages: the logo and the way back home on top, the form in the middle, the
+ * documents at the bottom — one column, nothing beside the form.
+ */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className={cn(publicRoot, 'lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)]')}>
-      <BrandPanel />
+    <div className={cn(publicRoot, 'flex min-h-dvh flex-col')}>
+      <header className="flex items-center justify-between gap-4 px-5 py-5 sm:px-8 sm:py-6">
+        <Logo className="text-white" />
+        <BackHome />
+      </header>
 
-      <main className="relative -mt-8 flex min-h-[calc(100dvh-12rem)] flex-col rounded-t-[28px] border-t border-white/10 bg-black px-5 pt-8 pb-6 sm:px-10 lg:mt-0 lg:min-h-dvh lg:rounded-none lg:border-t-0 lg:py-8">
-        <div className="hidden justify-end lg:flex">
-          <BackHome />
-        </div>
+      <main className="flex flex-1 items-center justify-center px-5 py-8 sm:py-12">{children}</main>
 
-        <div className="flex flex-1 items-center justify-center py-4 lg:py-12">{children}</div>
-
-        <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-white/40">
-          <span>© {new Date().getFullYear()} Loader3D</span>
-          <span className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link to="/terms" className="transition-colors hover:text-white">
-              Соглашение
-            </Link>
-            <Link to="/privacy" className="transition-colors hover:text-white">
-              Конфиденциальность
-            </Link>
-            <a href={`mailto:${SUPPORT.email}`} className="transition-colors hover:text-white">
-              Поддержка
-            </a>
-          </span>
-        </footer>
-      </main>
+      <footer className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 px-5 pt-4 pb-6 text-xs text-white/40 sm:pb-8">
+        <span>© {new Date().getFullYear()} Loader3D</span>
+        <Link to="/terms" className="transition-colors hover:text-white">
+          Соглашение
+        </Link>
+        <Link to="/privacy" className="transition-colors hover:text-white">
+          Конфиденциальность
+        </Link>
+        <a href={`mailto:${SUPPORT.email}`} className="transition-colors hover:text-white">
+          Поддержка
+        </a>
+      </footer>
     </div>
   );
 }
@@ -329,41 +328,5 @@ function TierChoice({ value, onChange }: { value: ChosenTier; onChange(tier: Cho
         );
       })}
     </div>
-  );
-}
-
-const HIGHLIGHTS = ['Физика и магниты', 'LDM, вес и центр тяжести', 'PDF для водителя'];
-
-/** The brand side: the promise, text only. On phones — a band on top. */
-function BrandPanel() {
-  return (
-    <aside className="relative isolate overflow-hidden bg-black text-white lg:sticky lg:top-0 lg:h-dvh lg:border-r lg:border-white/10">
-      <div className="flex h-full flex-col px-5 pt-5 pb-16 sm:px-10 sm:pt-7 lg:px-12 lg:pt-8 lg:pb-12 xl:px-14">
-        <div className="flex items-center justify-between">
-          <Logo className="text-white" />
-          <div className="lg:hidden">
-            <BackHome />
-          </div>
-        </div>
-
-        <div className="mt-10 max-w-lg lg:mt-auto">
-          <h2 className={cn(displayTitle, 'text-[1.75rem] leading-[1.08] sm:text-[2.1rem] xl:text-[2.6rem] xl:leading-[1.05]')}>
-            Соберите фуру в 3D до того, как приедет машина
-          </h2>
-          <p className="mt-5 hidden max-w-md text-[17px] leading-relaxed text-white/60 lg:block">
-            Раскладка паллет с физикой, контроль веса и центра тяжести, PDF-схема для водителя — в браузере, без установки.
-          </p>
-        </div>
-
-        <ul className="mt-10 hidden flex-wrap gap-x-6 gap-y-2 text-sm text-white/50 lg:flex">
-          {HIGHLIGHTS.map((h) => (
-            <li key={h} className="flex items-center gap-2">
-              <span className="size-1 rounded-full bg-primary" />
-              {h}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </aside>
   );
 }

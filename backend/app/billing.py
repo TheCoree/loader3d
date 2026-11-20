@@ -14,7 +14,6 @@ it). A real one (cisPay, SBP) is another `PaymentProvider` with create() and a w
 the provider's signature and then calls `apply_payment` / `cancel_payment`.
 """
 
-import asyncio
 import calendar
 import logging
 from contextlib import suppress
@@ -23,11 +22,11 @@ from datetime import datetime, timedelta
 from typing import Literal, Protocol
 
 from sqlalchemy import or_, select, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import mail
 from app.config import Settings
-from app.models import Payment, User, utcnow
+from app.models import Payment, User
 from app.tiers import TIER_NAMES, effective_tier
 
 logger = logging.getLogger("app.billing")
@@ -38,9 +37,8 @@ PERIOD_NAMES: dict[str, str] = {"month": "на месяц", "year": "на год
 # Roubles for one period of the tier.
 PRICES: dict[tuple[str, str], int] = {("pro", "month"): 1990, ("pro", "year"): 19080}
 
-# How long before the end of «Pro» the reminder goes out, and how often the API looks for such accounts.
+# How long before the end of «Pro» the reminder goes out (app/jobs.py looks for such accounts every hour).
 REMINDER_BEFORE = timedelta(days=3)
-REMINDER_INTERVAL = timedelta(hours=1)
 
 
 def add_months(moment: datetime, months: int) -> datetime:
@@ -161,18 +159,3 @@ async def send_tier_reminders(db: AsyncSession, settings: Settings, now: datetim
         await db.commit()
         sent += 1
     return sent
-
-
-async def reminder_loop(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
-    """Runs in the API (app/main.py lifespan) while tiers are on: `send_tier_reminders` every hour."""
-    await asyncio.sleep(60)  # not in the middle of the start-up
-    while True:
-        try:
-            async with sessionmaker() as db:
-                sent = await send_tier_reminders(db, settings, utcnow())
-            if sent:
-                # print: uvicorn does not configure the root logger.
-                print(f"[billing] tier reminders sent: {sent}", flush=True)
-        except Exception:
-            logger.exception("tier reminders failed")
-        await asyncio.sleep(REMINDER_INTERVAL.total_seconds())

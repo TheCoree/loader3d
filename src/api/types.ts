@@ -221,3 +221,45 @@ export interface AdminPaymentPage extends Page<AdminPayment> {
   /** Roubles received in total. */
   paidSum: number;
 }
+
+/** Visit statistics of the public pages (backend/app/analytics.py, GET /api/admin/analytics). */
+export interface AnalyticsSummary {
+  visits: number;
+  /** Unique per day, summed over the days. */
+  visitors: number;
+  pageviews: number;
+  avgEngagedMs: number;
+  medianEngagedMs: number;
+  bounceRate: number;
+  signups: number;
+  conversion: number;
+}
+
+export interface AnalyticsBreakdown {
+  key: string;
+  visits: number;
+  signups: number;
+  avgEngagedMs: number;
+}
+
+export interface AnalyticsReport {
+  days: 7 | 30 | 90;
+  since: string;
+  summary: AnalyticsSummary;
+  previous: AnalyticsSummary;
+  daily: Array<{ date: string; visits: number; visitors: number; signups: number }>;
+  channels: AnalyticsBreakdown[];
+  sources: AnalyticsBreakdown[];
+  searchEngines: AnalyticsBreakdown[];
+  campaigns: AnalyticsBreakdown[];
+  keywords: AnalyticsBreakdown[];
+  entryPages: AnalyticsBreakdown[];
+  devices: AnalyticsBreakdown[];
+  browsers: AnalyticsBreakdown[];
+  systems: AnalyticsBreakdown[];
+  durations: Array<{ label: string; visits: number }>;
+  pages: Array<{ path: string; views: number; visits: number }>;
+  landingVisits: number;
+  sections: Array<{ section: string; visits: number; reach: number; avgMs: number }>;
+  clicks: Array<{ name: string; clicks: number; visits: number }>;
+}

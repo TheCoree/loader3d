@@ -16,10 +16,11 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app
   (`Settings.theme`, `lib/theme.ts`, `.dark` tokens): use tokens (`bg-background`, `text-foreground`,
   `bg-muted`…), not fixed colours, in app UI. The public pages (landing, sign-in, documents) are dark only, in the
-  manner of vercel.com (`publicRoot` and the shared kit in `components/site.tsx`, Geist). The 3D scene follows the
-  app theme: `LIGHT_COLORS` / `DARK_COLORS` in `scene/theme.ts`, read when materials are made, so the editor
-  re-creates the engine on a theme change; the PDF report and plan previews are always light (`withScenePalette`).
-  The landing pictures in `public/landing` are screenshots of the editor in its dark theme (side/top: light, as print).
+  manner of vercel.com (`publicRoot` and the shared kit in `components/site.tsx`, Geist). The 3D scene is always light,
+  whatever the app theme: the editor sets `LIGHT_COLORS` (`scene/theme.ts`) and the scene labels have no dark
+  styles; only the interface around it is dark. The PDF report and plan previews are light too (`withScenePalette`).
+  The landing pictures in `public/landing` are screenshots of the editor: dark interface, light 3D scene (side/top: the
+  printed PDF). No gradients on the public pages: monochrome hairlines, light pills, line art.
 - The user considers the 3D scene finished: do not change `src/scene/` or `src/scene.css` (the CSS2D
   labels) unless asked. The editor UI around it lives in `src/editor/`.
 
@@ -94,6 +95,10 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   `scripts/prerender.mjs` and hydrated by `main.tsx`: nothing it imports may touch `window`/`document`
   while rendering or at module level, and its first render must not depend on the browser. The FAQ there is
   also the FAQPage JSON-LD (`src/prerender.tsx`).
+- Visit statistics (`src/lib/analytics.ts`, `backend/app/analytics.py`, admin «Посещаемость»): only visitors who are
+  not signed in, only on `PUBLIC_PATHS`; nothing is written to the browser (no cookies, no storage) and the server
+  keeps no IP or user agent (a daily salted hash). Landing sections carry `data-section` and tracked buttons
+  `data-track` (names in `SECTION_NAMES` / `TRACK_NAMES`) — keep them when the landing page changes.
 - The access token is kept in memory by `api/client.ts`; on 401 it refreshes once via the cookie and
   retries. Never store tokens in localStorage.
 - Admin API (`routers/admin.py`) needs `AdminAuth`; an admin cannot block, demote or delete themselves.

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ApiError, onRefreshed, onSessionLost, refreshSession, setAccessToken } from '../api/client';
 import { authApi } from '../api/endpoints';
 import type { AuthResponse, User } from '../api/types';
+import { trackSignup } from '../lib/analytics';
 
 /** Who is logged in. The access token itself is kept by api/client.ts (memory only). */
 interface AuthState {
@@ -136,6 +137,8 @@ export const useAuth = create<AuthState>()((set, get) => {
 
     async register(email, password, displayName, tier) {
       const auth = await authApi.register(email, password, displayName, tier);
+      // Counted in the visit statistics while the visitor is still a guest (lib/analytics.ts).
+      trackSignup(tier ?? 'free');
       signedIn(auth);
       channel?.postMessage({ type: 'login', userId: auth.user.id } satisfies AuthEvent);
     },

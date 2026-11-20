@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # Online payment of tiers (app/billing.py), with TIERS_ENABLED only. "none": paid tiers by a request
     # and an admin; "test": a fake payment page that pays or cancels at a click (development only).
     payment_provider: Literal["none", "test"] = "none"
+    # Visit statistics of the public pages for the admin panel (app/analytics.py), and how many days
+    # the raw visits are kept.
+    analytics_enabled: bool = True
+    analytics_retention_days: int = Field(400, ge=30, le=3650)
     # Addresses of the reverse proxy whose X-Forwarded-For is trusted for the client's IP (rate limits,
     # the sessions list). Compose sets "*": the api is reachable only through Caddy there.
     forwarded_allow_ips: str = "127.0.0.1"
