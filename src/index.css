@@ -207,36 +207,6 @@
   animation: lp-cog 7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
-/*
- * The hero truck (TruckArt in LandingPage.tsx): every pallet slides in through the rear doors to its
- * place (--tx/--ty: the way back out, in screen pixels), stays, and fades out; the pallets are offset
- * in time (--d), so the trailer keeps loading row after row.
- */
-@keyframes lp-load {
-  0% {
-    transform: translate(var(--tx), var(--ty));
-    opacity: 0;
-  }
-  2% {
-    opacity: 1;
-  }
-  9%,
-  86% {
-    transform: none;
-    opacity: 1;
-  }
-  93%,
-  100% {
-    transform: none;
-    opacity: 0;
-  }
-}
-
-.lp-load {
-  animation: lp-load 14s cubic-bezier(0.3, 0.7, 0.2, 1) infinite both;
-  animation-delay: var(--d);
-}
-
 /* A short light running along the outline of the trailer. */
 @keyframes lp-streak {
   from {
@@ -279,7 +249,6 @@
   .lp-reveal,
   .lp-fill,
   .lp-cog,
-  .lp-load,
   .lp-streak,
   .lp-flow {
     animation: none;

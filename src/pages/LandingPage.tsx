@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { Link, Navigate, useLocation } from 'react-router';
 import {
   ArrowRight,
@@ -351,11 +351,14 @@ function Hero() {
   );
 }
 
-// The hero drawing: an isometric euro trailer, 33 pallets 120 × 80 sliding in through the rear doors.
+// The hero drawing: an isometric semi-trailer with its tractor, 33 pallets 120 × 80 loaded through the rear
+// doors row after row, then all fading out together before the next load (one timeline, TRUCK_CYCLE).
 const PX = 20.5; // pixels per metre
 const COS30 = Math.cos(Math.PI / 6);
 const ORIGIN = { x: 92, y: 262 };
-const TRAILER = { length: 13.6, width: 2.45, height: 2.6, deck: 1.15 };
+const TRAILER = { length: 13.6, width: 2.45, height: 2.6, deck: 1.05 };
+const WHEEL = 0.5; // wheel radius, metres
+const CAB = { from: TRAILER.length + 0.35, to: TRAILER.length + 2.55, bottom: 0.75, top: 3.6 };
 
 /** Screen point of (x along the trailer towards the cab, y up, z across towards the viewer), metres. */
 function iso(x: number, y: number, z: number): [number, number] {
@@ -389,22 +392,30 @@ function boxEdges(x0: number, y0: number, z0: number, x1: number, y1: number, z1
   return { near, far };
 }
 
-/** A wheel: a circle in the near side of the vehicle (the x-y plane at z), centre at (x, r). */
-function wheel(x: number, z: number, r: number): string {
-  const pts = Array.from({ length: 28 }, (_, i) => {
-    const a = (i / 28) * Math.PI * 2;
-    return iso(x + Math.cos(a) * r, r + Math.sin(a) * r, z);
+/** A circle of radius r in the plane of the vehicle's side (x-y at z), centred at (x, y). */
+function sideCircle(x: number, y: number, z: number, r: number): string {
+  const pts = Array.from({ length: 32 }, (_, i) => {
+    const a = (i / 32) * Math.PI * 2;
+    return iso(x + Math.cos(a) * r, y + Math.sin(a) * r, z);
   });
   return `M${pts.map(([px, py]) => `${px.toFixed(1)} ${py.toFixed(1)}`).join('L')}Z`;
 }
+
+/** Wheels on the near side: the trailer's three axles at the rear, the tractor's drive axle under the
+ * front of the trailer and its steering axle under the cab. */
+const WHEELS = [1.45, 2.75, 4.05, TRAILER.length + 0.45, TRAILER.length + 1.95];
 
 const PALLET = { length: 1.2, width: 0.8, height: 1.35 };
 const ROWS = 11;
 const LOAD_FROM = -1.8; // the pallets come in from the dock behind the rear doors
 
+/** One cycle: rows slide in (rowStep apart, `slide` each), the full trailer holds, everything fades out
+ * together, a short empty pause. The page starts in the hold (the prerendered picture is a full trailer). */
+const TRUCK_CYCLE = { total: 13_000, rowStep: 480, colStep: 110, slide: 900, fadeFrom: 10_400, fadeTo: 11_500, startAt: 8_000 };
+
 const PALLETS = (() => {
   const { length, deck } = TRAILER;
-  const list: Array<{ key: string; x: number; z: number; delay: number; tx: number; ty: number }> = [];
+  const list: Array<{ key: string; x: number; z: number; start: number; tx: number; ty: number }> = [];
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < 3; col++) {
       const x = length - (row + 1) * PALLET.length - 0.02;
@@ -414,7 +425,7 @@ const PALLETS = (() => {
         key: `${row}-${col}`,
         x,
         z,
-        delay: row * 0.62 + col * 0.14,
+        start: row * TRUCK_CYCLE.rowStep + col * TRUCK_CYCLE.colStep,
         tx: -way * COS30 * PX,
         ty: way * 0.5 * PX,
       });
@@ -424,11 +435,43 @@ const PALLETS = (() => {
   return list.sort((a, b) => b.x - a.x || a.z - b.z).map((p) => ({ ...p, y: deck }));
 })();
 
+/** Runs the loading on the shared timeline (Web Animations), after mount; nothing moves with reduced motion. */
+function useTruckLoading(ref: RefObject<SVGSVGElement | null>) {
+  useEffect(() => {
+    const svg = ref.current;
+    if (!svg || typeof svg.animate !== 'function') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const { total, slide, fadeFrom, fadeTo, startAt } = TRUCK_CYCLE;
+    const placed = 'translate(0px, 0px)';
+    const animations = [...svg.querySelectorAll<SVGGElement>('[data-pallet]')].map((g) => {
+      const away = `translate(${g.dataset.tx}px, ${g.dataset.ty}px)`;
+      const begin = Number(g.dataset.start);
+      const start = begin / total;
+      const end = (begin + slide) / total;
+      return g.animate(
+        [
+          { offset: 0, transform: away, opacity: 0 },
+          { offset: start, transform: away, opacity: 0, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' },
+          { offset: start + (end - start) * 0.35, opacity: 1 },
+          { offset: end, transform: placed, opacity: 1 },
+          { offset: fadeFrom / total, transform: placed, opacity: 1, easing: 'ease-in-out' },
+          { offset: fadeTo / total, transform: placed, opacity: 0 },
+          { offset: 1, transform: away, opacity: 0 },
+        ],
+        { duration: total, iterations: Infinity, delay: -startAt },
+      );
+    });
+    return () => animations.forEach((a) => a.cancel());
+  }, [ref]);
+}
+
 function TruckArt() {
+  const svgRef = useRef<SVGSVGElement>(null);
+  useTruckLoading(svgRef);
   const { length, width, height, deck } = TRAILER;
   const top = deck + height;
   const body = boxEdges(0, deck, 0, length, top, width);
-  const cab = boxEdges(length + 0.35, 0.65, 0, length + 2.55, 3.55, width);
+  const cab = boxEdges(CAB.from, CAB.bottom, 0, CAB.to, CAB.top, width);
   const outline = `M${[
     iso(0, top, width),
     iso(length, top, width),
@@ -443,10 +486,16 @@ function TruckArt() {
     .join('L')}`;
   const stroke = 'rgba(237,237,237,0.55)';
   const faint = 'rgba(237,237,237,0.16)';
+  // The frame the wheels hang on: a rail under the near side of the trailer and the tractor's chassis.
+  const rail = 2 * WHEEL + 0.03;
+  const frame = [
+    line([0.3, rail, width - 0.12], [length + 0.1, rail, width - 0.12]),
+    line([length - 0.6, rail - 0.1, width - 0.12], [CAB.to, rail - 0.1, width - 0.12]),
+  ].join('');
 
   return (
     <figure className="relative mx-auto w-full max-w-[600px]" aria-label="Еврофура загружается паллетами">
-      <svg viewBox="0 0 470 330" className="w-full" aria-hidden>
+      <svg ref={svgRef} viewBox="0 0 470 330" className="w-full" aria-hidden>
         {/* The ground: a few hairlines in perspective. */}
         {[-1.2, 0.4, 2, 3.6].map((z) => (
           <path key={z} d={line([-3, 0, z], [length + 4, 0, z])} stroke="rgba(237,237,237,0.06)" />
@@ -458,21 +507,22 @@ function TruckArt() {
           <path d={`M${poly([[0, deck, 0], [length, deck, 0], [length, deck, width], [0, deck, width]])}Z`} fill="rgba(237,237,237,0.025)" stroke="none" />
         </g>
         {PALLETS.map((p) => (
-          <g
-            key={p.key}
-            className="lp-load"
-            style={{ '--tx': `${p.tx.toFixed(1)}px`, '--ty': `${p.ty.toFixed(1)}px`, '--d': `${p.delay.toFixed(2)}s` } as CSSProperties}
-          >
+          <g key={p.key} data-pallet="" data-tx={p.tx.toFixed(1)} data-ty={p.ty.toFixed(1)} data-start={p.start}>
             <Pallet x={p.x} y={p.y} z={p.z} />
           </g>
         ))}
         <g fill="none" strokeWidth="1" strokeLinejoin="round">
           <path d={body.near} stroke={stroke} />
           <path d={cab.near} stroke={stroke} />
-          {/* The windscreen and the wheels. */}
-          <path d={line([length + 2.55, 2.2, 0.15], [length + 2.55, 2.2, width - 0.15])} stroke={faint} />
-          {[1.4, 2.75, 4.1, length + 0.95, length + 2.15].map((x) => (
-            <path key={x} d={wheel(x, width, 0.5)} stroke={stroke} fill="#000" />
+          <path d={frame} stroke="rgba(237,237,237,0.3)" />
+          {/* The windscreen. */}
+          <path d={line([CAB.to, 2.3, 0.15], [CAB.to, 2.3, width - 0.15])} stroke={faint} />
+          {/* Wheels: a tyre with its rim, hiding the lines behind it. */}
+          {WHEELS.map((x) => (
+            <g key={x}>
+              <path d={sideCircle(x, WHEEL, width - 0.05, WHEEL)} stroke={stroke} fill="#000" />
+              <path d={sideCircle(x, WHEEL, width - 0.05, WHEEL * 0.45)} stroke={faint} />
+            </g>
           ))}
           {/* The light running along the outline. */}
           <path
@@ -865,8 +915,8 @@ function Integration() {
                 />
               ))}
             </div>
-            <span className="grid size-11 place-items-center rounded-full bg-[#ededed]" aria-label="Loader3D">
-              <LogoMark className="size-6" />
+            <span className="grid size-11 place-items-center" role="img" aria-label="Loader3D">
+              <LogoMark className="size-10 text-white" />
             </span>
           </div>
           <p className="mt-8 font-geist-mono text-[11px] tracking-wide text-[#8f8f8f] uppercase">Номенклатура из 1С</p>
