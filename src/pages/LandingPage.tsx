@@ -206,6 +206,7 @@ function Shot({
   height,
   alt,
   className,
+  style,
   eager,
 }: {
   src: string;
@@ -213,6 +214,7 @@ function Shot({
   height: number;
   alt: string;
   className?: string;
+  style?: CSSProperties;
   eager?: boolean;
 }) {
   return (
@@ -221,6 +223,7 @@ function Shot({
       width={width}
       height={height}
       alt={alt}
+      style={style}
       loading={eager ? undefined : 'lazy'}
       fetchPriority={eager ? 'high' : undefined}
       decoding="async"
@@ -313,7 +316,7 @@ function Hero() {
             href="#integration"
             className="landing-rise group inline-flex items-center gap-2.5 rounded-full border border-white/[0.12] bg-[#0a0a0a] py-1 pr-3 pl-1 text-[13px] text-[#a1a1a1] transition-colors hover:border-white/25 hover:text-white"
           >
-            <OneCLogo className="size-6" />
+            <OneCLogo decorative className="size-6" />
             Интеграция с 1С: товары сразу в схему загрузки
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </a>
@@ -704,10 +707,13 @@ function PdfPage() {
 
 // ------------------------------------------------------------------ how it works
 
-/** Steps on the left with a thread between them; the chosen one shows its screen big on the right. */
+/**
+ * Wide screens: the steps on the left with a thread between them, the widget of the chosen one on the right
+ * — all four pictures are on a stage of one height and cross-fade, so nothing jumps and each is loaded
+ * before it is chosen. Phones: the steps one under another, each with its widget.
+ */
 function Workflow() {
   const [active, setActive] = useState(0);
-  const step = STEPS[active];
   return (
     <section id="how" data-section="workflow" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
       <Container>
@@ -719,8 +725,9 @@ function Workflow() {
             </Link>
           </Button>
         </div>
-        <div className="mt-14 grid gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)] lg:gap-16">
-          <ol className="relative grid content-start gap-2 self-start lg:self-center">
+
+        <div className="mt-14 hidden gap-16 lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)]">
+          <ol className="relative grid content-start gap-2 self-center">
             <span aria-hidden className="absolute top-6 bottom-6 left-[19px] w-px bg-white/10" />
             {STEPS.map((s, i) => (
               <li key={s.title}>
@@ -734,14 +741,7 @@ function Workflow() {
                     active === i ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'relative z-10 grid size-6 shrink-0 translate-x-[7px] translate-y-0.5 place-items-center rounded-full border font-geist-mono text-[11px] transition-colors',
-                      active === i ? 'border-[#ededed] bg-[#ededed] text-black' : 'border-white/20 bg-black text-[#a1a1a1]',
-                    )}
-                  >
-                    {i + 1}
-                  </span>
+                  <StepNumber n={i + 1} active={active === i} className="translate-x-[7px] translate-y-0.5" />
                   <span className="pl-2">
                     <span className={cn('block text-base font-medium transition-colors', active === i ? 'text-[#ededed]' : 'text-[#a1a1a1]')}>
                       {s.title}
@@ -752,15 +752,56 @@ function Workflow() {
               </li>
             ))}
           </ol>
-          {/* Just the widget itself, at about its real size (the pictures are shot at 2×). */}
-          <div className="flex min-h-[340px] items-center justify-center lg:min-h-[600px]">
-            <div className="w-full animate-in duration-300 fade-in" key={step.image.src} style={{ maxWidth: step.image.width / 1.6 }}>
-              <Shot {...step.image} className="w-full rounded-[18px]" />
-            </div>
+          <div className="relative h-[620px]">
+            {STEPS.map((s, i) => (
+              <div
+                key={s.image.src}
+                aria-hidden={active !== i}
+                className={cn(
+                  'absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-500 ease-out',
+                  active === i ? 'opacity-100' : 'pointer-events-none translate-y-2 opacity-0',
+                )}
+              >
+                <Shot
+                  {...s.image}
+                  className="h-auto max-h-full w-auto rounded-[18px]"
+                  style={{ maxWidth: Math.min(s.image.width / 1.6, 640) }}
+                />
+              </div>
+            ))}
           </div>
         </div>
+
+        <ol className="mt-12 grid gap-12 lg:hidden">
+          {STEPS.map((s, i) => (
+            <li key={s.title}>
+              <div className="flex items-start gap-4">
+                <StepNumber n={i + 1} active />
+                <div>
+                  <p className="text-base font-medium text-[#ededed]">{s.title}</p>
+                  <p className="mt-1 text-[15px] leading-relaxed text-[#8f8f8f]">{s.text}</p>
+                </div>
+              </div>
+              <Shot {...s.image} className="mt-5 w-full rounded-2xl" style={{ maxWidth: s.image.width / 2 }} />
+            </li>
+          ))}
+        </ol>
       </Container>
     </section>
+  );
+}
+
+function StepNumber({ n, active, className }: { n: number; active: boolean; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'relative z-10 grid size-6 shrink-0 place-items-center rounded-full border font-geist-mono text-[11px] transition-colors',
+        active ? 'border-[#ededed] bg-[#ededed] text-black' : 'border-white/20 bg-black text-[#a1a1a1]',
+        className,
+      )}
+    >
+      {n}
+    </span>
   );
 }
 
@@ -777,8 +818,14 @@ function Integration() {
     <section id="integration" data-section="integration" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
       <Container className="grid items-center gap-14 lg:grid-cols-2 lg:gap-16">
         <div>
-          <OneCLogo className="size-16" />
-          <Heading className="mt-8 max-w-xl">Товары из 1С — сразу в схему загрузки</Heading>
+          <Heading className="max-w-xl">
+            Товары из{' '}
+            <span className="whitespace-nowrap">
+              <span className="sr-only">1С</span>
+              <OneCLogo decorative className="inline-block size-[1.08em] align-[-0.17em]" />
+            </span>{' '}
+            — сразу в схему загрузки
+          </Heading>
           <p className={cn(mutedText, 'mt-6 max-w-lg text-lg leading-relaxed')}>
             Номенклатура с габаритами и весом приходит из вашей учётной системы. Никакого ручного ввода и ошибок в
             размерах — открыли рейс и загрузили.

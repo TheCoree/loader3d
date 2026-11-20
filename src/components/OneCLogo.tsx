@@ -5,11 +5,16 @@ import { cn } from '@/lib/utils';
  * official logo (1C_Company_logo.svg on Wikimedia Commons, public domain as a simple shape; «1С» is a
  * trademark of 1С) with its transforms, without the ®. Shown where the site speaks of the 1С integration.
  */
-export function OneCLogo({ className, title = '1С' }: { className?: string; title?: string }) {
+export function OneCLogo({ className, decorative }: { className?: string; decorative?: boolean }) {
   return (
-    <svg viewBox="0 0 100 100" className={cn('size-14 shrink-0', className)} role="img" aria-label={title}>
+    <svg
+      viewBox="0 0 100 100"
+      className={cn('size-14 shrink-0', className)}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': '1С' })}
+    >
       <circle cx="50" cy="50" r="50" fill="#FFD400" />
-      <svg x="15" y="33.6" width="70" height="34.1" viewBox="0 0 489.76 238.86" overflow="visible">
+      {/* The sign as large as the disc allows: its corners stay inside the circle. */}
+      <svg x="9" y="30.2" width="82" height="40" viewBox="0 0 489.76 238.86" overflow="visible">
         <g transform="matrix(1.3333333,0,0,-1.3333333,53.68649,897.18964)">
           <g transform="matrix(5.8427196,0,0,5.8427196,-1583.8366,-2391.086)">
             <path
