@@ -137,7 +137,8 @@ Caddy получает для `MAIL_HOSTNAME`; продления подхват
 ## Бэкенд (API)
 
 Каталог [backend/](backend): FastAPI, SQLAlchemy 2 (async), Alembic, Pydantic. Всё под префиксом `/api`,
-интерактивная документация — `/api/docs`, схема OpenAPI — `/api/openapi.json` (из неё можно генерировать
+интерактивная документация — `/api/docs`, схема OpenAPI — `/api/openapi.json` (только при
+`ENVIRONMENT=development`; в проде они выключены) (из неё можно генерировать
 TS-типы клиента). Поля JSON — в camelCase, как во фронтенде.
 
 Локально нужен [uv](https://docs.astral.sh/uv/) (`pip install uv` или установщик с сайта), Python 3.14 uv

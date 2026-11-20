@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -205,3 +206,42 @@ async def test_old_visits_are_pruned(app: FastAPI, client: httpx.AsyncClient) ->
         assert await analytics.prune(db, app.state.settings, utcnow()) == 1
         assert await db.scalar(select(func.count()).select_from(Visit)) == 1
         assert await db.scalar(select(func.count()).select_from(VisitEvent)) == 1
+
+
+async def test_one_address_cannot_flood_the_statistics(
+    app: FastAPI, client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.routers import analytics as collect_router
+
+    # Events of one visit stop at the cap.
+    monkeypatch.setattr(collect_router, "MAX_EVENTS_PER_VISIT", 5)
+    visit_id = uuid.uuid4()
+    await _send(client, visit_id, [{"kind": "click", "name": f"b{i}"} for i in range(4)])
+    await _send(client, visit_id, [{"kind": "click", "name": f"c{i}"} for i in range(4)])
+    async with app.state.sessionmaker() as db:
+        events = await db.scalar(
+            select(func.count()).select_from(VisitEvent).where(VisitEvent.visit_id == visit_id)
+        )
+    assert events == 4
+
+    # New visits from one address stop at the hourly limit.
+    monkeypatch.setattr(
+        collect_router, "NEW_VISITS_PER_IP", collect_router.RateLimiter(3, timedelta(hours=1))
+    )
+    for _ in range(5):
+        await _send(client, uuid.uuid4(), [{"kind": "page", "name": "/"}])
+    async with app.state.sessionmaker() as db:
+        assert await db.scalar(select(func.count()).select_from(Visit)) == 1 + 3
+
+
+async def test_api_docs_only_in_development(tmp_path: Path) -> None:
+    from app.main import create_app
+    from tests.conftest import TEST_JWT_SECRET, make_settings
+
+    for environment, expected in (("development", 200), ("production", 404)):
+        settings = make_settings(tmp_path, environment=environment, jwt_secret=TEST_JWT_SECRET)
+        app = create_app(settings)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+            assert (await c.get("/api/openapi.json")).status_code == expected
+            assert (await c.get("/api/docs")).status_code == expected
