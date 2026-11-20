@@ -193,6 +193,24 @@ async def test_the_report(app: FastAPI, make_client: ClientFactory) -> None:
     assert report["clicks"] == [{"name": "pricing_pro", "clicks": 1, "visits": 1}]
     assert sum(d["visits"] for d in report["durations"]) == 3
 
+    # The funnel: 3 visits of the landing page, 1 saw the prices, pressed «Pro» and registered.
+    assert [(s["step"], s["visits"]) for s in report["funnel"]] == [
+        ("landing", 3),
+        ("pricing", 1),
+        ("signup_click", 1),
+        ("signup", 1),
+    ]
+    # All three reported a moment ago: they are on the site now.
+    assert report["live"] == 3
+    recent = report["recent"]
+    assert len(recent) == 3 and all(v["live"] for v in recent)
+    from_yandex = next(v for v in recent if v["searchEngine"] == "Яндекс")
+    assert from_yandex["pages"] == ["/", "/register"]
+    assert from_yandex["signedUp"] is True and from_yandex["channel"] == "search"
+    today = report["daily"][-1]
+    assert (today["visits"], today["bounces"]) == (3, 1)
+    assert today["avgEngagedMs"] == round((90_000 + 40_000) / 3)
+
 
 async def test_old_visits_are_pruned(app: FastAPI, client: httpx.AsyncClient) -> None:
     old, fresh = uuid.uuid4(), uuid.uuid4()
