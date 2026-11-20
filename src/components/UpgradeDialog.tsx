@@ -1,16 +1,14 @@
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router';
 import { create } from 'zustand';
-import { Check, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
-import { errorMessage } from '@/api/client';
-import { userApi } from '@/api/endpoints';
+import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import type { BillingInfo, Price, Subscription, TierId } from '@/api/types';
 import { LeadForm } from '@/components/LeadForm';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { PERIOD_LABEL, priceOf, useBilling, usePay } from '@/lib/billing';
-import { TRIAL_DAYS, formatPrice, tierInfo } from '@/lib/tiers';
+import { PERIOD_LABEL, priceOf, useBilling, usePay, useStartTrial } from '@/lib/billing';
+import { TRIAL_DAYS, formatPrice, longDate, subscriptionState, tierInfo } from '@/lib/tiers';
 import { useAuth } from '@/store/useAuth';
 
 interface UpgradeState {
@@ -35,10 +33,10 @@ export const useUpgrade = create<UpgradeState>()((set) => ({
 export function UpgradeDialog() {
   const { open, reason, requestTier, close } = useUpgrade();
   const user = useAuth((s) => s.user);
-  const setUser = useAuth((s) => s.setUser);
   const billing = useBilling();
+  const trial = useStartTrial();
+  const onBillingPage = useLocation().pathname === '/billing';
   const [requesting, setRequesting] = useState<TierId | null>(null);
-  const [pending, setPending] = useState(false);
   const sub = user?.subscription;
   const pro = tierInfo('pro');
   const chosen = requesting ?? requestTier;
@@ -46,18 +44,7 @@ export function UpgradeDialog() {
   const paying = !!billing?.enabled && chosen === 'pro';
   const form = paying ? null : chosen;
 
-  const startTrial = async () => {
-    setPending(true);
-    try {
-      setUser(await userApi.startTrial());
-      toast.success(`«Pro» подключён на ${TRIAL_DAYS} дней`);
-      close();
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      setPending(false);
-    }
-  };
+  const startTrial = () => trial.mutate(undefined, { onSuccess: close });
 
   return (
     <Dialog
@@ -106,8 +93,8 @@ export function UpgradeDialog() {
             {billing?.enabled && <PayOptions info={billing} />}
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
               {sub?.trialAvailable ? (
-                <Button size="lg" className="sm:flex-1" onClick={() => void startTrial()} disabled={pending}>
-                  {pending && <Spinner />}
+                <Button size="lg" className="sm:flex-1" onClick={startTrial} disabled={trial.isPending}>
+                  {trial.isPending && <Spinner />}
                   Попробовать {TRIAL_DAYS} дней бесплатно
                 </Button>
               ) : (
@@ -123,16 +110,53 @@ export function UpgradeDialog() {
             </div>
           </>
         )}
+        {sub && !onBillingPage && (
+          <Link
+            to="/billing"
+            onClick={close}
+            className="group/link -mt-1 inline-flex items-center gap-1 justify-self-center text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:text-foreground"
+          >
+            Все тарифы, лимиты и история оплат
+            <ArrowRight className="size-3.5 transition-transform group-hover/link:translate-x-0.5" />
+          </Link>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
+/**
+ * The next step up from the account's subscription, for the buttons of the plans, account and tariff
+ * pages: the trial of «Pro» at a click, the offer of «Pro» (payment or a request), renewal, the contract.
+ */
+export function useUpgradeAction(): { label: string; run(): void; pending: boolean } | null {
+  const sub = useAuth((s) => s.user?.subscription);
+  const online = !!useBilling()?.enabled;
+  const show = useUpgrade((s) => s.show);
+  const trial = useStartTrial();
+  if (!sub) return null;
+  const offer = { run: () => show(undefined, 'pro'), pending: false };
+  switch (subscriptionState(sub)) {
+    case 'free':
+      if (sub.trialAvailable) return { label: `«Pro» на ${TRIAL_DAYS} дней бесплатно`, run: () => trial.mutate(), pending: trial.isPending };
+      return { label: 'Перейти на «Pro»', run: () => show(), pending: false };
+    case 'expired':
+      // Renewal first; the offer itself still has the trial if the account never took it.
+      return { label: sub.expiredTier === 'pro' ? 'Продлить «Pro»' : 'Перейти на «Pro»', run: () => show(), pending: false };
+    case 'trial':
+      return { label: online ? 'Оплатить «Pro»' : 'Оформить подписку', ...offer };
+    case 'active':
+    case 'ending':
+      return { label: 'Продлить «Pro»', ...offer };
+    case 'custom':
+      return { label: 'Связаться по договору', run: () => show(undefined, 'custom'), pending: false };
+  }
+}
+
 /** What a payment does to the current subscription. */
 function renewalNote(sub: Subscription | null | undefined): string {
   if (sub?.tier === 'pro' && sub.expiresAt) {
-    const date = new Date(sub.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `${sub.trial ? 'Пробный период' : '«Pro»'} действует до ${date} — оплаченный период добавится к нему.`;
+    return `${sub.trial ? 'Пробный период' : '«Pro»'} действует до ${longDate(sub.expiresAt)} — оплаченный период добавится к нему.`;
   }
   return 'Тариф подключится сразу после оплаты.';
 }

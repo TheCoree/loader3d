@@ -1,15 +1,23 @@
 from typing import Any
 
 from fastapi import APIRouter, Request, Response, status
+from sqlalchemy import case, func, or_, select
 
 from app.auth import CurrentAuth, clear_refresh_cookie, revoke_sessions
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found
-from app.models import utcnow
-from app.schemas.auth import AccountDeleteIn, DisplaySettingsIn, PasswordChangeIn, UserOut, UserUpdateIn
+from app.models import Plan, utcnow
+from app.schemas.auth import (
+    AccountDeleteIn,
+    DisplaySettingsIn,
+    PasswordChangeIn,
+    UsageOut,
+    UserOut,
+    UserUpdateIn,
+)
 from app.security import hash_password, verify_password
-from app.tiers import effective_tier, start_trial
+from app.tiers import effective_tier, start_trial, tier_limits
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -38,6 +46,31 @@ async def update_settings(body: DisplaySettingsIn, auth: CurrentAuth, db: Db) ->
     auth.user.settings = {**(auth.user.settings or {}), **changed}
     await db.commit()
     return auth.user.settings
+
+
+@router.get("/me/usage")
+async def get_usage(auth: CurrentAuth, db: Db, settings: SettingsDep) -> UsageOut:
+    """How much of the tier's limits the account uses: plans, the largest plan, plans over the limits."""
+    if not settings.tiers_enabled:
+        raise not_found("tiers_disabled", "Тарифы отключены")
+    limits = tier_limits(auth.user, utcnow())
+    over = or_(Plan.vehicle_count > limits.vehicles, Plan.item_count > limits.items)
+    plans, max_vehicles, max_items, over_limit = (
+        await db.execute(
+            select(
+                func.count(),
+                func.max(Plan.vehicle_count),
+                func.max(Plan.item_count),
+                func.sum(case((over, 1), else_=0)),
+            ).where(Plan.owner_id == auth.user.id)
+        )
+    ).one()
+    return UsageOut(
+        plans=plans,
+        max_vehicles=max_vehicles or 0,
+        max_items=max_items or 0,
+        over_limit=over_limit or 0,
+    )
 
 
 @router.post("/me/trial")

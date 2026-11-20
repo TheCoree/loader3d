@@ -41,6 +41,7 @@ import type {
   TierId,
 } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
+import { TierBadge } from '@/components/TierBadge';
 import { AnalyticsTab } from '@/pages/AdminAnalytics';
 import {
   AlertDialog,
@@ -103,11 +104,6 @@ const STATUSES: Array<{ value: AdminUserStatus; label: string }> = [
   { value: 'admins', label: 'Администраторы' },
 ];
 
-const TIER_TONE: Record<TierId, string> = {
-  free: 'bg-muted text-muted-foreground',
-  pro: 'bg-primary/10 text-primary',
-  custom: 'bg-amber-500/12 text-amber-700',
-};
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -387,13 +383,6 @@ function UsersTab() {
   );
 }
 
-function TierBadge({ tier, className }: { tier: TierId; className?: string }) {
-  return (
-    <span className={cn('inline-flex h-5 items-center rounded-full px-2 text-xs font-medium', TIER_TONE[tier], className)}>
-      {tierInfo(tier).name}
-    </span>
-  );
-}
 
 function subscriptionNote(u: AdminUser): string {
   const s = u.subscription;

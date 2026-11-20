@@ -1,7 +1,7 @@
 """Online payment of tiers (routers/billing.py), on with TIERS_ENABLED and a PAYMENT_PROVIDER.
 
 The flow: POST /api/billing/checkout makes a `Payment` ("pending") with the price from PRICES and asks the
-provider for a page where the customer pays. The customer comes back to /account?payment=<id>, which
+provider for a page where the customer pays. The customer comes back to /billing?payment=<id>, which
 polls the payment. The provider reports the result (a webhook; the test provider — its own page), and
 `apply_payment` marks the payment paid and extends «Pro»: from the end of the current period of «Pro»
 (the trial too) or from now, by calendar months. Applying the same payment again changes nothing.
@@ -84,8 +84,8 @@ def cancel_payment(payment: Payment) -> bool:
 
 
 def return_path(payment: Payment) -> str:
-    """Where the customer lands after the payment page: the account polls the payment from there."""
-    return f"/account?payment={payment.id}#subscription"
+    """Where the customer lands after the payment page: «Тариф и оплата» polls the payment from there."""
+    return f"/billing?payment={payment.id}"
 
 
 @dataclass(frozen=True, slots=True)

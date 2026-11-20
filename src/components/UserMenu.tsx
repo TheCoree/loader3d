@@ -1,6 +1,7 @@
-import { ChevronDown, LayoutGrid, LogOut, ShieldCheck, Sparkles, SunMoon, UserRound } from 'lucide-react';
+import { ChevronDown, CreditCard, LayoutGrid, LogOut, ShieldCheck, SunMoon, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { THEME_OPTIONS } from '@/components/ThemeToggle';
+import { SubscriptionStateBadge, TierBadge } from '@/components/TierBadge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { initials } from '@/lib/format';
+import { subscriptionSummary } from '@/lib/tiers';
 import { useAuth } from '@/store/useAuth';
 import { useStore, type Theme } from '@/store/useStore';
 
@@ -55,6 +57,13 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
         <DropdownMenuLabel className="font-normal">
           <div className="truncate text-sm font-medium text-foreground">{user.displayName}</div>
           <div className="truncate text-xs text-muted-foreground">{user.email}</div>
+          {user.subscription && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <TierBadge tier={user.subscription.tier} />
+              <SubscriptionStateBadge sub={user.subscription} />
+              <span className="w-full text-xs text-muted-foreground">{subscriptionSummary(user.subscription)}</span>
+            </div>
+          )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
@@ -65,9 +74,8 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
             <UserRound /> Аккаунт и устройства
           </DropdownMenuItem>
           {user.subscription && (
-            <DropdownMenuItem onSelect={() => navigate('/account#subscription')}>
-              <Sparkles /> Тариф
-              <span className="ml-auto text-xs text-muted-foreground">{user.subscription.name}</span>
+            <DropdownMenuItem onSelect={() => navigate('/billing')}>
+              <CreditCard /> Тариф и оплата
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>

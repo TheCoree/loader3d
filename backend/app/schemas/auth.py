@@ -102,6 +102,19 @@ class SubscriptionOut(ApiModel):
         )
 
 
+class UsageOut(ApiModel):
+    """How much of the tier's limits the account uses (GET /api/users/me/usage)."""
+
+    # Saved plans (the limit counts them all).
+    plans: int
+    # The most vehicles and cargo items in one plan: the limits are per plan.
+    max_vehicles: int
+    max_items: int
+    # Plans with more vehicles or items than the tier allows (made on a tier that has ended): they open
+    # and can be edited, but do not grow.
+    over_limit: int
+
+
 class UserOut(ApiModel):
     id: uuid.UUID
     email: str

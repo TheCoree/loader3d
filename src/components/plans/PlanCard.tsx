@@ -1,4 +1,4 @@
-import { Copy, Download, Ellipsis, FolderOpen, Package, Pencil, Trash2, Truck } from 'lucide-react';
+import { CircleAlert, Copy, Download, Ellipsis, FolderOpen, Package, Pencil, Trash2, Truck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { fullDate, plural, timeAgo } from '@/lib/format';
 import { downloadPlan } from '@/lib/planFiles';
 import { useDuplicatePlan } from '@/lib/plansQuery';
+import { useAuth } from '@/store/useAuth';
 
 function toDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -54,6 +55,11 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
   const duplicate = useDuplicatePlan();
   const thumbnail = usePlanThumbnail(plan);
   const href = `/plans/${plan.id}`;
+  // Made on a tier that has ended: it opens and can be edited, but does not grow.
+  const overLimit = useAuth((s) => {
+    const sub = s.user?.subscription;
+    return !!sub && (plan.vehicleCount > sub.limits.vehicles || plan.itemCount > sub.limits.items) ? sub.name : null;
+  });
 
   const exportJson = async () => {
     try {
@@ -137,6 +143,15 @@ export function PlanCard({ plan, onRename, onDelete }: PlanCardProps) {
             {plan.vehicleCount > 1 && `${plural(plan.vehicleCount, ['машина', 'машины', 'машин'])} · `}
             {plural(plan.bodyCount, ['кузов', 'кузова', 'кузовов'])}
           </span>
+          {overLimit && (
+            <span
+              className="relative flex items-center gap-1.5 rounded-full bg-warning/12 px-2.5 py-1 text-warning"
+              title={`Больше лимитов тарифа «${overLimit}»: схему можно открывать и править, но машины и грузы в неё не добавить`}
+            >
+              <CircleAlert className="size-3.5" />
+              Сверх лимита
+            </span>
+          )}
         </div>
       </div>
     </Card>

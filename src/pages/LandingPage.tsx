@@ -43,7 +43,7 @@ import { useAuth, wasSignedIn } from '@/store/useAuth';
 /**
  * The public product page at `/` (prerendered into index.html by scripts/prerender.mjs for search
  * engines, so it renders without a browser too: no window access while rendering). A logged-in user
- * goes on to their plans; `/pricing` shows the same page at the tariffs, without the redirect.
+ * goes on to their plans; `/pricing` shows the same page at the tariffs (a logged-in user — /billing).
  * With TIERS_ENABLED off the page says nothing about tariffs.
  *
  * In the manner of vercel.com: black, Geist, one-colour hairline art, no gradients. The hero is a line
@@ -58,6 +58,8 @@ export function LandingRoute({ section }: { section?: 'pricing' }) {
     if (status === 'authenticated') return <Navigate to="/plans" replace />;
     if (status === 'loading' && wasSignedIn()) return <SessionLoader />;
   }
+  // A signed-in user compares the tiers on «Тариф и оплата», with their own tier and usage.
+  if (section === 'pricing' && status === 'authenticated') return <Navigate to="/billing" replace />;
   return <LandingPage section={section} />;
 }
 

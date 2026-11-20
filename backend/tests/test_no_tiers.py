@@ -19,6 +19,7 @@ async def test_no_subscription_and_no_limits(client):
     for n in range(5):
         assert (await client.post("/api/plans", json={"name": f"Рейс {n}", "data": two})).status_code == 201
     assert error_code(await client.post("/api/users/me/trial")) == "tiers_disabled"
+    assert error_code(await client.get("/api/users/me/usage")) == "tiers_disabled"
 
 
 async def test_admin_without_tiers(app, client):

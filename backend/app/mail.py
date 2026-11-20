@@ -205,10 +205,11 @@ async def send_payment_received(
         f"{ru_date(paid_until)}.",
         None,
         [
-            "Продлить тариф можно в любой момент в аккаунте: новый период добавится к текущему.",
+            "Продлить тариф можно в любой момент на странице «Тариф и оплата»: новый период добавится "
+            "к текущему.",
             "Автоматических списаний нет. Вопросы по оплате — в поддержку, контакты внизу сайта.",
         ],
-        ("Открыть аккаунт", link) if (link := _site_link(settings, "/account#subscription")) else None,
+        ("Тариф и оплата", link) if (link := _site_link(settings, "/billing")) else None,
     )
     await send(settings, message)
 
@@ -227,9 +228,10 @@ async def send_tier_ending(
         [
             "Потом аккаунт перейдёт на бесплатный тариф «Старт»: сохранённые схемы останутся, а для новых "
             "будут действовать его лимиты.",
-            "Чтобы продолжить без ограничений, оплатите «Pro» в аккаунте — на месяц или на год.",
+            "Чтобы продолжить без ограничений, оплатите «Pro» на странице «Тариф и оплата» — на месяц "
+            "или на год.",
         ],
-        ("Продлить «Pro»", link) if (link := _site_link(settings, "/account#subscription")) else None,
+        ("Продлить «Pro»", link) if (link := _site_link(settings, "/billing")) else None,
     )
     await send(settings, message)
 

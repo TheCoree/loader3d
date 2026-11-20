@@ -6,7 +6,7 @@ import { ApiError, errorMessage } from '@/api/client';
 import { planApi } from '@/api/endpoints';
 import { FullScreenLoader } from '@/components/RouteGuards';
 import { UpgradeDialog, useUpgrade } from '@/components/UpgradeDialog';
-import { TIERS_ENABLED } from '@/lib/tiers';
+import { TIERS_ENABLED, tierInfo } from '@/lib/tiers';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
@@ -137,6 +137,8 @@ function limitText(kind: 'vehicles' | 'items', n: number): string {
   return `${n} ${kind === 'vehicles' ? (one ? 'машины' : 'машин') : one ? 'груза' : 'грузов'}`;
 }
 
+const PRO = tierInfo('pro').limits;
+
 /** An edit the store refused because of the tier opens the offer to upgrade. */
 function useLimitOffers(): void {
   useEffect(
@@ -146,7 +148,9 @@ function useLimitOffers(): void {
         if (!hit || hit === prev.limitHit) return;
         useUpgrade
           .getState()
-          .show(`На тарифе «${hit.tierName}» в схеме не больше ${limitText(hit.kind, hit.limit)}. На «Pro» — до 10 машин и 5000 грузов.`);
+          .show(
+            `На тарифе «${hit.tierName}» в схеме не больше ${limitText(hit.kind, hit.limit)}. На «Pro» — до ${limitText('vehicles', PRO.vehicles)} и ${PRO.items.toLocaleString('ru-RU')} грузов.`,
+          );
       }),
     [],
   );

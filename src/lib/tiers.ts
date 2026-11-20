@@ -1,4 +1,5 @@
 import type { Subscription, TierId } from '@/api/types';
+import { plural } from '@/lib/format';
 
 /**
  * TIERS_ENABLED in .env. Off (the default): the site and the app say nothing about tariffs and nothing is
@@ -86,10 +87,55 @@ export function formatPrice(rub: number): string {
   return `${new Intl.NumberFormat('ru-RU').format(rub)} ₽`;
 }
 
+/** «12 декабря 2026». */
+export function longDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 /** «Pro до 12 ноября», «Пробный период до…», «Без срока». */
 export function subscriptionSummary(sub: Subscription): string {
   if (sub.tier === 'free') return sub.expiredTier ? `Тариф «${tierInfo(sub.expiredTier).name}» закончился` : 'Бесплатный тариф';
   if (!sub.expiresAt) return 'Без ограничения по сроку';
-  const date = new Date(sub.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const date = longDate(sub.expiresAt);
   return sub.trial ? `Пробный период до ${date}` : `Действует до ${date}`;
+}
+
+/**
+ * Where the subscription stands, for the badges and notices of the app: «Старт» (`free`), a paid tier
+ * that has ended (`expired`), the trial of «Pro», «Pro» (`active`, or `ending` within ENDING_DAYS),
+ * «Индивидуальный» (`custom`).
+ */
+export type SubscriptionState = 'free' | 'expired' | 'trial' | 'active' | 'ending' | 'custom';
+
+/** «Pro» ends within this many days: the header and the plans page remind about renewal. */
+export const ENDING_DAYS = 7;
+
+const DAY = 86_400_000;
+
+/** Days until the subscription ends, counting the current one (1 — the last day); null — no end date. */
+export function daysLeft(sub: Subscription, now = Date.now()): number | null {
+  if (!sub.expiresAt) return null;
+  return Math.max(0, Math.ceil((new Date(sub.expiresAt).getTime() - now) / DAY));
+}
+
+export function subscriptionState(sub: Subscription, now = Date.now()): SubscriptionState {
+  if (sub.tier === 'free') return sub.expiredTier ? 'expired' : 'free';
+  if (sub.tier === 'custom') return 'custom';
+  if (sub.trial) return 'trial';
+  const left = daysLeft(sub, now);
+  return left !== null && left <= ENDING_DAYS ? 'ending' : 'active';
+}
+
+/** «осталось 3 дня», «последний день». */
+export function daysLeftText(days: number): string {
+  if (days <= 1) return 'последний день';
+  return `${days % 10 === 1 && days % 100 !== 11 ? 'остался' : 'осталось'} ${plural(days, ['день', 'дня', 'дней'])}`;
+}
+
+/** What the account's tier allows, line by line (the account and the tariff pages). */
+export function limitSummary(sub: Subscription): string {
+  const { plans, vehicles, items } = sub.limits;
+  const plansText = plans === null ? 'Безлимит схем' : `До ${plural(plans, ['схемы', 'схем', 'схем'])}`;
+  const vehiclesText = vehicles === 1 ? '1 машина' : `до ${plural(vehicles, ['машины', 'машин', 'машин'])}`;
+  return `${plansText}, ${vehiclesText} и до ${plural(items, ['груза', 'грузов', 'грузов'])} в схеме`;
 }

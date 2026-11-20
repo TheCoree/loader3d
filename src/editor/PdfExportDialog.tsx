@@ -22,7 +22,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { ProBadge } from '@/components/UpgradeDialog';
+import { ProBadge, useUpgrade } from '@/components/UpgradeDialog';
 import { useFeature } from './hooks';
 import { usePlanSync } from './planSync';
 
@@ -72,6 +72,7 @@ function PdfForm({ busy, setBusy }: { busy: boolean; setBusy(busy: boolean): voi
   /** A vehicle id, or 'all'. */
   const [scope, setScope] = useState(() => useStore.getState().activeVehicleId);
   const stepsAllowed = useFeature('pdfSteps');
+  const showUpgrade = useUpgrade((s) => s.show);
   const { orientation, direction, projection } = saved;
   const mode: PdfMode = stepsAllowed ? saved.mode : 'overview';
 
@@ -210,7 +211,25 @@ function PdfForm({ busy, setBusy }: { busy: boolean; setBusy(busy: boolean): voi
               </SelectContent>
             </Select>
           </Field>
-          <FieldDescription className="-mt-2 sm:col-span-2">{MODES.find((m) => m.value === mode)?.hint}</FieldDescription>
+          <FieldDescription className="-mt-2 sm:col-span-2">
+            {MODES.find((m) => m.value === mode)?.hint}
+            {!stepsAllowed && (
+              <>
+                {' '}
+                Пошаговая инструкция с порядком погрузки — на «Pro».{' '}
+                <button
+                  type="button"
+                  className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 outline-none hover:decoration-foreground focus-visible:decoration-foreground"
+                  onClick={() => {
+                    setOpen(false);
+                    showUpgrade('Пошаговая PDF-инструкция — погрузка шаг за шагом для склада и водителя — доступна на тарифе «Pro».');
+                  }}
+                >
+                  Подробнее
+                </button>
+              </>
+            )}
+          </FieldDescription>
         </div>
 
         <Field>

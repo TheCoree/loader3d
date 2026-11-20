@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { FullScreenLoader, PublicOnly, RequireAdmin, RequireAuth } from './components/RouteGuards';
 import { AccountPage } from './pages/AccountPage';
 import { AuthPage } from './pages/AuthPage';
+import { BillingPage } from './pages/BillingPage';
 import { HomePage } from './pages/HomePage';
 import { LandingRoute } from './pages/LandingPage';
 import { LegalPage } from './pages/LegalPage';
@@ -38,6 +39,7 @@ export function App() {
         }
       />
       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
+      <Route path="/billing" element={TIERS_ENABLED ? <RequireAuth><BillingPage /></RequireAuth> : <Navigate to="/account" replace />} />
       <Route
         path="/admin"
         element={

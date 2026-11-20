@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { FileUp, HardDriveUpload, PackageOpen, Plus, RefreshCw, Search, SearchX, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { FileUp, HardDriveUpload, PackageOpen, Plus, RefreshCw, Search, SearchX, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
-import type { PlanSort, PlanSummary } from '@/api/types';
+import type { PlanSort, PlanSummary, Subscription } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
-import { UpgradeDialog, useUpgrade } from '@/components/UpgradeDialog';
+import { TierBadge } from '@/components/TierBadge';
+import { UpgradeDialog, useUpgrade, useUpgradeAction } from '@/components/UpgradeDialog';
 import { PlanCard, PlanCardSkeleton } from '@/components/plans/PlanCard';
 import { CreatePlanDialog, DeletePlanDialog, RenamePlanDialog } from '@/components/plans/PlanDialogs';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,10 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { plural } from '@/lib/format';
 import { forgetLegacyPlan, readLegacyPlan, readPlanFile } from '@/lib/planFiles';
 import { useCreatePlan, usePlanList } from '@/lib/plansQuery';
+import { daysLeft, daysLeftText, limitSummary, longDate, subscriptionState, tierInfo } from '@/lib/tiers';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
 /** Buttons of the page header: pills, like the site. */
@@ -111,14 +115,7 @@ export function HomePage() {
           />
         </div>
 
-        {planLimit !== null && q === '' && !loading && total > 0 && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Сохранено {total} из {planLimit} на тарифе «{subscription?.name}».{' '}
-            <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground" onClick={() => showUpgrade(limitReason)}>
-              Снять ограничение
-            </button>
-          </p>
-        )}
+        {subscription && <SubscriptionStrip sub={subscription} plans={loading || q !== '' ? undefined : total} />}
 
         <LegacyPlanBanner />
 
@@ -280,5 +277,76 @@ function LegacyPlanBanner() {
         </Button>
       </AlertAction>
     </Alert>
+  );
+}
+
+/**
+ * The tier above the plans: «Pro» and its term, the days left of a trial, a reminder to renew;
+ * on «Старт» how many plans are saved out of the limit and a quiet way to «Pro». Links to /billing.
+ */
+function SubscriptionStrip({ sub, plans }: { sub: Subscription; plans: number | undefined }) {
+  const state = subscriptionState(sub);
+  const action = useUpgradeAction();
+  const left = daysLeft(sub);
+  const limit = sub.limits.plans;
+  const limited = state === 'free' || state === 'expired';
+  const full = limit !== null && plans !== undefined && plans >= limit;
+
+  const saved =
+    plans === undefined || limit === null
+      ? null
+      : plans > limit
+        ? `${plural(plans, ['схема', 'схемы', 'схем'])} при лимите ${limit}`
+        : `Сохранено ${plans} из ${plural(limit, ['схемы', 'схем', 'схем'])}${full ? ' — лимит тарифа исчерпан' : ''}`;
+  const text = limited ? (
+    state === 'expired' ? (
+      `«${tierInfo(sub.expiredTier ?? 'pro').name}» закончился — действуют лимиты «${sub.name}»${saved ? ` · ${saved.charAt(0).toLowerCase()}${saved.slice(1)}` : ''}`
+    ) : (
+      (saved ?? limitSummary(sub))
+    )
+  ) : state === 'trial' ? (
+    `Пробный период до ${longDate(sub.expiresAt!)} — ${daysLeftText(left ?? 0)}`
+  ) : state === 'ending' ? (
+    `«${sub.name}» действует до ${longDate(sub.expiresAt!)} — ${daysLeftText(left ?? 0)}`
+  ) : (
+    <>
+      {sub.expiresAt ? `Действует до ${longDate(sub.expiresAt)}` : 'Без ограничения по сроку'}
+      <span className="hidden text-muted-foreground md:inline"> · {limitSummary(sub)}</span>
+    </>
+  );
+  // Calls to act: on «Старт», in a trial and when «Pro» is about to end; a running «Pro» only links.
+  const cta = limited || state === 'trial' || state === 'ending' ? action : null;
+
+  return (
+    <div
+      className={cn(
+        'mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border bg-card px-4 py-3 text-sm',
+        (state === 'ending' || state === 'expired' || full) && 'border-warning/30 bg-warning/5',
+      )}
+    >
+      <div className="flex min-w-0 flex-1 basis-72 items-center gap-3">
+        <TierBadge tier={sub.tier} className="h-6 px-2.5" />
+        <div className="min-w-0 flex-1">
+          <p className={cn('text-pretty', (state === 'ending' || state === 'expired' || full) && 'text-warning')}>{text}</p>
+          {limited && limit !== null && plans !== undefined && (
+            <Progress
+              value={Math.min(100, (100 * plans) / limit)}
+              className={cn('mt-2 max-w-64', full && '[&>[data-slot=progress-indicator]]:bg-warning')}
+            />
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/billing">{limited ? 'Сравнить тарифы' : 'Тариф и оплата'}</Link>
+        </Button>
+        {cta && (
+          <Button size="sm" className="rounded-full px-3.5" onClick={cta.run} disabled={cta.pending}>
+            {cta.pending ? <Spinner /> : <Sparkles />}
+            {cta.label}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
