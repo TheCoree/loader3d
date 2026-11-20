@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Box, CargoBody, CargoItem, Dims, DockMode, Orientation, Plan } from './types';
+import type { BodyKind, Box, CargoBody, CargoItem, Dims, DockMode, Orientation, Plan } from './types';
+import { LANDING_GEAR, MIN_HALF_TRACK, WHEEL_RADIUS, bodyAxles, bodyHalfTrack, cabAxles } from './axles';
+import { BODY_LIMITS } from './presets';
 import { boxAt, inRects, subtractBox, volume } from './geometry';
 import { itemBox } from './item';
 import { LANE_SPACING, computeLayout, onFloor, ownerVehicle, remapItems, stagingRegion, stagingRegions } from './layout';
@@ -587,5 +589,63 @@ describe('x-ray', () => {
     const down = (p: { x: number; y: number; z: number }) => ({ x: p.z, y: p.x, depth: 5000 - p.y });
     expect(findOccluders(above, entries, down, (id) => id === 'target').size).toBe(0);
     expect(segmentHitsBox({ x: -10, y: 50, z: 50 }, { x: 150, y: 50, z: 50 }, entries[1].box)).toBe(true);
+  });
+});
+
+describe('running gear', () => {
+  const kinds: BodyKind[] = ['truck', 'semi', 'trailer'];
+  const lengths: number[] = [];
+  for (let l = BODY_LIMITS.l[0]; l <= BODY_LIMITS.l[1]; l += 5) lengths.push(l);
+  /** Tyres of neighbouring axles at least 20 cm apart. */
+  const clear = 2 * WHEEL_RADIUS + 20;
+
+  it('never puts wheels into each other, whatever the length of the body', () => {
+    for (const kind of kinds) {
+      for (const length of lengths) {
+        const axles = bodyAxles(kind, length);
+        // From the rear wall; the cab and the tractor are counted as if this body were the first one.
+        const all = [...axles.rear, ...(axles.front === null ? [] : [axles.front]), ...cabAxles(kind).map((x) => length + x)];
+        all.sort((a, b) => a - b);
+        for (let i = 1; i < all.length; i++) {
+          expect(all[i] - all[i - 1], `${kind} ${length}: ${all.join(', ')}`).toBeGreaterThanOrEqual(clear);
+        }
+        for (const x of [...axles.rear, ...(axles.front === null ? [] : [axles.front])]) {
+          expect(x, `${kind} ${length}`).toBeGreaterThan(0);
+          expect(x, `${kind} ${length}`).toBeLessThan(length);
+        }
+      }
+    }
+  });
+
+  it('keeps the landing gear of a semi-trailer clear of its wheels', () => {
+    for (const length of lengths) {
+      const axles = bodyAxles('semi', length);
+      expect(axles.landingGear).toBe(axles.rear.length > 0);
+      for (const x of axles.rear) expect(length - LANDING_GEAR - 15 - (x + WHEEL_RADIUS)).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it('gives every body but a very short semi-trailer its own wheels', () => {
+    for (const length of lengths) {
+      expect(bodyAxles('truck', length).rear.length).toBeGreaterThan(0);
+      expect(bodyAxles('trailer', length).rear.length).toBeGreaterThan(0);
+    }
+    expect(bodyAxles('semi', 590).rear).toHaveLength(2);
+    expect(bodyAxles('semi', 300).rear).toHaveLength(0);
+  });
+
+  it('keeps the axles of the big templates where they were', () => {
+    expect(bodyAxles('semi', 1360).rear).toEqual([140, 270, 400]);
+    expect(bodyAxles('semi', 1203).rear).toEqual([140, 270, 400]);
+    expect(bodyAxles('trailer', 820)).toEqual({ rear: [140, 270], front: 670, landingGear: false });
+    expect(bodyAxles('truck', 800).rear).toEqual([150, 280]);
+    // A 3 t van has one rear axle; a short trailer becomes a centre-axle one.
+    expect(bodyAxles('truck', 420).rear).toEqual([150]);
+    expect(bodyAxles('trailer', 300).front).toBeNull();
+  });
+
+  it('keeps the wheels of a narrow body apart', () => {
+    expect(bodyHalfTrack(245)).toBeCloseTo(94.5);
+    expect(bodyHalfTrack(100)).toBe(MIN_HALF_TRACK);
   });
 });

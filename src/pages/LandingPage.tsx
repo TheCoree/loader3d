@@ -401,17 +401,21 @@ function sideCircle(x: number, y: number, z: number, r: number): string {
   return `M${pts.map(([px, py]) => `${px.toFixed(1)} ${py.toFixed(1)}`).join('L')}Z`;
 }
 
+/** The tractor's drive axle: under the fifth wheel, well inside the front of the trailer. */
+const DRIVE_AXLE = TRAILER.length - 1.15;
+
 /** Wheels on the near side: the trailer's three axles at the rear, the tractor's drive axle under the
  * front of the trailer and its steering axle under the cab. */
-const WHEELS = [1.45, 2.75, 4.05, TRAILER.length + 0.45, TRAILER.length + 1.95];
+const WHEELS = [1.45, 2.75, 4.05, DRIVE_AXLE, TRAILER.length + 1.95];
 
 const PALLET = { length: 1.2, width: 0.8, height: 1.35 };
 const ROWS = 11;
 const LOAD_FROM = -1.8; // the pallets come in from the dock behind the rear doors
 
 /** One cycle: rows slide in (rowStep apart, `slide` each), the full trailer holds, everything fades out
- * together, a short empty pause. The page starts in the hold (the prerendered picture is a full trailer). */
-const TRUCK_CYCLE = { total: 13_000, rowStep: 480, colStep: 110, slide: 900, fadeFrom: 10_400, fadeTo: 11_500, startAt: 8_000 };
+ * together, a short empty pause. The page starts with an empty trailer and loads it at once (`lead` after
+ * the script runs); the pallets are hidden by CSS until then (`.lp-pallet`), shown with reduced motion. */
+const TRUCK_CYCLE = { total: 13_000, rowStep: 480, colStep: 110, slide: 900, fadeFrom: 10_400, fadeTo: 11_500, lead: 250 };
 
 const PALLETS = (() => {
   const { length, deck } = TRAILER;
@@ -439,11 +443,17 @@ const PALLETS = (() => {
 function useTruckLoading(ref: RefObject<SVGSVGElement | null>) {
   useEffect(() => {
     const svg = ref.current;
-    if (!svg || typeof svg.animate !== 'function') return;
+    if (!svg) return;
+    const pallets = [...svg.querySelectorAll<SVGGElement>('[data-pallet]')];
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const { total, slide, fadeFrom, fadeTo, startAt } = TRUCK_CYCLE;
+    if (typeof svg.animate !== 'function') {
+      // No Web Animations: the full trailer, as with reduced motion.
+      for (const g of pallets) g.style.opacity = '1';
+      return;
+    }
+    const { total, slide, fadeFrom, fadeTo, lead } = TRUCK_CYCLE;
     const placed = 'translate(0px, 0px)';
-    const animations = [...svg.querySelectorAll<SVGGElement>('[data-pallet]')].map((g) => {
+    const animations = pallets.map((g) => {
       const away = `translate(${g.dataset.tx}px, ${g.dataset.ty}px)`;
       const begin = Number(g.dataset.start);
       const start = begin / total;
@@ -458,7 +468,7 @@ function useTruckLoading(ref: RefObject<SVGSVGElement | null>) {
           { offset: fadeTo / total, transform: placed, opacity: 0 },
           { offset: 1, transform: away, opacity: 0 },
         ],
-        { duration: total, iterations: Infinity, delay: -startAt },
+        { duration: total, iterations: Infinity, delay: lead, fill: 'backwards' },
       );
     });
     return () => animations.forEach((a) => a.cancel());
@@ -490,7 +500,7 @@ function TruckArt() {
   const rail = 2 * WHEEL + 0.03;
   const frame = [
     line([0.3, rail, width - 0.12], [length + 0.1, rail, width - 0.12]),
-    line([length - 0.6, rail - 0.1, width - 0.12], [CAB.to, rail - 0.1, width - 0.12]),
+    line([DRIVE_AXLE - WHEEL - 0.35, rail - 0.1, width - 0.12], [CAB.to, rail - 0.1, width - 0.12]),
   ].join('');
 
   return (
@@ -507,7 +517,7 @@ function TruckArt() {
           <path d={`M${poly([[0, deck, 0], [length, deck, 0], [length, deck, width], [0, deck, width]])}Z`} fill="rgba(237,237,237,0.025)" stroke="none" />
         </g>
         {PALLETS.map((p) => (
-          <g key={p.key} data-pallet="" data-tx={p.tx.toFixed(1)} data-ty={p.ty.toFixed(1)} data-start={p.start}>
+          <g key={p.key} className="lp-pallet" data-pallet="" data-tx={p.tx.toFixed(1)} data-ty={p.ty.toFixed(1)} data-start={p.start}>
             <Pallet x={p.x} y={p.y} z={p.z} />
           </g>
         ))}
