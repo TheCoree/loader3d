@@ -61,9 +61,14 @@ export const userApi = {
   startTrial: () => api<User>('/users/me/trial', { method: 'POST' }),
   /** Use of the tier limits (tiers on only). */
   usage: () => api<Usage>('/users/me/usage'),
-  changePassword: (currentPassword: string, newPassword: string) =>
-    api<void>('/users/me/password', { method: 'POST', body: { currentPassword, newPassword } }),
-  deleteAccount: (password: string) => api<void>('/users/me', { method: 'DELETE', body: { password } }),
+  /** With the code from sendPasswordCode() (never the current password); other devices are signed out. */
+  changePassword: (code: string, newPassword: string) =>
+    api<void>('/users/me/password', { method: 'POST', body: { code, newPassword } }),
+  /** Emails the account a code to change the password without the current one. */
+  sendPasswordCode: () => api<{ retryAfter: number }>('/users/me/password/code', { method: 'POST' }),
+  /** Emails the account a code to delete it. */
+  sendDeleteCode: () => api<{ retryAfter: number }>('/users/me/delete/code', { method: 'POST' }),
+  deleteAccount: (code: string) => api<void>('/users/me', { method: 'DELETE', body: { code } }),
 };
 
 export interface PlanListQuery {

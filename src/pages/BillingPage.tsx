@@ -1,30 +1,16 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Check,
-  CircleAlert,
-  FileText,
-  LayoutGrid,
-  Lock,
-  Package,
-  Receipt,
-  Sparkles,
-  Truck,
-  WandSparkles,
-  type LucideIcon,
-} from 'lucide-react';
+import { Check, CircleAlert, Lock, Minus, Receipt, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import { billingApi, userApi } from '@/api/endpoints';
 import type { BillingPeriod, Payment, Subscription, TierId, Usage } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
-import { SubscriptionStateBadge } from '@/components/TierBadge';
+import { SettingsGroup, SettingsRow } from '@/components/settings';
+import { LimitSegments, SubscriptionStateBadge, TIER_ICON_TONE, TIER_PANEL_TONE } from '@/components/TierBadge';
 import { UpgradeDialog, useUpgrade, useUpgradeAction } from '@/components/UpgradeDialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -34,22 +20,21 @@ import {
   TIERS,
   TIERS_ENABLED,
   TRIAL_DAYS,
+  comparisonRows,
   daysLeft,
   daysLeftText,
   formatPrice,
-  limitSummary,
   longDate,
   subscriptionState,
   tierInfo,
-  type TierInfo,
 } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
 /**
- * «Тариф и оплата» (/billing, tiers on only): the current tier and its term, how much of the limits is
- * used, the tiers side by side with payment or a request, the history of payments. The payment page of
- * the provider returns here (/billing?payment=<id>).
+ * «Тариф и оплата» (/billing, tiers on only): the current tier on a panel of its colour with the use of
+ * its limits, the tiers compared row by row with payment of «Pro» (or a request), the history of
+ * payments. The payment page of the provider returns here (/billing?payment=<id>).
  */
 export function BillingPage() {
   const sub = useAuth((s) => s.user?.subscription);
@@ -62,19 +47,15 @@ export function BillingPage() {
       <AppHeader />
       <main className="mx-auto max-w-5xl px-4 pt-12 pb-20 sm:px-6">
         <h1 className="font-display text-[2rem] leading-tight font-medium tracking-[-0.02em]">Тариф и оплата</h1>
-        <p className="mt-1.5 text-[15px] text-muted-foreground">Ваш тариф, лимиты и история оплат.</p>
         {returning && (
-          <p className="mt-6 flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm" role="status">
+          <p className="mt-6 flex items-center gap-2 rounded-2xl bg-muted px-4 py-3 text-sm" role="status">
             <Spinner /> Проверяем оплату — это займёт несколько секунд…
           </p>
         )}
-        <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-          <CurrentPlanCard sub={sub} />
-          <UsageCard sub={sub} />
-        </div>
-        <TierPlans sub={sub} />
+        <PlanHero sub={sub} />
+        <Comparison sub={sub} />
         <Payments />
-        <BillingQuestions sub={sub} />
+        <Footnotes sub={sub} />
       </main>
       <UpgradeDialog />
     </div>
@@ -128,224 +109,138 @@ function usePaymentReturn(): boolean {
 
 // ------------------------------------------------------------------ the current tier
 
-function CurrentPlanCard({ sub }: { sub: Subscription }) {
+function PlanHero({ sub }: { sub: Subscription }) {
   const state = subscriptionState(sub);
   const action = useUpgradeAction();
   const show = useUpgrade((s) => s.show);
   const billing = useBilling();
+  const usage = useUsage();
   const left = daysLeft(sub);
-  const info = tierInfo(sub.tier);
-  const price = sub.tier === 'pro' && billing?.enabled ? priceOf(billing, 'month') : undefined;
+  const { limits } = sub;
 
   const term =
     state === 'free'
       ? 'Бесплатно и без срока'
       : state === 'expired'
-        ? `Тариф «${tierInfo(sub.expiredTier ?? 'pro').name}» закончился — работают лимиты «Старт»`
+        ? `«${tierInfo(sub.expiredTier ?? 'pro').name}» закончился — действуют лимиты «Старт». Схемы сохранились.`
         : sub.expiresAt
           ? `${sub.trial ? 'Пробный период до' : 'Действует до'} ${longDate(sub.expiresAt)} · ${daysLeftText(left ?? 0)}`
           : 'Без ограничения по сроку';
+  const trialDay = left === null ? 0 : Math.min(TRIAL_DAYS, Math.max(1, TRIAL_DAYS - left + 1));
 
   return (
-    <Card className="gap-5">
-      <CardHeader className="gap-3">
-        <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              'grid size-11 shrink-0 place-items-center rounded-2xl',
-              sub.tier === 'free' ? 'bg-muted text-foreground' : 'bg-primary text-primary-foreground shadow-sm shadow-primary/30',
-            )}
-          >
-            <Sparkles className="size-5" />
+    <section className={cn('mt-8 rounded-3xl p-5 sm:p-8', TIER_PANEL_TONE[state])} aria-label="Ваш тариф">
+      <div className="flex flex-wrap items-center justify-between gap-5">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className={cn('grid size-12 shrink-0 place-items-center rounded-2xl', TIER_ICON_TONE[state])}>
+            <Sparkles className="size-[22px]" />
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Текущий тариф</p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <CardTitle className="font-display text-2xl leading-tight tracking-[-0.02em]">{sub.name}</CardTitle>
+            <p className="text-[13px] text-muted-foreground">Ваш тариф</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-display text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">{sub.name}</h2>
               <SubscriptionStateBadge sub={sub} />
             </div>
           </div>
         </div>
-        <CardDescription className={cn('text-pretty', (state === 'expired' || state === 'ending') && 'text-warning')}>
-          {term}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
-        {state === 'trial' && left !== null && (
-          <div>
-            <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
-              <span>Прошло</span>
-              <span className="tabular-nums">
-                {Math.min(TRIAL_DAYS, TRIAL_DAYS - left + 1)} из {TRIAL_DAYS} дней
-              </span>
-            </div>
-            <Progress value={(100 * Math.min(TRIAL_DAYS, TRIAL_DAYS - left + 1)) / TRIAL_DAYS} />
-          </div>
-        )}
-        {(state === 'free' || state === 'expired') && (
-          <div className="rounded-xl bg-muted/60 p-4">
-            <p className="text-sm font-medium">
-              {state === 'expired'
-                ? 'Схемы сохранились и открываются. Продлите «Pro», чтобы снова работать без ограничений:'
-                : sub.trialAvailable
-                  ? `«Pro» на ${TRIAL_DAYS} дней бесплатно — без карты и без автоматических списаний:`
-                  : 'Что даст «Pro»:'}
-            </p>
-            <ul className="mt-3 grid gap-2 text-sm">
-              {tierInfo('pro')
-                .features.slice(0, 5)
-                .map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                    {f}
-                  </li>
-                ))}
-            </ul>
-          </div>
-        )}
-        {state !== 'free' && state !== 'expired' && (
-          <p className="text-sm text-pretty text-muted-foreground">
-            {state === 'trial'
-              ? 'Сейчас работают все возможности «Pro». Оплатите тариф, чтобы продолжить без перерыва, — оплаченный период добавится к пробному.'
-              : state === 'custom'
-                ? 'Лимиты, срок и стоимость — по договору. Продление и изменения — через вашего менеджера.'
-                : `${info.tagline}. ${limitSummary(sub)}.`}
-          </p>
-        )}
-        {price && (state === 'active' || state === 'ending') && (
-          <p className="text-sm">
-            <span className="font-medium tabular-nums">{formatPrice(price.amount)}</span>
-            <span className="text-muted-foreground"> в месяц · без автопродления, продление — одной оплатой</span>
-          </p>
-        )}
-      </CardContent>
-      {action && (
-        <CardFooter className="flex-wrap gap-2">
-          <Button onClick={action.run} disabled={action.pending} variant={state === 'custom' ? 'outline' : 'default'}>
-            {action.pending ? <Spinner /> : state !== 'custom' && <Sparkles />}
-            {action.label}
-          </Button>
-          {state === 'free' && sub.trialAvailable && billing?.enabled && (
-            <Button variant="ghost" onClick={() => show(undefined, 'pro')}>
-              Оплатить сразу
+        {action && (
+          <div className="flex flex-wrap gap-2">
+            {state === 'free' && sub.trialAvailable && billing?.enabled && (
+              <Button variant="ghost" className="h-10 rounded-full px-4" onClick={() => show(undefined, 'pro')}>
+                Оплатить сразу
+              </Button>
+            )}
+            <Button
+              className="h-10 rounded-full px-5"
+              variant={state === 'custom' ? 'outline' : 'default'}
+              onClick={action.run}
+              disabled={action.pending}
+            >
+              {action.pending ? <Spinner /> : state !== 'custom' && <Sparkles />}
+              {action.label}
             </Button>
-          )}
-        </CardFooter>
-      )}
-    </Card>
-  );
-}
-
-// ------------------------------------------------------------------ usage of the limits
-
-function UsageCard({ sub }: { sub: Subscription }) {
-  const usage = useUsage();
-  const { limits } = sub;
-  const show = useUpgrade((s) => s.show);
-  const free = sub.tier === 'free';
-
-  return (
-    <Card className="gap-4">
-      <CardHeader>
-        <CardTitle>Использование</CardTitle>
-        <CardDescription>Лимиты тарифа «{sub.name}»</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <UsageRow
-          icon={LayoutGrid}
-          label="Сохранённые схемы"
-          used={usage?.plans}
-          limit={limits.plans}
-          value={(n) => (limits.plans === null ? plural(n, ['схема', 'схемы', 'схем']) : `${n} из ${limits.plans}`)}
-          note={limits.plans === null ? 'без ограничений' : undefined}
-        />
-        <UsageRow
-          icon={Truck}
-          label="Машин в схеме"
-          used={usage?.maxVehicles}
-          limit={limits.vehicles}
-          value={() => `до ${limits.vehicles}`}
-          note={usage && usage.plans > 0 ? `в самой большой схеме — ${usage.maxVehicles}` : undefined}
-        />
-        <UsageRow
-          icon={Package}
-          label="Грузов в схеме"
-          used={usage?.maxItems}
-          limit={limits.items}
-          value={() => `до ${limits.items.toLocaleString('ru-RU')}`}
-          note={usage && usage.plans > 0 ? `в самой большой схеме — ${usage.maxItems.toLocaleString('ru-RU')}` : undefined}
-        />
-        <div className="grid gap-2.5 border-t pt-4">
-          <FeatureRow icon={WandSparkles} label="Автозагрузка" on={limits.autoload} />
-          <FeatureRow icon={FileText} label="Пошаговая PDF-инструкция" on={limits.pdfSteps} />
-        </div>
-        {usage && usage.overLimit > 0 && <OverLimitNote usage={usage} tierName={sub.name} />}
-        {free && (
-          <button
-            type="button"
-            onClick={() => show('Снимите ограничения тарифа «Старт»: безлимит схем, до 10 машин и 5000 грузов в схеме.')}
-            className="-mt-1 self-start text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:underline"
-          >
-            Снять ограничения
-          </button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function UsageRow({
-  icon: Icon,
-  label,
-  used,
-  limit,
-  value,
-  note,
-}: {
-  icon: LucideIcon;
-  label: string;
-  /** undefined while loading. */
-  used: number | undefined;
-  /** null — unlimited (no bar). */
-  limit: number | null;
-  value(used: number): string;
-  note?: string;
-}) {
-  const share = used === undefined || limit === null ? null : Math.min(100, (100 * used) / limit);
-  // One vehicle out of one is the normal case of «Старт», not a warning.
-  const full = share !== null && share >= 100 && limit !== null && limit > 1;
-  return (
-    <div>
-      <div className="flex items-center gap-2.5 text-sm">
-        <Icon className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">{label}</span>
-        {used === undefined ? (
-          <Skeleton className="h-4 w-16" />
-        ) : (
-          <span className={cn('font-medium tabular-nums', full && 'text-warning')}>{value(used)}</span>
+          </div>
         )}
       </div>
-      {share !== null && limit !== null && limit > 1 && (
-        <Progress value={share} className={cn('mt-2 ml-6.5 w-auto', full && '[&>[data-slot=progress-indicator]]:bg-warning')} />
+
+      <p className={cn('mt-5 text-[15px] text-pretty', state === 'expired' || state === 'ending' ? 'text-warning' : 'text-foreground/80')}>
+        {term}
+      </p>
+      {state === 'trial' && left !== null && (
+        <div className="mt-3 flex items-center gap-3">
+          <LimitSegments total={TRIAL_DAYS} filled={trialDay} className="max-w-sm flex-1" />
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            день {trialDay} из {TRIAL_DAYS}
+          </span>
+        </div>
       )}
-      {note && <p className="mt-1 ml-6.5 text-xs text-muted-foreground">{note}</p>}
+
+      <div className="mt-6 grid gap-2 sm:grid-cols-3">
+        <Meter
+          label="Схемы"
+          value={usage ? (limits.plans === null ? String(usage.plans) : `${usage.plans} из ${limits.plans}`) : undefined}
+          note={limits.plans === null ? 'без лимита' : undefined}
+          bar={usage && limits.plans !== null ? { used: usage.plans, limit: limits.plans } : undefined}
+        />
+        <Meter
+          label="Машин в схеме"
+          value={usage ? (limits.vehicles === 1 ? '1' : `до ${limits.vehicles}`) : undefined}
+          note={usage && usage.plans > 0 ? `в самой большой схеме — ${usage.maxVehicles}` : undefined}
+        />
+        <Meter
+          label="Грузов в схеме"
+          value={usage ? `до ${limits.items.toLocaleString('ru-RU')}` : undefined}
+          note={usage && usage.plans > 0 ? `в самой большой схеме — ${usage.maxItems.toLocaleString('ru-RU')}` : undefined}
+          bar={usage && usage.plans > 0 ? { used: usage.maxItems, limit: limits.items } : undefined}
+        />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <FeatureChip label="Автозагрузка" on={limits.autoload} />
+        <FeatureChip label="Пошаговая PDF-инструкция" on={limits.pdfSteps} />
+      </div>
+      {usage && usage.overLimit > 0 && <OverLimitNote usage={usage} tierName={sub.name} />}
+    </section>
+  );
+}
+
+function Meter({ label, value, note, bar }: { label: string; value?: string; note?: string; bar?: { used: number; limit: number } }) {
+  const full = !!bar && bar.used >= bar.limit && bar.limit > 1;
+  return (
+    <div className="rounded-2xl bg-background/70 p-4 dark:bg-background/40">
+      <p className="text-[13px] text-muted-foreground">{label}</p>
+      {value === undefined ? (
+        <Skeleton className="mt-1.5 h-7 w-20" />
+      ) : (
+        <p className={cn('mt-0.5 text-[1.375rem] leading-snug font-semibold tracking-[-0.02em] tabular-nums', full && 'text-warning')}>{value}</p>
+      )}
+      {bar &&
+        (bar.limit <= 10 ? (
+          <LimitSegments total={bar.limit} filled={Math.min(bar.used, bar.limit)} warn={full} className="mt-2.5" />
+        ) : (
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
+            <div
+              className={cn('h-full rounded-full', full ? 'bg-warning' : 'bg-primary')}
+              style={{ width: `${Math.min(100, (100 * bar.used) / bar.limit)}%` }}
+            />
+          </div>
+        ))}
+      {note && <p className="mt-1.5 text-xs text-muted-foreground">{note}</p>}
     </div>
   );
 }
 
-function FeatureRow({ icon: Icon, label, on }: { icon: LucideIcon; label: string; on: boolean }) {
+function FeatureChip({ label, on }: { label: string; on: boolean }) {
   return (
-    <div className={cn('flex items-center gap-2.5 text-sm', !on && 'text-muted-foreground')}>
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1">{label}</span>
-      {on ? (
-        <Check className="size-4 text-success" aria-label="Входит в тариф" />
-      ) : (
-        <span className="inline-flex items-center gap-1 text-xs">
-          <Lock className="size-3" /> на «Pro»
-        </span>
+    <span
+      className={cn(
+        'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px]',
+        on ? 'bg-background/70 font-medium dark:bg-background/40' : 'bg-background/40 text-muted-foreground dark:bg-background/20',
       )}
-    </div>
+    >
+      {on ? <Check className="size-3.5 text-success" /> : <Lock className="size-3.5" />}
+      {label}
+      {!on && <span className="font-medium text-primary">· Pro</span>}
+    </span>
   );
 }
 
@@ -353,7 +248,7 @@ function OverLimitNote({ usage, tierName }: { usage: Usage; tierName: string }) 
   const n = usage.overLimit;
   const one = n % 10 === 1 && n % 100 !== 11;
   return (
-    <p className="flex gap-2 rounded-xl bg-warning/10 px-3 py-2.5 text-sm text-pretty">
+    <p className="mt-4 flex gap-2 text-sm text-pretty">
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
       <span>
         {plural(n, ['схема больше', 'схемы больше', 'схем больше'])} лимитов «{tierName}»:{' '}
@@ -363,21 +258,19 @@ function OverLimitNote({ usage, tierName }: { usage: Usage; tierName: string }) 
   );
 }
 
-// ------------------------------------------------------------------ the tiers side by side
+// ------------------------------------------------------------------ the tiers compared
 
-function TierPlans({ sub }: { sub: Subscription }) {
+function Comparison({ sub }: { sub: Subscription }) {
   const [period, setPeriod] = useState<BillingPeriod>('year');
+  const rows = comparisonRows();
+  const proColumn = 'bg-primary/[0.045] dark:bg-primary/[0.08]';
+
   return (
     <section className="mt-14" aria-labelledby="tiers-title">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 id="tiers-title" className="font-display text-xl font-medium tracking-[-0.015em]">
-            Тарифы
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Переходите на «Pro», когда схем станет больше, — схемы и настройки сохранятся.
-          </p>
-        </div>
+        <h2 id="tiers-title" className="font-display text-xl font-medium tracking-[-0.015em]">
+          Сравнение тарифов
+        </h2>
         <ToggleGroup
           type="single"
           value={period}
@@ -385,137 +278,144 @@ function TierPlans({ sub }: { sub: Subscription }) {
           className="rounded-full bg-muted p-1"
           aria-label="Период оплаты"
         >
-          <ToggleGroupItem value="month" className="h-8 rounded-full px-4 data-[state=on]:bg-background data-[state=on]:shadow-sm">
+          <ToggleGroupItem value="month" className="h-8 rounded-full px-4 data-[state=on]:bg-background">
             Помесячно
           </ToggleGroupItem>
-          <ToggleGroupItem value="year" className="h-8 rounded-full px-4 data-[state=on]:bg-background data-[state=on]:shadow-sm">
+          <ToggleGroupItem value="year" className="h-8 rounded-full px-4 data-[state=on]:bg-background">
             За год −20%
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-      <div className="mt-6 grid items-stretch gap-4 md:grid-cols-3">
-        {TIERS.map((tier) => (
-          <TierCard key={tier.id} tier={tier} sub={sub} period={period} />
-        ))}
+
+      <div className="mt-5 overflow-x-auto rounded-2xl bg-card ring-1 ring-foreground/[0.07]">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
+          <thead>
+            <tr>
+              <th className="w-[28%] p-5 text-left align-bottom text-[13px] font-normal text-muted-foreground">
+                <span className="sr-only">Возможность</span>
+              </th>
+              {TIERS.map((tier) => {
+                const price = tier.price && (period === 'year' ? tier.price.yearly : tier.price.monthly);
+                return (
+                  <th key={tier.id} scope="col" className={cn('p-5 text-left align-top font-normal', tier.id === 'pro' && proColumn)}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-semibold">{tier.name}</span>
+                      {sub.tier === tier.id && (
+                        <span className="rounded-full bg-foreground/[0.07] px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Ваш тариф</span>
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-baseline gap-1">
+                      <span className="text-2xl font-semibold tracking-[-0.03em] tabular-nums">
+                        {price === null ? 'По договору' : price === 0 ? '0 ₽' : formatPrice(price)}
+                      </span>
+                      {!!price && <span className="text-xs text-muted-foreground">в месяц</span>}
+                    </div>
+                    <p className="mt-0.5 min-h-4 text-xs text-muted-foreground">
+                      {tier.price === null
+                        ? 'под ваши объёмы'
+                        : tier.price.monthly === 0
+                          ? 'навсегда, без карты'
+                          : period === 'year'
+                            ? `${formatPrice(tier.price.yearly * 12)} за год`
+                            : 'при оплате помесячно'}
+                    </p>
+                    <div className="mt-4">
+                      <TierAction tier={tier.id} sub={sub} period={period} />
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.label} className="border-t">
+                <th scope="row" className="px-5 py-3 text-left font-normal text-muted-foreground">
+                  {row.label}
+                </th>
+                {TIERS.map((tier) => {
+                  const value = row.values[tier.id];
+                  return (
+                    <td key={tier.id} className={cn('px-5 py-3', tier.id === 'pro' && proColumn)}>
+                      {value === true ? (
+                        <Check className={cn('size-4', tier.id === 'pro' ? 'text-primary' : 'text-foreground')} aria-label="Есть" />
+                      ) : value === false ? (
+                        <Minus className="size-4 text-muted-foreground/40" aria-label="Нет" />
+                      ) : (
+                        <span className="font-medium tabular-nums">{value}</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
 }
 
-function TierCard({ tier, sub, period }: { tier: TierInfo; sub: Subscription; period: BillingPeriod }) {
-  const current = sub.tier === tier.id;
-  const price = tier.price && (period === 'year' ? tier.price.yearly : tier.price.monthly);
-  const pro = !!tier.highlighted;
-  return (
-    <Card
-      className={cn(
-        'gap-0 p-6',
-        pro && 'ring-2 ring-primary/60 dark:ring-primary/70',
-        current && !pro && 'ring-2 ring-foreground/20',
-      )}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold tracking-[-0.02em]">{tier.name}</h3>
-        {current ? (
-          <Badge variant="secondary">Ваш тариф</Badge>
-        ) : (
-          pro && <Badge className="bg-primary/10 text-primary dark:bg-primary/20">Выбор логистов</Badge>
-        )}
-      </div>
-      <p className="mt-1.5 min-h-10 text-sm text-pretty text-muted-foreground">{tier.tagline}</p>
-      <div className="mt-5 flex items-baseline gap-1.5">
-        {price === null ? (
-          <span className="text-2xl font-semibold tracking-[-0.03em]">По договору</span>
-        ) : price === 0 ? (
-          <span className="text-2xl font-semibold tracking-[-0.03em]">Бесплатно</span>
-        ) : (
-          <>
-            <span className="text-[2rem] leading-none font-semibold tracking-[-0.04em] tabular-nums">{formatPrice(price)}</span>
-            <span className="text-sm text-muted-foreground">в месяц</span>
-          </>
-        )}
-      </div>
-      <p className="mt-2 min-h-5 text-xs text-muted-foreground">
-        {tier.price && tier.price.monthly > 0 && (period === 'year' ? `${formatPrice(tier.price.yearly * 12)} при оплате за год` : 'при оплате помесячно')}
-        {tier.price?.monthly === 0 && 'навсегда, без карты'}
-        {tier.price === null && 'лимиты, срок и цена — под ваши объёмы'}
-      </p>
-      <div className="mt-5">
-        <TierAction tier={tier.id} sub={sub} period={period} />
-      </div>
-      <ul className="mt-6 space-y-2.5 border-t pt-5 text-sm">
-        {tier.features.map((f) => (
-          <li key={f} className="flex items-start gap-2.5">
-            <Check className={cn('mt-0.5 size-4 shrink-0', pro ? 'text-primary' : 'text-muted-foreground')} />
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
-
-/** The button of a tier card: what moving to that tier means from the current subscription. */
+/** The button of a tier: what moving to it means from the current subscription. */
 function TierAction({ tier, sub, period }: { tier: TierId; sub: Subscription; period: BillingPeriod }) {
   const show = useUpgrade((s) => s.show);
   const billing = useBilling();
   const pay = usePay();
   const trial = useStartTrial();
   const state = subscriptionState(sub);
-  const wide = 'h-10 w-full rounded-full';
+  const size = 'h-9 w-full rounded-full';
 
   if (tier === 'free') {
     return sub.tier === 'free' ? (
-      <Button variant="outline" className={wide} disabled>
-        Ваш тариф
+      <Button variant="outline" className={size} disabled>
+        Текущий
       </Button>
     ) : (
-      <p className="grid h-10 place-items-center text-center text-xs text-balance text-muted-foreground">
-        На него аккаунт переходит, когда платный период закончится
-      </p>
+      <p className="flex h-9 items-center text-xs text-pretty text-muted-foreground">После окончания платного</p>
     );
   }
   if (tier === 'custom') {
     return (
-      <Button variant="outline" className={wide} onClick={() => show(undefined, 'custom')}>
-        {sub.tier === 'custom' ? 'Связаться по договору' : 'Обсудить условия'}
+      <Button variant="outline" className={size} onClick={() => show(undefined, 'custom')}>
+        {sub.tier === 'custom' ? 'Связаться' : 'Обсудить условия'}
       </Button>
     );
   }
   // «Pro».
   if (state === 'custom') {
     return (
-      <Button variant="outline" className={wide} disabled>
+      <Button variant="outline" className={size} disabled>
         Входит в ваш тариф
       </Button>
     );
   }
   if (state === 'free' && sub.trialAvailable) {
     return (
-      <Button className={wide} onClick={() => trial.mutate()} disabled={trial.isPending}>
+      <Button className={size} onClick={() => trial.mutate()} disabled={trial.isPending}>
         {trial.isPending && <Spinner />}
         {TRIAL_DAYS} дней бесплатно
       </Button>
     );
   }
+  const renew = state === 'active' || state === 'ending' || state === 'expired';
   const charged = billing?.enabled ? priceOf(billing, period) : undefined;
   if (!charged) {
     // No online payment here: a request to connect or renew.
     return (
-      <Button className={wide} onClick={() => (state === 'free' || state === 'expired' ? show() : show(undefined, 'pro'))}>
-        {state === 'active' || state === 'ending' || state === 'expired' ? 'Продлить' : 'Подключить «Pro»'}
+      <Button className={size} onClick={() => (state === 'free' || state === 'expired' ? show() : show(undefined, 'pro'))}>
+        {renew ? 'Продлить' : 'Подключить'}
       </Button>
     );
   }
   const busy = pay.isPending || pay.isSuccess;
   return (
     <div className="grid gap-1.5">
-      <Button className={wide} onClick={() => pay.mutate(period)} disabled={busy}>
+      <Button className={size} onClick={() => pay.mutate(period)} disabled={busy} title={`«Pro» ${PERIOD_LABEL[period]}`}>
         {busy && <Spinner />}
-        {state === 'active' || state === 'ending' || state === 'expired' ? 'Продлить' : 'Оплатить'} {formatPrice(charged.amount)} {PERIOD_LABEL[period]}
+        {renew ? 'Продлить' : 'Оплатить'} {formatPrice(charged.amount)}
       </Button>
       {sub.tier === 'pro' && sub.expiresAt && (
-        <p className="text-center text-xs text-muted-foreground">Добавится к периоду до {longDate(sub.expiresAt)}</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">Добавится к периоду до {longDate(sub.expiresAt)}</p>
       )}
     </div>
   );
@@ -539,107 +439,62 @@ function Payments() {
   if (payments.isSuccess && shown.length === 0 && !billing?.enabled) return null;
 
   return (
-    <section className="mt-14" aria-labelledby="payments-title">
-      <h2 id="payments-title" className="font-display text-xl font-medium tracking-[-0.015em]">
-        История оплат
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">Онлайн-оплаты «Pro»: после каждой на почту приходит письмо с суммой и сроком.</p>
-      <Card className="mt-5 py-0">
-        {payments.isPending ? (
-          <div className="space-y-3 p-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : payments.isError ? (
-          <p className="p-4 text-sm text-destructive">{errorMessage(payments.error)}</p>
-        ) : shown.length === 0 ? (
-          <div className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
-            <Receipt className="size-4" /> Оплат пока не было.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead className="border-b text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Дата</th>
-                  <th className="px-4 py-2.5 font-medium">Тариф</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Сумма</th>
-                  <th className="px-4 py-2.5 font-medium">Статус</th>
-                  <th className="px-4 py-2.5 font-medium">Оплачено до</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {shown.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground tabular-nums">{shortDate(p.paidAt ?? p.createdAt)}</td>
-                    <td className="px-4 py-3">
-                      «{tierInfo(p.tier as TierId).name}» {PERIOD_LABEL[p.period]}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium whitespace-nowrap tabular-nums">{formatPrice(p.amount)}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn('inline-flex h-5 items-center rounded-full px-2 text-xs font-medium', PAYMENT_STATUS[p.status].tone)}>
-                        {PAYMENT_STATUS[p.status].label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground tabular-nums">
-                      {p.paidUntil ? shortDate(p.paidUntil) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </section>
+    <SettingsGroup title="История оплат" className="mt-14">
+      {payments.isPending ? (
+        <div className="p-5">
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ) : payments.isError ? (
+        <p className="p-5 text-sm text-destructive">{errorMessage(payments.error)}</p>
+      ) : shown.length === 0 ? (
+        <SettingsRow icon={Receipt} title="Оплат пока не было" description="Здесь появятся оплаты «Pro» — с суммой и сроком" />
+      ) : (
+        shown.map((p) => (
+          <SettingsRow
+            key={p.id}
+            icon={Receipt}
+            title={`«${tierInfo(p.tier as TierId).name}» ${PERIOD_LABEL[p.period]}`}
+            description={`${shortDate(p.paidAt ?? p.createdAt)}${p.paidUntil ? ` · оплачено до ${shortDate(p.paidUntil)}` : ''}`}
+            trailing={
+              <>
+                <span className="font-medium tabular-nums">{formatPrice(p.amount)}</span>
+                <span className={cn('hidden h-5 items-center rounded-full px-2 text-xs font-medium sm:inline-flex', PAYMENT_STATUS[p.status].tone)}>
+                  {PAYMENT_STATUS[p.status].label}
+                </span>
+              </>
+            }
+          />
+        ))
+      )}
+    </SettingsGroup>
   );
 }
 
-// ------------------------------------------------------------------ questions
+// ------------------------------------------------------------------ footnotes
 
-function BillingQuestions({ sub }: { sub: Subscription }) {
+function Footnotes({ sub }: { sub: Subscription }) {
   const online = !!useBilling()?.enabled;
   const show = useUpgrade((s) => s.show);
-  const items: Array<{ q: string; a: ReactNode }> = [
-    online
-      ? {
-          q: 'Есть автоматические списания?',
-          a: 'Нет. Оплата разовая — на месяц или на год, продление — новой оплатой, когда удобно: период добавится к текущему. За 3 дня до конца пришлём письмо.',
-        }
-      : {
-          q: 'Как подключить «Pro»?',
-          a: 'Оставьте заявку — свяжемся, подключим тариф и ответим на вопросы. За 3 дня до конца срока пришлём письмо.',
-        },
-    {
-      q: 'Что будет, когда «Pro» закончится?',
-      a: 'Аккаунт перейдёт на «Старт». Все схемы сохранятся и будут открываться, но в большие схемы нельзя будет добавить машины и грузы, а новые схемы — сверх лимита «Старт».',
-    },
-    {
-      q: 'Нужен договор и оплата по счёту?',
-      a: (
-        <>
-          Для компаний — тариф «Индивидуальный»: договор, счёт, лимиты и интеграция с 1С.{' '}
-          {sub.tier !== 'custom' && (
-            <button
-              type="button"
-              onClick={() => show(undefined, 'custom')}
-              className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 outline-none hover:decoration-foreground focus-visible:decoration-foreground"
-            >
-              Обсудить условия
-            </button>
-          )}
-        </>
-      ),
-    },
-  ];
   return (
-    <section className="mt-14 grid gap-6 border-t pt-10 md:grid-cols-3" aria-label="Вопросы об оплате">
-      {items.map(({ q, a }) => (
-        <div key={q}>
-          <h3 className="text-sm font-medium">{q}</h3>
-          <p className="mt-1.5 text-sm text-pretty text-muted-foreground">{a}</p>
-        </div>
-      ))}
-    </section>
+    <div className="mt-8 space-y-1.5 px-1 text-[13px] text-pretty text-muted-foreground">
+      <p>
+        {online
+          ? 'Без автоматических списаний: продление — новой оплатой, период добавится к текущему. За 3 дня до конца пришлём письмо.'
+          : '«Pro» подключаем по заявке: свяжемся и подключим тариф. За 3 дня до конца срока пришлём письмо.'}
+      </p>
+      <p>Когда «Pro» закончится, аккаунт перейдёт на «Старт»: схемы сохранятся и будут открываться.</p>
+      {sub.tier !== 'custom' && (
+        <p>
+          Нужны договор, счёт или интеграция с 1С?{' '}
+          <button
+            type="button"
+            onClick={() => show(undefined, 'custom')}
+            className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 outline-none hover:decoration-foreground focus-visible:decoration-foreground"
+          >
+            Обсудить условия
+          </button>
+        </p>
+      )}
+    </div>
   );
 }

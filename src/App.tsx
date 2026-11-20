@@ -39,6 +39,7 @@ export function App() {
         }
       />
       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
+      <Route path="/account/:section" element={<RequireAuth><AccountPage /></RequireAuth>} />
       <Route path="/billing" element={TIERS_ENABLED ? <RequireAuth><BillingPage /></RequireAuth> : <Navigate to="/account" replace />} />
       <Route
         path="/admin"

@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Subscription, TierId } from '@/api/types';
 import { Button } from '@/components/ui/button';
-import { daysLeft, daysLeftText, subscriptionState, subscriptionSummary, tierInfo } from '@/lib/tiers';
+import { daysLeft, daysLeftText, subscriptionState, subscriptionSummary, tierInfo, type SubscriptionState } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
@@ -12,6 +12,37 @@ export const TIER_TONE: Record<TierId, string> = {
   pro: 'bg-primary/10 text-primary dark:bg-primary/20',
   custom: 'bg-amber-500/12 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300',
 };
+
+/** A panel of the current tier (the tariff page, the strip above the plans): a translucent fill of its colour. */
+export const TIER_PANEL_TONE: Record<SubscriptionState, string> = {
+  free: 'bg-foreground/[0.04] dark:bg-foreground/[0.06]',
+  expired: 'bg-warning/10',
+  ending: 'bg-warning/10',
+  trial: 'bg-primary/[0.07] dark:bg-primary/[0.14]',
+  active: 'bg-primary/[0.07] dark:bg-primary/[0.14]',
+  custom: 'bg-amber-500/[0.08] dark:bg-amber-400/[0.1]',
+};
+
+/** The solid icon tile on such a panel. */
+export const TIER_ICON_TONE: Record<SubscriptionState, string> = {
+  free: 'bg-foreground text-background',
+  expired: 'bg-warning text-white',
+  ending: 'bg-warning text-white',
+  trial: 'bg-primary text-primary-foreground',
+  active: 'bg-primary text-primary-foreground',
+  custom: 'bg-amber-500 text-white',
+};
+
+/** A row of equal pills, `filled` of them lit: plans out of the limit, days of the trial. */
+export function LimitSegments({ total, filled, warn, className }: { total: number; filled: number; warn?: boolean; className?: string }) {
+  return (
+    <div className={cn('flex gap-1', className)} aria-hidden>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={cn('h-1.5 flex-1 rounded-full', i < filled ? (warn ? 'bg-warning' : 'bg-primary') : 'bg-foreground/10')} />
+      ))}
+    </div>
+  );
+}
 
 /** «Старт», «Pro», «Индивидуальный» as a small pill. */
 export function TierBadge({ tier, className }: { tier: TierId; className?: string }) {
@@ -63,7 +94,12 @@ export function SubscriptionChip() {
     const label =
       state === 'expired' && sub.expiredTier === 'pro' ? 'Продлить Pro' : sub.trialAvailable && state === 'free' ? 'Попробовать Pro' : 'Перейти на Pro';
     return (
-      <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 rounded-full px-3">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-1.5 rounded-full bg-foreground/[0.06] px-3 hover:bg-foreground/10 dark:bg-foreground/10 dark:hover:bg-foreground/15"
+      >
         <Link to="/billing" title={subscriptionSummary(sub)}>
           <Sparkles className="text-primary" />
           <span className="hidden sm:inline">{label}</span>

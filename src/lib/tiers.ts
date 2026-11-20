@@ -139,3 +139,28 @@ export function limitSummary(sub: Subscription): string {
   const vehiclesText = vehicles === 1 ? '1 машина' : `до ${plural(vehicles, ['машины', 'машин', 'машин'])}`;
   return `${plansText}, ${vehiclesText} и до ${plural(items, ['груза', 'грузов', 'грузов'])} в схеме`;
 }
+
+/** A row of the comparison of tiers on «Тариф и оплата»: text, or whether the tier has it. */
+export interface ComparisonRow {
+  label: string;
+  values: Record<TierId, string | boolean>;
+}
+
+/** What each tier gives, row by row; the numbers come from TIERS[].limits. */
+export function comparisonRows(): ComparisonRow[] {
+  const each = (value: (limits: TierInfo['limits'], id: TierId) => string | boolean) =>
+    Object.fromEntries(TIERS.map((t) => [t.id, value(t.limits, t.id)])) as Record<TierId, string | boolean>;
+  const upTo = (n: number) => (n === 1 ? '1' : `до ${n.toLocaleString('ru-RU')}`);
+  return [
+    { label: 'Сохранённые схемы', values: each((l) => (l.plans === null ? 'Без лимита' : String(l.plans))) },
+    { label: 'Машин в схеме', values: each((l) => upTo(l.vehicles)) },
+    { label: 'Грузов в схеме', values: each((l) => upTo(l.items)) },
+    { label: 'Раскладка в 3D, LDM, вес и центр тяжести', values: each(() => true) },
+    { label: 'PDF-план загрузки', values: each(() => true) },
+    { label: 'Автозагрузка с развесовкой', values: each((_, id) => id !== 'free') },
+    { label: 'Пошаговая PDF-инструкция', values: each((_, id) => id !== 'free') },
+    { label: 'Интеграция с 1С', values: each((_, id) => id === 'custom') },
+    { label: 'Договор и оплата по счёту', values: each((_, id) => id === 'custom') },
+    { label: 'Помощь с внедрением', values: each((_, id) => id === 'custom') },
+  ];
+}

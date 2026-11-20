@@ -7,11 +7,11 @@ import { UserMenu } from '@/components/UserMenu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
-function Tab({ to, children }: { to: string; children: ReactNode }) {
+function Tab({ to, children, end = true }: { to: string; children: ReactNode; end?: boolean }) {
   return (
     <NavLink
       to={to}
-      end
+      end={end}
       className={({ isActive }) =>
         cn(
           'rounded-full px-3.5 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -35,7 +35,9 @@ export function AppHeader({ children }: { children?: ReactNode }) {
         <nav aria-label="Разделы" className="hidden items-center gap-1 sm:flex">
           <Tab to="/plans">Схемы</Tab>
           {tiers && <Tab to="/billing">Тариф</Tab>}
-          <Tab to="/account">Аккаунт</Tab>
+          <Tab to="/account" end={false}>
+            Аккаунт
+          </Tab>
           {isAdmin && <Tab to="/admin">Администрирование</Tab>}
         </nav>
         <div className="flex flex-1 items-center justify-end gap-1">
