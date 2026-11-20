@@ -9,7 +9,7 @@ import { authApi, userApi } from '@/api/endpoints';
 import type { SessionInfo } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
 import { LogoMark } from '@/components/Logo';
-import { SettingsGroup, SettingsPanel, SettingsRow, SubPageHeader, UserAvatar } from '@/components/settings';
+import { SEGMENT_ITEM, SettingsGroup, SettingsPanel, SettingsRow, SubPageHeader, UserAvatar } from '@/components/settings';
 import { TierBadge } from '@/components/TierBadge';
 import { SignOutDialog } from '@/components/UserMenu';
 import {
@@ -31,6 +31,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { describeUserAgent, fullDate, plural, timeAgo } from '@/lib/format';
 import { TIERS_ENABLED, subscriptionSummary } from '@/lib/tiers';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 import { useStore, type Theme } from '@/store/useStore';
 
@@ -155,7 +156,7 @@ function ThemeSwitch() {
           value={value}
           aria-label={label}
           title={label}
-          className="size-8 rounded-full text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground"
+          className={cn(SEGMENT_ITEM, 'size-8')}
         >
           <Icon className="size-4" />
         </ToggleGroupItem>

@@ -8,7 +8,7 @@ import { billingApi, userApi } from '@/api/endpoints';
 import type { BillingPeriod, Payment, Subscription, TierId, Usage } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
 import { LogoMark } from '@/components/Logo';
-import { SettingsGroup, SettingsRow } from '@/components/settings';
+import { SEGMENT_ITEM, SettingsGroup, SettingsRow } from '@/components/settings';
 import { LimitSegments, SubscriptionStateBadge, TIER_PANEL_TONE, TierCube, TierWordmark } from '@/components/TierBadge';
 import { UpgradeDialog, useUpgrade, useUpgradeAction } from '@/components/UpgradeDialog';
 import { Button } from '@/components/ui/button';
@@ -279,10 +279,10 @@ function Comparison({ sub }: { sub: Subscription }) {
           className="rounded-full bg-muted p-1"
           aria-label="Период оплаты"
         >
-          <ToggleGroupItem value="month" className="h-8 rounded-full px-4 data-[state=on]:bg-background">
+          <ToggleGroupItem value="month" className={cn(SEGMENT_ITEM, 'h-8 px-4')}>
             Помесячно
           </ToggleGroupItem>
-          <ToggleGroupItem value="year" className="h-8 rounded-full px-4 data-[state=on]:bg-background">
+          <ToggleGroupItem value="year" className={cn(SEGMENT_ITEM, 'h-8 px-4')}>
             За год −20%
           </ToggleGroupItem>
         </ToggleGroup>

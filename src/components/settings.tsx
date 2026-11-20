@@ -68,6 +68,13 @@ export function SettingsRow({ icon: Icon, title, description, to, onClick, trail
   return <div className={className}>{body}</div>;
 }
 
+/**
+ * An item of a segmented switch (a ToggleGroup on `bg-muted`): the chosen one is a solid pill of the text
+ * colour — readable in both themes without a shadow; the others are plain text.
+ */
+export const SEGMENT_ITEM =
+  'rounded-full text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background';
+
 /** A card with padding for a form or a block of text inside a section. */
 export function SettingsPanel({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('rounded-2xl bg-card p-5 ring-1 ring-foreground/[0.07] sm:p-6', className)}>{children}</div>;
