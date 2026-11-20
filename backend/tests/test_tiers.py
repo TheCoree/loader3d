@@ -107,6 +107,29 @@ async def test_expired_pro_works_as_free_and_big_plans_stay_editable(app, client
     assert error_code(grown) == "item_limit"
 
 
+async def test_usage_of_the_tier_limits(app, client, make_client: ClientFactory):
+    await register(client, tier="pro")
+    empty = (await client.get("/api/users/me/usage")).json()
+    assert empty == {"plans": 0, "maxVehicles": 0, "maxItems": 0, "overLimit": 0}
+
+    await client.post("/api/plans", json={"name": "Маленький", "data": plan_data(20)})
+    await client.post("/api/plans", json={"name": "Большой", "data": plan_data(150)})
+    usage = (await client.get("/api/users/me/usage")).json()
+    assert usage == {"plans": 2, "maxVehicles": 1, "maxItems": 150, "overLimit": 0}
+
+    # «Pro» has ended: the big plan is over the limits of «Старт».
+    async with app.state.sessionmaker() as db:
+        await db.execute(update(User).values(tier_expires_at=utcnow() - timedelta(minutes=1)))
+        await db.commit()
+    usage = (await client.get("/api/users/me/usage")).json()
+    assert usage == {"plans": 2, "maxVehicles": 1, "maxItems": 150, "overLimit": 1}
+
+    # Only the account's own plans count.
+    other = await make_client()
+    await register(other, email="boris@example.com")
+    assert (await other.get("/api/users/me/usage")).json()["plans"] == 0
+
+
 async def test_display_settings_follow_the_account(client, make_client: ClientFactory):
     await register(client)
     assert (await client.get("/api/users/me")).json()["settings"] is None

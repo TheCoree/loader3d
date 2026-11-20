@@ -158,8 +158,8 @@ async def test_payment_and_reminder_letters(settings: Settings, smtp: type[FakeS
     assert paid["Subject"] == "Оплата получена: «Pro» до 20 декабря 2026"
     text = _body(paid, "plain")
     assert "1 990 ₽" in text and "(на месяц)" in text
-    assert "Открыть аккаунт: https://loader3d.test/account#subscription" in text
-    assert 'href="https://loader3d.test/account#subscription"' in _body(paid, "html")
+    assert "Тариф и оплата: https://loader3d.test/billing" in text
+    assert 'href="https://loader3d.test/billing"' in _body(paid, "html")
 
     assert ending["Subject"] == "Пробный период тарифа «Pro» заканчивается 20 декабря 2026"
     assert "Продлить «Pro»" in _body(ending, "html")

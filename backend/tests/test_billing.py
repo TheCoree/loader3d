@@ -89,7 +89,7 @@ async def test_paying_a_month_of_pro(client: httpx.AsyncClient, letters: list) -
     before = utcnow()
     paid = await _pay(client, checkout)
     assert paid.status_code == 303
-    assert paid.headers["location"] == f"/account?payment={payment['id']}#subscription"
+    assert paid.headers["location"] == f"/billing?payment={payment['id']}"
 
     payment = (await client.get(f"/api/billing/payments/{payment['id']}")).json()
     assert payment["status"] == "paid"
