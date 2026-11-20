@@ -222,6 +222,14 @@
   animation: lp-streak 7s linear infinite;
 }
 
+/* The hero trailer starts empty: the loading (useTruckLoading) brings the pallets in as soon as the page
+   runs. With reduced motion nothing moves and the trailer is shown full. */
+@media (prefers-reduced-motion: no-preference) {
+  .lp-pallet {
+    opacity: 0;
+  }
+}
+
 /* 1С → Loader3D: records running along the line between the two. */
 @keyframes lp-flow {
   from {
