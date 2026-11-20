@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import AfterValidator, EmailStr, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, EmailStr, Field, StringConstraints
 
 from app.models import User, utcnow
 from app.schemas.base import ApiModel
@@ -166,20 +166,15 @@ class UserUpdateIn(ApiModel):
 
 
 class PasswordChangeIn(ApiModel):
-    # One of the two: the current password, or the code emailed by POST /users/me/password/code.
-    current_password: Password | None = None
-    code: Code | None = None
+    # The code emailed by POST /users/me/password/code: the current password alone is not enough (it may
+    # be what leaked), the mailbox is.
+    code: Code
     new_password: NewPassword
-
-    @model_validator(mode="after")
-    def _one_proof(self) -> Self:
-        if (self.current_password is None) == (self.code is None):
-            raise ValueError("Укажите текущий пароль или код из письма")
-        return self
 
 
 class AccountDeleteIn(ApiModel):
-    password: Password
+    # The code emailed by POST /users/me/delete/code.
+    code: Code
 
 
 class DisplaySettingsIn(ApiModel):

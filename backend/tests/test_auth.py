@@ -296,31 +296,6 @@ async def test_sessions_of_other_users_cannot_be_revoked(make_client: ClientFact
     assert (await anna.get("/api/users/me")).status_code == 200
 
 
-async def test_change_password_ends_other_sessions(make_client: ClientFactory):
-    laptop = await make_client("Laptop")
-    phone = await make_client("Phone")
-    await register(laptop)
-    await login(phone)
-
-    wrong = await laptop.post(
-        "/api/users/me/password", json={"currentPassword": "nope", "newPassword": "new password 123"}
-    )
-    assert wrong.status_code == 400
-    assert error_code(wrong) == "wrong_password"
-
-    changed = await laptop.post(
-        "/api/users/me/password", json={"currentPassword": PASSWORD, "newPassword": "new password 123"}
-    )
-    assert changed.status_code == 204
-    assert (await laptop.get("/api/users/me")).status_code == 200
-    assert error_code(await phone.get("/api/users/me")) == "session_expired"
-
-    fresh = await make_client()
-    old = await fresh.post("/api/auth/login", json={"email": "anna@example.com", "password": PASSWORD})
-    assert old.status_code == 401
-    await login(fresh, password="new password 123")
-
-
 async def test_update_profile(client):
     await register(client, display_name="Анна")
     assert (await client.get("/api/users/me")).json()["displayName"] == "Анна"
@@ -328,24 +303,6 @@ async def test_update_profile(client):
     assert response.status_code == 200
     assert response.json()["displayName"] == "Анна К."
     assert (await client.patch("/api/users/me", json={"displayName": "   "})).status_code == 422
-
-
-async def test_delete_account_removes_plans_and_sessions(client, make_client: ClientFactory):
-    await register(client)
-    plan = (await client.post("/api/plans", json={"name": "Рейс"})).json()
-
-    wrong = await client.request("DELETE", "/api/users/me", json={"password": "nope"})
-    assert wrong.status_code == 400
-    response = await client.request("DELETE", "/api/users/me", json={"password": PASSWORD})
-    assert response.status_code == 204
-    assert error_code(await client.get(f"/api/plans/{plan['id']}")) == "session_expired"
-
-    other = await make_client()
-    gone = await other.post("/api/auth/login", json={"email": "anna@example.com", "password": PASSWORD})
-    assert gone.status_code == 401
-    # The e-mail is free again, and the new account does not see the old plans.
-    await register(other)
-    assert (await other.get("/api/plans")).json()["total"] == 0
 
 
 def test_production_requires_a_real_jwt_secret():

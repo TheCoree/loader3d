@@ -181,6 +181,23 @@ async def send_password_change_code(settings: Settings, email: str, code: str) -
     await send(settings, message)
 
 
+async def send_account_delete_code(settings: Settings, email: str, code: str) -> None:
+    """The code that confirms deleting the account with all its plans."""
+    message = build_message(
+        settings,
+        email,
+        f"Код для удаления аккаунта Loader3D: {code}",
+        "Код для удаления аккаунта:",
+        code,
+        [
+            "Введите его в аккаунте, в разделе «Профиль» → «Опасная зона». Код действует 15 минут.",
+            "Аккаунт и все схемы будут удалены без возможности восстановления.",
+            "Если вы не удаляли аккаунт, ничего не делайте и смените пароль — возможно, кто-то вошёл в него.",
+        ],
+    )
+    await send(settings, message)
+
+
 MONTHS_GENITIVE = (
     "января",
     "февраля",
