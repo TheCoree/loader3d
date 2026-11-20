@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { create } from 'zustand';
-import { ArrowRight, Check, Sparkles } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import type { BillingInfo, Price, Subscription, TierId } from '@/api/types';
 import { LeadForm } from '@/components/LeadForm';
+import { LogoMark } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
@@ -59,7 +60,7 @@ export function UpgradeDialog() {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="size-5 text-primary" />
+            <LogoMark tone="mono" className="size-6 text-primary" />
             {form === 'custom' ? 'Индивидуальные условия' : `Тариф «${pro.name}»`}
           </DialogTitle>
           <DialogDescription className="text-pretty">

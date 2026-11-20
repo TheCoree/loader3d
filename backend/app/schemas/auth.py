@@ -166,12 +166,15 @@ class UserUpdateIn(ApiModel):
 
 
 class PasswordChangeIn(ApiModel):
-    current_password: Password
+    # The code emailed by POST /users/me/password/code: the current password alone is not enough (it may
+    # be what leaked), the mailbox is.
+    code: Code
     new_password: NewPassword
 
 
 class AccountDeleteIn(ApiModel):
-    password: Password
+    # The code emailed by POST /users/me/delete/code.
+    code: Code
 
 
 class DisplaySettingsIn(ApiModel):

@@ -1,5 +1,7 @@
-"""One-time 6-digit codes sent by email: confirming the address (at registration and on request) and
-resetting a forgotten password. Each kind has its own columns on `User` (`verify_*`, `reset_*`).
+"""One-time 6-digit codes sent by email: confirming the address (at registration and on request),
+resetting a forgotten password (and changing it from the account page — only with a code, never with the
+current password, which may be what leaked) and deleting the account. Each kind has its own columns on
+`User` (`verify_*`, `reset_*`, `delete_*`).
 
 Only an HMAC of the code is stored (keyed by the kind, so a code of one kind is useless for the other).
 A code lives CODE_TTL, a new one can be requested after RESEND_COOLDOWN, and MAX_ATTEMPTS wrong tries
@@ -25,7 +27,7 @@ CODE_TTL = timedelta(minutes=15)
 RESEND_COOLDOWN = timedelta(seconds=60)
 MAX_ATTEMPTS = 5
 
-CodeKind = Literal["verify", "reset"]
+CodeKind = Literal["verify", "reset", "delete"]
 
 
 def _digest(settings: Settings, user: User, kind: CodeKind, code: str) -> str:
@@ -53,14 +55,21 @@ def mail_failed() -> ApiError:
     )
 
 
-async def issue_code(settings: Settings, user: User, now: datetime, kind: CodeKind = "verify") -> None:
-    """A new code replaces the previous one. The caller checks the cooldown and commits.
+async def issue_code(
+    settings: Settings, user: User, now: datetime, kind: CodeKind = "verify", *, change: bool = False
+) -> None:
+    """A new code replaces the previous one. The caller checks the cooldown and commits. `change`: a
+    "reset" code asked for from the account page (the letter speaks of changing the password).
 
     Raises mail.MailError if the letter was not sent; the user is not changed then (the previous code
     keeps working and no cooldown starts)."""
     code = f"{secrets.randbelow(10**CODE_LENGTH):0{CODE_LENGTH}d}"
     if kind == "verify":
         await mail.send_verification_code(settings, user.email, code)
+    elif kind == "delete":
+        await mail.send_account_delete_code(settings, user.email, code)
+    elif change:
+        await mail.send_password_change_code(settings, user.email, code)
     else:
         await mail.send_password_reset_code(settings, user.email, code)
     setattr(user, f"{kind}_code_hash", _digest(settings, user, kind, code))
