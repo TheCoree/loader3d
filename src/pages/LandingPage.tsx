@@ -272,7 +272,7 @@ function LandingHeader() {
     <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-black/80 backdrop-blur-xl backdrop-saturate-150">
       <Container className="flex h-16 items-center gap-8">
         <Logo className="text-white" />
-        <nav aria-label="Разделы" className="hidden items-center gap-6 text-sm md:flex">
+        <nav aria-label="Разделы" className="hidden items-center gap-6 text-sm lg:flex">
           {NAV.map((n) => (
             <a key={n.href} href={n.href} className={cn(mutedText, 'transition-colors hover:text-white')}>
               {n.label}
@@ -709,8 +709,9 @@ function PdfPage() {
 
 /**
  * Wide screens: the steps on the left with a thread between them, the widget of the chosen one on the right
- * — all four pictures are on a stage of one height and cross-fade, so nothing jumps and each is loaded
- * before it is chosen. Phones: the steps one under another, each with its widget.
+ * — all four pictures are on a stage of one height, top-aligned, and only fade (no movement), so nothing
+ * jumps and each is loaded before it is chosen. Phones: the steps one under another, each with its widget
+ * centred under it.
  */
 function Workflow() {
   const [active, setActive] = useState(0);
@@ -727,7 +728,7 @@ function Workflow() {
         </div>
 
         <div className="mt-14 hidden gap-16 lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)]">
-          <ol className="relative grid content-start gap-2 self-center">
+          <ol className="relative grid content-start gap-2 self-start">
             <span aria-hidden className="absolute top-6 bottom-6 left-[19px] w-px bg-white/10" />
             {STEPS.map((s, i) => (
               <li key={s.title}>
@@ -758,8 +759,8 @@ function Workflow() {
                 key={s.image.src}
                 aria-hidden={active !== i}
                 className={cn(
-                  'absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-500 ease-out',
-                  active === i ? 'opacity-100' : 'pointer-events-none translate-y-2 opacity-0',
+                  'absolute inset-0 flex items-start justify-center transition-opacity duration-300 ease-out',
+                  active === i ? 'opacity-100' : 'pointer-events-none opacity-0',
                 )}
               >
                 <Shot
@@ -782,7 +783,7 @@ function Workflow() {
                   <p className="mt-1 text-[15px] leading-relaxed text-[#8f8f8f]">{s.text}</p>
                 </div>
               </div>
-              <Shot {...s.image} className="mt-5 w-full rounded-2xl" style={{ maxWidth: s.image.width / 2 }} />
+              <Shot {...s.image} className="mx-auto mt-5 w-full rounded-2xl" style={{ maxWidth: s.image.width / 2 }} />
             </li>
           ))}
         </ol>
