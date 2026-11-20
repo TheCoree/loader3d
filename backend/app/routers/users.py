@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter, Request, Response, status
@@ -7,10 +8,13 @@ from app.auth import CurrentAuth, clear_refresh_cookie, revoke_sessions
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found
+from app.mail import MailError
 from app.models import Plan, utcnow
+from app.ratelimit import RateLimiter, too_many
 from app.schemas.auth import (
     AccountDeleteIn,
     DisplaySettingsIn,
+    ForgotPasswordOut,
     PasswordChangeIn,
     UsageOut,
     UserOut,
@@ -18,8 +22,12 @@ from app.schemas.auth import (
 )
 from app.security import hash_password, verify_password
 from app.tiers import effective_tier, start_trial, tier_limits
+from app.verification import check_code, issue_code, mail_failed, resend_wait
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+# Letters with a code to change the password: a person needs one or two, a stolen session no more.
+PASSWORD_CODES_PER_USER = RateLimiter(5, timedelta(hours=1))
 
 
 def _wrong_password() -> ApiError:
@@ -88,12 +96,43 @@ async def take_trial(auth: CurrentAuth, db: Db, settings: SettingsDep) -> UserOu
     return UserOut.of(user, settings.tiers_enabled)
 
 
+@router.post("/me/password/code")
+async def send_password_code(auth: CurrentAuth, db: Db, settings: SettingsDep) -> ForgotPasswordOut:
+    """Emails the account a code to change the password without the current one (POST /me/password with
+    `code`). The same code as for a forgotten password: a new one replaces it."""
+    user = auth.user
+    now = utcnow()
+    if wait := resend_wait(user, now, "reset"):
+        # The code sent a moment ago still works; the page shows the same countdown.
+        return ForgotPasswordOut(retry_after=wait)
+    if wait := PASSWORD_CODES_PER_USER.allow(str(user.id)):
+        raise too_many(wait, "Слишком много писем с кодом — попробуйте позже")
+    try:
+        await issue_code(settings, user, now, "reset", change=True)
+    except MailError:
+        raise mail_failed() from None
+    await db.commit()
+    return ForgotPasswordOut(retry_after=resend_wait(user, now, "reset"))
+
+
 @router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
-async def change_password(body: PasswordChangeIn, auth: CurrentAuth, db: Db) -> None:
-    """Changes the password and ends every other session; the current one stays logged in."""
-    if not await verify_password(auth.user.password_hash, body.current_password):
+async def change_password(body: PasswordChangeIn, auth: CurrentAuth, db: Db, settings: SettingsDep) -> None:
+    """Changes the password — with the current one or with the emailed code — and ends every other
+    session; the current one stays logged in."""
+    user = auth.user
+    if body.code is not None:
+        now = utcnow()
+        try:
+            check_code(settings, user, body.code, now, "reset")
+        except ApiError:
+            await db.commit()  # wrong attempts are counted
+            raise
+        # The code came to this mailbox, so the address is confirmed too.
+        if user.email_verified_at is None:
+            user.email_verified_at = now
+    elif not await verify_password(user.password_hash, body.current_password or ""):
         raise _wrong_password()
-    auth.user.password_hash = await hash_password(body.new_password)
+    user.password_hash = await hash_password(body.new_password)
     await revoke_sessions(db, auth.user.id, keep=auth.session.id)
     await db.commit()
 

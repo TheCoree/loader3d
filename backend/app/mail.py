@@ -165,6 +165,22 @@ async def send_password_reset_code(settings: Settings, email: str, code: str) ->
     await send(settings, message)
 
 
+async def send_password_change_code(settings: Settings, email: str, code: str) -> None:
+    """The code to change the password from the account page, without the current one."""
+    message = build_message(
+        settings,
+        email,
+        f"Код для смены пароля Loader3D: {code}",
+        "Код для смены пароля:",
+        code,
+        [
+            "Введите его в аккаунте, в разделе «Пароль». Код действует 15 минут.",
+            "Если вы не меняли пароль, ничего не делайте — пароль останется прежним.",
+        ],
+    )
+    await send(settings, message)
+
+
 MONTHS_GENITIVE = (
     "января",
     "февраля",
