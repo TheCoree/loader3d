@@ -4,12 +4,13 @@ import { Check, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import { userApi } from '@/api/endpoints';
-import type { TierId } from '@/api/types';
+import type { BillingInfo, Price, Subscription, TierId } from '@/api/types';
 import { LeadForm } from '@/components/LeadForm';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { TRIAL_DAYS, tierInfo } from '@/lib/tiers';
+import { PERIOD_LABEL, priceOf, useBilling, usePay } from '@/lib/billing';
+import { TRIAL_DAYS, formatPrice, tierInfo } from '@/lib/tiers';
 import { useAuth } from '@/store/useAuth';
 
 interface UpgradeState {
@@ -35,11 +36,15 @@ export function UpgradeDialog() {
   const { open, reason, requestTier, close } = useUpgrade();
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
+  const billing = useBilling();
   const [requesting, setRequesting] = useState<TierId | null>(null);
   const [pending, setPending] = useState(false);
   const sub = user?.subscription;
   const pro = tierInfo('pro');
-  const form = requesting ?? requestTier;
+  const chosen = requesting ?? requestTier;
+  // «Pro» is paid right here when the server takes payments; otherwise it is a request, like «Индивидуальный».
+  const paying = !!billing?.enabled && chosen === 'pro';
+  const form = paying ? null : chosen;
 
   const startTrial = async () => {
     setPending(true);
@@ -73,7 +78,9 @@ export function UpgradeDialog() {
           <DialogDescription className="text-pretty">
             {form
               ? 'Оставьте контакты — подключим тариф и ответим на вопросы.'
-              : (reason ?? 'Снимите ограничения тарифа «Старт».')}
+              : paying
+                ? renewalNote(sub)
+                : (reason ?? 'Снимите ограничения тарифа «Старт».')}
           </DialogDescription>
         </DialogHeader>
 
@@ -84,6 +91,8 @@ export function UpgradeDialog() {
             submitLabel="Отправить заявку"
             messagePlaceholder={form === 'custom' ? 'Объёмы, сколько пользователей, сроки' : 'Удобный способ оплаты, вопросы'}
           />
+        ) : paying && billing ? (
+          <PayOptions info={billing} />
         ) : (
           <>
             <ul className="grid gap-2 rounded-xl bg-muted/60 p-4 text-sm">
@@ -94,6 +103,7 @@ export function UpgradeDialog() {
                 </li>
               ))}
             </ul>
+            {billing?.enabled && <PayOptions info={billing} />}
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
               {sub?.trialAvailable ? (
                 <Button size="lg" className="sm:flex-1" onClick={() => void startTrial()} disabled={pending}>
@@ -101,9 +111,11 @@ export function UpgradeDialog() {
                   Попробовать {TRIAL_DAYS} дней бесплатно
                 </Button>
               ) : (
-                <Button size="lg" className="sm:flex-1" onClick={() => setRequesting('pro')}>
-                  Подключить «{pro.name}»
-                </Button>
+                !billing?.enabled && (
+                  <Button size="lg" className="sm:flex-1" onClick={() => setRequesting('pro')}>
+                    Подключить «{pro.name}»
+                  </Button>
+                )
               )}
               <Button size="lg" variant="outline" onClick={() => setRequesting('custom')}>
                 Индивидуальные условия
@@ -113,6 +125,56 @@ export function UpgradeDialog() {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** What a payment does to the current subscription. */
+function renewalNote(sub: Subscription | null | undefined): string {
+  if (sub?.tier === 'pro' && sub.expiresAt) {
+    const date = new Date(sub.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `${sub.trial ? 'Пробный период' : '«Pro»'} действует до ${date} — оплаченный период добавится к нему.`;
+  }
+  return 'Тариф подключится сразу после оплаты.';
+}
+
+/** «Pro» for a month or a year: leaves for the payment page (src/lib/billing.ts). */
+function PayOptions({ info }: { info: BillingInfo }) {
+  const pay = usePay();
+  // After a success the browser is leaving for the payment page: keep the buttons disabled.
+  const busy = pay.isPending || pay.isSuccess;
+  const prices = [priceOf(info, 'month'), priceOf(info, 'year')].filter((p): p is Price => !!p);
+  const month = priceOf(info, 'month')?.amount;
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {prices.map((price) => {
+        const perMonth = Math.round(price.amount / price.months);
+        const saving = month && price.months > 1 ? Math.round((1 - perMonth / month) * 100) : 0;
+        return (
+          <Button
+            key={price.period}
+            size="lg"
+            variant={price.months > 1 ? 'default' : 'outline'}
+            className="h-auto flex-col items-start gap-0.5 py-3 text-left"
+            disabled={busy}
+            onClick={() => pay.mutate(price.period)}
+          >
+            <span className="flex items-center gap-2 text-base font-semibold tabular-nums">
+              {busy && pay.variables === price.period && <Spinner />}
+              {formatPrice(price.amount)} {PERIOD_LABEL[price.period]}
+            </span>
+            <span className="text-xs font-normal opacity-80">
+              {price.months > 1
+                ? `${formatPrice(perMonth)} в месяц${saving > 0 ? ` · выгоднее на ${saving}%` : ''}`
+                : 'оплата за один месяц'}
+            </span>
+          </Button>
+        );
+      })}
+      <p className="text-xs text-pretty text-muted-foreground sm:col-span-2">
+        Без автоматических списаний: когда период закончится, аккаунт перейдёт на «Старт», схемы сохранятся.
+      </p>
+    </div>
   );
 }
 

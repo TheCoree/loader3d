@@ -10,6 +10,7 @@ import asyncio
 import logging
 import smtplib
 import ssl
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid, parseaddr
 
@@ -28,8 +29,16 @@ def _footer(settings: Settings) -> str:
     return f"— Loader3D\n{settings.site_url}" if settings.site_url else "— Loader3D"
 
 
-def _html(lead: str, code: str, notes: list[str], settings: Settings) -> str:
-    # Plain inline styles: mail clients ignore <style> and external CSS. Only fixed texts and digits go in.
+def _site_link(settings: Settings, path: str) -> str | None:
+    """An absolute link into the site for a button in the letter; None without SITE_URL."""
+    return f"{settings.site_url.rstrip('/')}{path}" if settings.site_url else None
+
+
+def _html(
+    lead: str, code: str | None, notes: list[str], button: tuple[str, str] | None, settings: Settings
+) -> str:
+    # Plain inline styles: mail clients ignore <style> and external CSS. Only fixed texts, digits, dates
+    # and SITE_URL go in.
     paragraphs = "".join(f'<p style="margin:0 0 12px;color:#52525b">{note}</p>' for note in notes)
     link = (
         f'<a href="{settings.site_url}" style="color:#71717a">{settings.site_url}</a>'
@@ -41,14 +50,25 @@ def _html(lead: str, code: str, notes: list[str], settings: Settings) -> str:
         "margin:0 0 24px;font-size:32px;font-weight:700;letter-spacing:6px;color:#09090b;"
         "font-family:'SFMono-Regular',Consolas,monospace"
     )
+    code_html = f'<p style="{code_style}">{code}</p>' if code else ""
+    button_style = (
+        "display:inline-block;padding:10px 18px;border-radius:8px;background:#09090b;color:#ffffff;"
+        "text-decoration:none;font-weight:600"
+    )
+    button_html = (
+        f'<p style="margin:20px 0 8px"><a href="{button[1]}" style="{button_style}">{button[0]}</a></p>'
+        if button
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="ru">
 <body style="margin:0;padding:24px;background:#f4f4f5;font-family:{font}">
 <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
 <p style="margin:0 0 24px;font-size:18px;font-weight:600;color:#09090b">Loader3D</p>
 <p style="margin:0 0 16px;color:#09090b">{lead}</p>
-<p style="{code_style}">{code}</p>
+{code_html}
 {paragraphs}
+{button_html}
 <p style="margin:24px 0 0;font-size:13px;color:#a1a1aa">{link}</p>
 </div>
 </body>
@@ -57,8 +77,15 @@ def _html(lead: str, code: str, notes: list[str], settings: Settings) -> str:
 
 
 def build_message(
-    settings: Settings, to: str, subject: str, lead: str, code: str, notes: list[str]
+    settings: Settings,
+    to: str,
+    subject: str,
+    lead: str,
+    code: str | None,
+    notes: list[str],
+    button: tuple[str, str] | None = None,
 ) -> EmailMessage:
+    """`code` — the big digits of a one-time code; `button` — (label, absolute URL) under the notes."""
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = settings.mail_from
@@ -67,9 +94,11 @@ def build_message(
     sender_domain = parseaddr(settings.mail_from)[1].rpartition("@")[2] or None
     message["Message-ID"] = make_msgid(domain=sender_domain)
     message["Auto-Submitted"] = "auto-generated"
-    text = "\n\n".join(["Здравствуйте!", f"{lead}\n\n{code}", *notes, _footer(settings)])
+    head = f"{lead}\n\n{code}" if code else lead
+    tail = [f"{button[0]}: {button[1]}"] if button else []
+    text = "\n\n".join(["Здравствуйте!", head, *notes, *tail, _footer(settings)])
     message.set_content(text + "\n")
-    message.add_alternative(_html(lead, code, notes, settings), subtype="html")
+    message.add_alternative(_html(lead, code, notes, button, settings), subtype="html")
     return message
 
 
@@ -132,6 +161,75 @@ async def send_password_reset_code(settings: Settings, email: str, code: str) ->
             "Введите его на странице сброса пароля. Код действует 15 минут.",
             "Если вы не запрашивали сброс, ничего не делайте — пароль останется прежним.",
         ],
+    )
+    await send(settings, message)
+
+
+MONTHS_GENITIVE = (
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
+)
+# Dates in the letters are Moscow dates (UTC+3 all year), like the support hours on the site.
+MOSCOW = timezone(timedelta(hours=3), "MSK")
+
+
+def ru_date(moment: datetime) -> str:
+    """«19 декабря 2026»."""
+    local = moment.astimezone(MOSCOW)
+    return f"{local.day} {MONTHS_GENITIVE[local.month - 1]} {local.year}"
+
+
+def _rub(amount: int) -> str:
+    return f"{amount:,}".replace(",", " ") + " ₽"
+
+
+async def send_payment_received(
+    settings: Settings, email: str, tier_name: str, period_name: str, amount: int, paid_until: datetime
+) -> None:
+    """After a payment (app/billing.py). Not a fiscal receipt: that one comes from the payment provider."""
+    message = build_message(
+        settings,
+        email,
+        f"Оплата получена: «{tier_name}» до {ru_date(paid_until)}",
+        f"Спасибо! Оплата {_rub(amount)} получена, тариф «{tier_name}» ({period_name}) действует до "
+        f"{ru_date(paid_until)}.",
+        None,
+        [
+            "Продлить тариф можно в любой момент в аккаунте: новый период добавится к текущему.",
+            "Автоматических списаний нет. Вопросы по оплате — в поддержку, контакты внизу сайта.",
+        ],
+        ("Открыть аккаунт", link) if (link := _site_link(settings, "/account#subscription")) else None,
+    )
+    await send(settings, message)
+
+
+async def send_tier_ending(
+    settings: Settings, email: str, tier_name: str, ends_at: datetime, trial: bool
+) -> None:
+    """A few days before a period of «Pro» ends (app/billing.py `send_tier_reminders`)."""
+    what = "Пробный период тарифа" if trial else "Тариф"
+    message = build_message(
+        settings,
+        email,
+        f"{what} «{tier_name}» заканчивается {ru_date(ends_at)}",
+        f"{what} «{tier_name}» действует до {ru_date(ends_at)}.",
+        None,
+        [
+            "Потом аккаунт перейдёт на бесплатный тариф «Старт»: сохранённые схемы останутся, а для новых "
+            "будут действовать его лимиты.",
+            "Чтобы продолжить без ограничений, оплатите «Pro» в аккаунте — на месяц или на год.",
+        ],
+        ("Продлить «Pro»", link) if (link := _site_link(settings, "/account#subscription")) else None,
     )
     await send(settings, message)
 

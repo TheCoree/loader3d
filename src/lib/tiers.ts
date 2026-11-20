@@ -9,8 +9,8 @@ export const TIERS_ENABLED: boolean = __TIERS_ENABLED__;
 /**
  * Tiers as the landing page, the registration and the account page show them. The limits the API
  * enforces live in backend/app/tiers.py — `limits` here repeats them for the pricing table, keep the
- * two in sync. Prices are in roubles per month; there is no online payment yet (an admin activates
- * paid tiers), so they only inform.
+ * two in sync. Prices are in roubles per month; what is charged online is backend/app/billing.py PRICES
+ * (a month = price.monthly, a year = price.yearly × 12): change both. Payment itself — src/lib/billing.ts.
  */
 export interface TierInfo {
   id: TierId;
@@ -68,6 +68,7 @@ export const TIERS: readonly TierInfo[] = [
     limits: { plans: null, vehicles: 10, items: 5000 },
     features: [
       'Всё из тарифа «Pro»',
+      'Интеграция с 1С: товары с габаритами и весом — сразу в схему',
       'Лимиты, срок и стоимость — под ваши объёмы',
       'Работа по договору, оплата по счёту',
       'Помощь с внедрением: транспорт, типовые грузы, обучение',

@@ -1,12 +1,14 @@
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import jobs
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
-from app.routers import admin, auth, health, leads, plans, users
+from app.routers import admin, analytics, auth, billing, health, leads, plans, users
 
 API_PREFIX = "/api"
 
@@ -20,9 +22,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = create_engine(settings.sqlalchemy_url)
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
+        # Hourly: «тариф заканчивается» letters and the removal of old visit statistics (app/jobs.py).
+        hourly = asyncio.create_task(jobs.hourly(app.state.sessionmaker, settings))
         try:
             yield
         finally:
+            hourly.cancel()
+            with suppress(asyncio.CancelledError):
+                await hourly
             await engine.dispose()
 
     app = FastAPI(
@@ -44,6 +51,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["*"],
         )
 
-    for module in (health, auth, users, plans, leads, admin):
+    for module in (health, auth, users, plans, leads, billing, analytics, admin):
         app.include_router(module.router, prefix=API_PREFIX)
     return app

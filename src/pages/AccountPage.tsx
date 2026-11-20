@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, KeyRound, LogOut, Monitor, ShieldAlert, Smartphone, Sparkles, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiError, errorMessage } from '@/api/client';
-import { authApi, userApi } from '@/api/endpoints';
-import type { SessionInfo, TierLimits } from '@/api/types';
+import { authApi, billingApi, userApi } from '@/api/endpoints';
+import type { Payment, SessionInfo, TierLimits } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
 import { UpgradeDialog, useUpgrade } from '@/components/UpgradeDialog';
 import {
@@ -26,8 +26,9 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
+import { PERIOD_LABEL, useBilling } from '@/lib/billing';
 import { describeUserAgent, fullDate, plural, timeAgo } from '@/lib/format';
-import { TIERS_ENABLED, TRIAL_DAYS, subscriptionSummary } from '@/lib/tiers';
+import { TIERS_ENABLED, TRIAL_DAYS, formatPrice, subscriptionSummary } from '@/lib/tiers';
 import { useAuth } from '@/store/useAuth';
 
 export function AccountPage() {
@@ -124,9 +125,83 @@ function limitLines(limits: TierLimits): string[] {
   ];
 }
 
+/** How many times the return page asks about a pending payment (every 2 s) before it stops waiting. */
+const PAYMENT_POLLS = 30;
+
+/**
+ * Back from the payment page (/account?payment=<id>): waits until the provider has answered, then
+ * refreshes the account, says how it went and drops `?payment` from the address. True while it waits.
+ */
+function usePaymentReturn(): boolean {
+  const { search } = useLocation();
+  const navigate = useNavigate();
+  const id = new URLSearchParams(search).get('payment');
+  const setUser = useAuth((s) => s.setUser);
+  const queryClient = useQueryClient();
+  const queryKey = ['billing', 'payment', id];
+  const payment = useQuery({
+    queryKey,
+    queryFn: () => billingApi.payment(id ?? ''),
+    enabled: !!id,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' && query.state.dataUpdateCount < PAYMENT_POLLS ? 2000 : false,
+  });
+  const data = payment.data;
+  // Read on every poll (dataUpdatedAt changes each time): after the last one the page stops waiting.
+  const polledAt = payment.dataUpdatedAt;
+  const gaveUp =
+    data?.status === 'pending' && polledAt > 0 && (queryClient.getQueryState(queryKey)?.dataUpdateCount ?? 0) >= PAYMENT_POLLS;
+
+  useEffect(() => {
+    if (!id || (!payment.isError && (!data || (data.status === 'pending' && !gaveUp)))) return;
+    if (payment.isError) toast.error(errorMessage(payment.error));
+    else if (data?.status === 'paid') {
+      const until = data.paidUntil
+        ? ` до ${new Date(data.paidUntil).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`
+        : '';
+      toast.success(`Оплата прошла: «Pro» подключён${until}`);
+      void userApi.me().then(setUser);
+    } else if (data?.status === 'canceled') toast('Оплата отменена — тариф не изменился');
+    else toast('Платёж ещё обрабатывается: тариф подключится, как только придёт подтверждение');
+    void queryClient.invalidateQueries({ queryKey: ['billing', 'payments'] });
+    navigate({ search: '', hash: '#subscription' }, { replace: true });
+  }, [id, data, gaveUp, payment.isError, payment.error, navigate, setUser, queryClient]);
+
+  return !!id;
+}
+
+const PAYMENT_STATUS: Record<Payment['status'], string> = { pending: 'Ожидает оплаты', paid: 'Оплачен', canceled: 'Отменён' };
+
+function PaymentHistory() {
+  const payments = useQuery({ queryKey: ['billing', 'payments'], queryFn: billingApi.payments });
+  const shown = (payments.data ?? []).filter((p) => p.status !== 'canceled').slice(0, 5);
+  if (shown.length === 0) return null;
+  return (
+    <div className="mt-5 border-t pt-4">
+      <p className="text-sm font-medium">История оплат</p>
+      <ul className="mt-2 grid gap-1.5 text-sm">
+        {shown.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-muted-foreground tabular-nums">{fullDate(p.paidAt ?? p.createdAt)}</span>
+            <span>
+              «Pro» {PERIOD_LABEL[p.period]} · {formatPrice(p.amount)}
+            </span>
+            <Badge variant={p.status === 'paid' ? 'secondary' : 'outline'} className="ml-auto">
+              {PAYMENT_STATUS[p.status]}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SubscriptionCard() {
   const sub = useAuth((s) => s.user?.subscription);
   const show = useUpgrade((s) => s.show);
+  const billing = useBilling();
+  const returning = usePaymentReturn();
   const { hash } = useLocation();
   useEffect(() => {
     if (hash === '#subscription') document.getElementById('subscription')?.scrollIntoView({ block: 'start' });
@@ -145,6 +220,11 @@ function SubscriptionCard() {
         </div>
       </CardHeader>
       <CardContent>
+        {returning && (
+          <p className="mb-4 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+            <Spinner /> Проверяем оплату…
+          </p>
+        )}
         <ul className="grid gap-2 text-sm sm:grid-cols-2">
           {limitLines(sub.limits).map((line) => (
             <li key={line} className="flex items-start gap-2">
@@ -153,6 +233,7 @@ function SubscriptionCard() {
             </li>
           ))}
         </ul>
+        <PaymentHistory />
       </CardContent>
       <CardFooter className="flex-wrap justify-end gap-2 border-t pt-4 pb-4">
         <Button variant="ghost" asChild>
@@ -160,11 +241,15 @@ function SubscriptionCard() {
         </Button>
         {sub.tier === 'free' ? (
           <Button onClick={() => show()}>
-            {sub.trialAvailable ? `«Pro» на ${TRIAL_DAYS} дней бесплатно` : 'Подключить «Pro»'}
+            {sub.trialAvailable
+              ? `«Pro» на ${TRIAL_DAYS} дней бесплатно`
+              : billing?.enabled
+                ? 'Оплатить «Pro»'
+                : 'Подключить «Pro»'}
           </Button>
         ) : sub.tier === 'pro' ? (
-          <Button variant="outline" onClick={() => show(undefined, 'pro')}>
-            {sub.trial ? 'Оформить подписку' : 'Продлить'}
+          <Button variant={billing?.enabled ? 'default' : 'outline'} onClick={() => show(undefined, 'pro')}>
+            {sub.trial ? (billing?.enabled ? 'Оплатить «Pro»' : 'Оформить подписку') : 'Продлить'}
           </Button>
         ) : (
           <Button variant="outline" onClick={() => show(undefined, 'custom')}>

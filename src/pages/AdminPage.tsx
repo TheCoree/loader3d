@@ -4,6 +4,7 @@ import {
   Ban,
   Building2,
   CalendarClock,
+  ChartColumn,
   ChevronLeft,
   ChevronRight,
   Ellipsis,
@@ -13,6 +14,7 @@ import {
   LogOut,
   Mail,
   Phone,
+  Receipt,
   Plus,
   Search,
   ShieldCheck,
@@ -27,8 +29,19 @@ import {
 import { toast } from 'sonner';
 import { ApiError, errorMessage } from '@/api/client';
 import { adminApi, type AdminUserQuery } from '@/api/endpoints';
-import type { AdminSubscription, AdminUser, AdminUserSort, AdminUserStatus, Lead, LeadStatus, TierId } from '@/api/types';
+import type {
+  AdminPayment,
+  AdminSubscription,
+  AdminUser,
+  AdminUserSort,
+  AdminUserStatus,
+  Lead,
+  LeadStatus,
+  PaymentStatus,
+  TierId,
+} from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
+import { AnalyticsTab } from '@/pages/AdminAnalytics';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,8 +81,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { PERIOD_LABEL } from '@/lib/billing';
 import { fullDate, initials, plural, timeAgo } from '@/lib/format';
-import { TIERS, TIERS_ENABLED, tierInfo } from '@/lib/tiers';
+import { TIERS, TIERS_ENABLED, formatPrice, tierInfo } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
@@ -116,7 +130,7 @@ function shortDate(iso: string): string {
 /** /admin: accounts, their subscriptions and requests from the landing page. */
 export function AdminPage() {
   const stats = useQuery({ queryKey: ['admin', 'stats'], queryFn: adminApi.stats });
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState('analytics');
 
   return (
     <div className="min-h-dvh">
@@ -124,7 +138,7 @@ export function AdminPage() {
       <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight">Администрирование</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {TIERS_ENABLED ? 'Пользователи, тарифы и заявки с сайта.' : 'Пользователи и заявки с сайта.'}
+          {TIERS_ENABLED ? 'Посещаемость, пользователи, тарифы и заявки с сайта.' : 'Посещаемость, пользователи и заявки с сайта.'}
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -168,6 +182,9 @@ export function AdminPage() {
 
         <Tabs value={tab} onValueChange={setTab} className="mt-8">
           <TabsList>
+            <TabsTrigger value="analytics">
+              <ChartColumn /> Посещаемость
+            </TabsTrigger>
             <TabsTrigger value="users">
               <Users /> Пользователи
             </TabsTrigger>
@@ -177,13 +194,26 @@ export function AdminPage() {
                 <Badge className="ml-1 h-4.5 min-w-4.5 px-1 tabular-nums">{stats.data.newLeads}</Badge>
               )}
             </TabsTrigger>
+            {TIERS_ENABLED && (
+              <TabsTrigger value="payments">
+                <Receipt /> Платежи
+              </TabsTrigger>
+            )}
           </TabsList>
+          <TabsContent value="analytics" className="mt-4">
+            <AnalyticsTab />
+          </TabsContent>
           <TabsContent value="users" className="mt-4">
             <UsersTab />
           </TabsContent>
           <TabsContent value="leads" className="mt-4">
             <LeadsTab />
           </TabsContent>
+          {TIERS_ENABLED && (
+            <TabsContent value="payments" className="mt-4">
+              <PaymentsTab />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
@@ -1010,5 +1040,110 @@ function LeadCard({ lead }: { lead: Lead }) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+const PAYMENT_STATUS: Record<PaymentStatus, { label: string; tone: string }> = {
+  paid: { label: 'Оплачен', tone: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400' },
+  pending: { label: 'Ожидает', tone: 'bg-muted text-muted-foreground' },
+  canceled: { label: 'Отменён', tone: 'bg-destructive/10 text-destructive' },
+};
+
+/** Online payments of «Pro» (backend/app/billing.py): read-only, they come from the payment provider. */
+function PaymentsTab() {
+  const [status, setStatus] = useState<PaymentStatus | typeof ALL>('paid');
+  const [offset, setOffset] = useState(0);
+  useEffect(() => setOffset(0), [status]);
+  const query = { status: status === ALL ? undefined : status, limit: PAGE, offset };
+  const payments = useQuery({
+    queryKey: ['admin', 'payments', query],
+    queryFn: ({ signal }) => adminApi.payments(query, signal),
+    placeholderData: keepPreviousData,
+  });
+  const total = payments.data?.total ?? 0;
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={status} onValueChange={(v) => setStatus(v as PaymentStatus | typeof ALL)}>
+          <SelectTrigger className="h-9 w-52" aria-label="Статус платежей">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="paid">Оплаченные</SelectItem>
+            <SelectItem value="pending">Ожидают оплаты</SelectItem>
+            <SelectItem value="canceled">Отменённые</SelectItem>
+            <SelectItem value={ALL}>Все платежи</SelectItem>
+          </SelectContent>
+        </Select>
+        {payments.data && (
+          <p className="text-sm text-muted-foreground">
+            Получено всего: <span className="font-medium text-foreground tabular-nums">{formatPrice(payments.data.paidSum)}</span>
+          </p>
+        )}
+      </div>
+
+      <Card className={cn('mt-4 gap-0 py-0', payments.isPlaceholderData && 'opacity-60')}>
+        {payments.isPending ? (
+          <div className="grid gap-2 p-4">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-10 rounded-lg" />
+            ))}
+          </div>
+        ) : payments.isError ? (
+          <p className="p-4 text-sm text-destructive">{errorMessage(payments.error)}</p>
+        ) : payments.data.items.length === 0 ? (
+          <Empty className="py-10">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Receipt />
+              </EmptyMedia>
+              <EmptyTitle>Платежей нет</EmptyTitle>
+              <EmptyDescription>Здесь появятся оплаты «Pro» из аккаунтов пользователей.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ul className="divide-y">
+            {payments.data.items.map((p) => (
+              <PaymentRow key={p.id} payment={p} />
+            ))}
+          </ul>
+        )}
+      </Card>
+      {total > PAGE && (
+        <div className="mt-3 flex items-center justify-end gap-2 text-sm text-muted-foreground">
+          <span className="tabular-nums">
+            {offset + 1}–{Math.min(offset + PAGE, total)} из {total}
+          </span>
+          <Button variant="ghost" size="icon-sm" aria-label="Назад" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
+            <ChevronLeft />
+          </Button>
+          <Button variant="ghost" size="icon-sm" aria-label="Дальше" disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
+            <ChevronRight />
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PaymentRow({ payment: p }: { payment: AdminPayment }) {
+  const state = PAYMENT_STATUS[p.status];
+  return (
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
+      <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{fullDate(p.paidAt ?? p.createdAt)}</span>
+      <span className="min-w-0 flex-1 truncate font-medium">{p.email}</span>
+      <span className="text-muted-foreground">
+        «{tierInfo(p.tier as TierId).name}» {PERIOD_LABEL[p.period]}
+        {p.paidUntil && <> · до {shortDate(p.paidUntil)}</>}
+      </span>
+      <span className="w-24 text-right font-medium tabular-nums">{formatPrice(p.amount)}</span>
+      <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', state.tone)}>{state.label}</span>
+      {p.provider === 'test' && (
+        <Badge variant="outline" className="text-[10px]">
+          тест
+        </Badge>
+      )}
+    </li>
   );
 }

@@ -23,7 +23,6 @@ import { flush, hasUnsavedChanges, startSync, stopSync, usePlanSync } from '@/ed
 import { startThumbnails, stopThumbnails } from '@/editor/planThumbnail';
 import { releaseDisplayPreview } from '@/scene/DisplayPreview';
 import { planKeys } from '@/lib/plansQuery';
-import { useResolvedTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
@@ -191,10 +190,8 @@ function PanelHandle({ hidden, onOpen }: { hidden: boolean; onOpen(): void }) {
 
 function EditorLayout() {
   useLimitOffers();
-  // The display dialog's preview keeps its WebGL context while the editor is open; its palette is
-  // the theme's at the time it was made, so a theme change makes a new one too.
-  const dark = useResolvedTheme() === 'dark';
-  useEffect(() => releaseDisplayPreview, [dark]);
+  // The display dialog's preview keeps its WebGL context while the editor is open: free it on leaving.
+  useEffect(() => releaseDisplayPreview, []);
   const desktop = useMediaQuery('(min-width: 768px)');
   const panelWidth = useMediaQuery('(min-width: 1280px)') ? PANEL_WIDTH_WIDE : PANEL_WIDTH;
   const panelHidden = useUi((s) => s.panelHidden);

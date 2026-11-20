@@ -3,6 +3,8 @@
 `python -m app make-admin EMAIL [--revoke]`: grant (or take away) access to the admin panel.
 
 `python -m app send-test-mail EMAIL`: send a test letter with the current mail settings (MAIL_*, SMTP_*).
+
+`python -m app send-reminders`: send the «тариф заканчивается» letters now (the API does it every hour).
 """
 
 import argparse
@@ -12,11 +14,11 @@ import sys
 import uvicorn
 from sqlalchemy import select
 
-from app import mail
+from app import billing, mail
 from app.config import BACKEND_DIR, Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.migrate import upgrade_database
-from app.models import User
+from app.models import User, utcnow
 
 
 async def set_admin(settings: Settings, email: str, is_admin: bool) -> bool:
@@ -30,6 +32,15 @@ async def set_admin(settings: Settings, email: str, is_admin: bool) -> bool:
             user.is_admin = is_admin
             await db.commit()
             return True
+    finally:
+        await engine.dispose()
+
+
+async def send_reminders(settings: Settings) -> int:
+    engine = create_engine(settings.sqlalchemy_url)
+    try:
+        async with create_sessionmaker(engine)() as db:
+            return await billing.send_tier_reminders(db, settings, utcnow())
     finally:
         await engine.dispose()
 
@@ -48,6 +59,7 @@ def main() -> None:
         "send-test-mail", help="send a test letter with the current mail settings"
     )
     test_mail.add_argument("email", help="where to send it")
+    commands.add_parser("send-reminders", help="send the «тариф заканчивается» letters now")
     args = parser.parse_args()
 
     settings = get_settings()
@@ -66,6 +78,10 @@ def main() -> None:
         if not asyncio.run(set_admin(settings, args.email, not args.revoke)):
             sys.exit(f"No account with e-mail {args.email}")
         print(f"{args.email}: admin access {'revoked' if args.revoke else 'granted'}")
+        return
+
+    if args.command == "send-reminders":
+        print(f"Reminders sent: {asyncio.run(send_reminders(settings))}")
         return
 
     uvicorn.run(
