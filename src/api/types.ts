@@ -242,12 +242,32 @@ export interface AnalyticsBreakdown {
   avgEngagedMs: number;
 }
 
+export interface AnalyticsRecentVisit {
+  startedAt: string;
+  channel: string;
+  source: string | null;
+  searchEngine: string | null;
+  /** Pages in the order opened, up to 8. */
+  pages: string[];
+  engagedMs: number;
+  device: string;
+  browser: string;
+  os: string;
+  signedUp: boolean;
+  live: boolean;
+}
+
 export interface AnalyticsReport {
   days: 7 | 30 | 90;
   since: string;
   summary: AnalyticsSummary;
   previous: AnalyticsSummary;
-  daily: Array<{ date: string; visits: number; visitors: number; signups: number }>;
+  daily: Array<{ date: string; visits: number; visitors: number; signups: number; avgEngagedMs: number; bounces: number }>;
+  /** Visits active within the last 5 minutes. */
+  live: number;
+  funnel: Array<{ step: 'landing' | 'pricing' | 'signup_click' | 'signup'; visits: number }>;
+  /** The latest visits of the period, newest first. */
+  recent: AnalyticsRecentVisit[];
   channels: AnalyticsBreakdown[];
   sources: AnalyticsBreakdown[];
   searchEngines: AnalyticsBreakdown[];

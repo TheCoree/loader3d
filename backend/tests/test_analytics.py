@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -192,6 +193,24 @@ async def test_the_report(app: FastAPI, make_client: ClientFactory) -> None:
     assert report["clicks"] == [{"name": "pricing_pro", "clicks": 1, "visits": 1}]
     assert sum(d["visits"] for d in report["durations"]) == 3
 
+    # The funnel: 3 visits of the landing page, 1 saw the prices, pressed «Pro» and registered.
+    assert [(s["step"], s["visits"]) for s in report["funnel"]] == [
+        ("landing", 3),
+        ("pricing", 1),
+        ("signup_click", 1),
+        ("signup", 1),
+    ]
+    # All three reported a moment ago: they are on the site now.
+    assert report["live"] == 3
+    recent = report["recent"]
+    assert len(recent) == 3 and all(v["live"] for v in recent)
+    from_yandex = next(v for v in recent if v["searchEngine"] == "Яндекс")
+    assert from_yandex["pages"] == ["/", "/register"]
+    assert from_yandex["signedUp"] is True and from_yandex["channel"] == "search"
+    today = report["daily"][-1]
+    assert (today["visits"], today["bounces"]) == (3, 1)
+    assert today["avgEngagedMs"] == round((90_000 + 40_000) / 3)
+
 
 async def test_old_visits_are_pruned(app: FastAPI, client: httpx.AsyncClient) -> None:
     old, fresh = uuid.uuid4(), uuid.uuid4()
@@ -205,3 +224,42 @@ async def test_old_visits_are_pruned(app: FastAPI, client: httpx.AsyncClient) ->
         assert await analytics.prune(db, app.state.settings, utcnow()) == 1
         assert await db.scalar(select(func.count()).select_from(Visit)) == 1
         assert await db.scalar(select(func.count()).select_from(VisitEvent)) == 1
+
+
+async def test_one_address_cannot_flood_the_statistics(
+    app: FastAPI, client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.routers import analytics as collect_router
+
+    # Events of one visit stop at the cap.
+    monkeypatch.setattr(collect_router, "MAX_EVENTS_PER_VISIT", 5)
+    visit_id = uuid.uuid4()
+    await _send(client, visit_id, [{"kind": "click", "name": f"b{i}"} for i in range(4)])
+    await _send(client, visit_id, [{"kind": "click", "name": f"c{i}"} for i in range(4)])
+    async with app.state.sessionmaker() as db:
+        events = await db.scalar(
+            select(func.count()).select_from(VisitEvent).where(VisitEvent.visit_id == visit_id)
+        )
+    assert events == 4
+
+    # New visits from one address stop at the hourly limit.
+    monkeypatch.setattr(
+        collect_router, "NEW_VISITS_PER_IP", collect_router.RateLimiter(3, timedelta(hours=1))
+    )
+    for _ in range(5):
+        await _send(client, uuid.uuid4(), [{"kind": "page", "name": "/"}])
+    async with app.state.sessionmaker() as db:
+        assert await db.scalar(select(func.count()).select_from(Visit)) == 1 + 3
+
+
+async def test_api_docs_only_in_development(tmp_path: Path) -> None:
+    from app.main import create_app
+    from tests.conftest import TEST_JWT_SECRET, make_settings
+
+    for environment, expected in (("development", 200), ("production", 404)):
+        settings = make_settings(tmp_path, environment=environment, jwt_secret=TEST_JWT_SECRET)
+        app = create_app(settings)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+            assert (await c.get("/api/openapi.json")).status_code == expected
+            assert (await c.get("/api/docs")).status_code == expected

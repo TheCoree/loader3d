@@ -264,6 +264,7 @@ class _Row:
     pageviews: int
     engaged_ms: int
     signed_up: bool
+    last_seen_at: datetime
 
 
 def _summary(rows: list[_Row], clicked: set[uuid.UUID]) -> dict[str, Any]:
@@ -301,6 +302,12 @@ def _breakdown(rows: list[_Row], key: Any, limit: int = 20) -> list[dict[str, An
     ]
 
 
+# A visit is «on the site now» if the page reported within this time (it reports every 15 s while active).
+LIVE_WINDOW = timedelta(minutes=5)
+# Buttons that lead to the registration (src/lib/analytics.ts TRACK_NAMES), for the funnel.
+SIGNUP_CLICKS = {"header_register", "hero_register", "pricing_free", "pricing_pro", "cta_register"}
+RECENT_VISITS = 25
+
 DURATION_BUCKETS: list[tuple[str, int]] = [
     ("до 10 с", 10_000),
     ("10–30 с", 30_000),
@@ -330,6 +337,7 @@ async def _rows(db: AsyncSession, since: datetime, until: datetime) -> list[_Row
             Visit.pageviews,
             Visit.engaged_ms,
             Visit.signed_up,
+            Visit.last_seen_at,
         ).where(Visit.started_at >= since, Visit.started_at < until)
     )
     return [_Row(*row) for row in result.all()]
@@ -362,6 +370,8 @@ async def report(db: AsyncSession, days: int, now: datetime) -> dict[str, Any]:
     click_visits: Counter[str] = Counter()
     clicked: set[uuid.UUID] = set()
     landing_visits: set[uuid.UUID] = set()
+    saw_pricing: set[uuid.UUID] = set()
+    wants_signup: set[uuid.UUID] = set()
     for kind, name, visit_id, count, total in events.all():
         if kind == "click":
             clicked.add(visit_id)
@@ -372,14 +382,27 @@ async def report(db: AsyncSession, days: int, now: datetime) -> dict[str, Any]:
             page_visits[name] += 1
             if name == "/" or name == "/pricing":
                 landing_visits.add(visit_id)
+            if name == "/register":
+                wants_signup.add(visit_id)
         elif kind == "section" and (total or 0) >= SECTION_SEEN_MS:
             section_time[name].append(min(int(total), MAX_ENGAGED_MS))
+            if name == "pricing":
+                saw_pricing.add(visit_id)
         elif kind == "click":
             click_count[name] += count
             click_visits[name] += 1
+            if name in SIGNUP_CLICKS:
+                wants_signup.add(visit_id)
 
     daily: dict[date, dict[str, Any]] = {
-        start_day + timedelta(days=i): {"visits": 0, "visitors": set(), "signups": 0} for i in range(days)
+        start_day + timedelta(days=i): {
+            "visits": 0,
+            "visitors": set(),
+            "signups": 0,
+            "engaged": 0,
+            "bounces": 0,
+        }
+        for i in range(days)
     }
     for r in rows:
         day = daily.get(r.started_at.astimezone(MOSCOW).date())
@@ -387,20 +410,68 @@ async def report(db: AsyncSession, days: int, now: datetime) -> dict[str, Any]:
             day["visits"] += 1
             day["visitors"].add(r.visitor)
             day["signups"] += r.signed_up
+            day["engaged"] += r.engaged_ms
+            day["bounces"] += r.pageviews <= 1 and r.engaged_ms < BOUNCE_MS and r.id not in clicked
 
     durations: Counter[str] = Counter()
     for r in rows:
         durations[next(label for label, limit in DURATION_BUCKETS if r.engaged_ms < limit)] += 1
 
     landing_total = len(landing_visits)
+    signed = {r.id for r in rows if r.signed_up}
+    funnel = [
+        {"step": "landing", "visits": landing_total},
+        {"step": "pricing", "visits": len(saw_pricing & landing_visits)},
+        {"step": "signup_click", "visits": len(wants_signup)},
+        {"step": "signup", "visits": len(signed)},
+    ]
+
+    live_since = now - LIVE_WINDOW
+    latest = sorted(rows, key=lambda r: r.started_at, reverse=True)[:RECENT_VISITS]
+    paths: dict[uuid.UUID, list[str]] = defaultdict(list)
+    if latest:
+        page_events = await db.execute(
+            select(VisitEvent.visit_id, VisitEvent.name)
+            .where(VisitEvent.visit_id.in_([r.id for r in latest]), VisitEvent.kind == "page")
+            .order_by(VisitEvent.at, VisitEvent.id)
+        )
+        for visit_id, name in page_events.all():
+            if not paths[visit_id] or paths[visit_id][-1] != name:
+                paths[visit_id].append(name)
+
     return {
         "days": days,
         "since": since,
         "summary": _summary(rows, clicked),
         "previous": _summary(previous, clicked),
         "daily": [
-            {"date": d, "visits": v["visits"], "visitors": len(v["visitors"]), "signups": v["signups"]}
+            {
+                "date": d,
+                "visits": v["visits"],
+                "visitors": len(v["visitors"]),
+                "signups": v["signups"],
+                "avg_engaged_ms": round(v["engaged"] / v["visits"]) if v["visits"] else 0,
+                "bounces": v["bounces"],
+            }
             for d, v in daily.items()
+        ],
+        "live": sum(1 for r in rows if r.last_seen_at >= live_since),
+        "funnel": funnel,
+        "recent": [
+            {
+                "started_at": r.started_at,
+                "channel": r.channel,
+                "source": r.utm_source or r.referrer_host,
+                "search_engine": r.search_engine,
+                "pages": paths.get(r.id, [r.landing_path])[:8],
+                "engaged_ms": r.engaged_ms,
+                "device": r.device,
+                "browser": r.browser,
+                "os": r.os,
+                "signed_up": r.signed_up,
+                "live": r.last_seen_at >= live_since,
+            }
+            for r in latest
         ],
         "channels": _breakdown(rows, lambda r: r.channel),
         "sources": _breakdown(rows, lambda r: r.utm_source or r.referrer_host),

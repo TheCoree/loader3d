@@ -36,9 +36,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Loader3D API",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url=f"{API_PREFIX}/docs",
+        # The interactive docs and the schema only in development: production does not describe its API
+        # to everyone.
+        docs_url=f"{API_PREFIX}/docs" if settings.environment == "development" else None,
         redoc_url=None,
-        openapi_url=f"{API_PREFIX}/openapi.json",
+        openapi_url=f"{API_PREFIX}/openapi.json" if settings.environment == "development" else None,
     )
     app.state.settings = settings
 

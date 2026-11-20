@@ -48,6 +48,32 @@ class AnalyticsDay(ApiModel):
     visits: int
     visitors: int
     signups: int
+    avg_engaged_ms: int
+    # Visits of the day that bounced (one page, under 10 s, no click).
+    bounces: int
+
+
+class AnalyticsFunnelStep(ApiModel):
+    # "landing": visits of the landing page; "pricing": of them, saw the prices; "signup_click": pressed
+    # a registration button or opened /register; "signup": registered.
+    step: Literal["landing", "pricing", "signup_click", "signup"]
+    visits: int
+
+
+class AnalyticsRecentVisit(ApiModel):
+    started_at: datetime
+    channel: str
+    source: str | None
+    search_engine: str | None
+    # The pages in the order opened (repeats in a row merged), up to 8.
+    pages: list[str]
+    engaged_ms: int
+    device: str
+    browser: str
+    os: str
+    signed_up: bool
+    # The page is still open and active (reported within 5 minutes).
+    live: bool
 
 
 class AnalyticsBreakdown(ApiModel):
@@ -89,6 +115,11 @@ class AnalyticsReport(ApiModel):
     # The same figures for the period of the same length before.
     previous: AnalyticsSummary
     daily: list[AnalyticsDay]
+    # Visits active within the last 5 minutes.
+    live: int
+    funnel: list[AnalyticsFunnelStep]
+    # The latest visits of the period, newest first.
+    recent: list[AnalyticsRecentVisit]
     channels: list[AnalyticsBreakdown]
     sources: list[AnalyticsBreakdown]
     search_engines: list[AnalyticsBreakdown]
