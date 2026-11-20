@@ -401,9 +401,12 @@ function sideCircle(x: number, y: number, z: number, r: number): string {
   return `M${pts.map(([px, py]) => `${px.toFixed(1)} ${py.toFixed(1)}`).join('L')}Z`;
 }
 
+/** The tractor's drive axle: under the fifth wheel, well inside the front of the trailer. */
+const DRIVE_AXLE = TRAILER.length - 1.15;
+
 /** Wheels on the near side: the trailer's three axles at the rear, the tractor's drive axle under the
  * front of the trailer and its steering axle under the cab. */
-const WHEELS = [1.45, 2.75, 4.05, TRAILER.length + 0.45, TRAILER.length + 1.95];
+const WHEELS = [1.45, 2.75, 4.05, DRIVE_AXLE, TRAILER.length + 1.95];
 
 const PALLET = { length: 1.2, width: 0.8, height: 1.35 };
 const ROWS = 11;
@@ -490,7 +493,7 @@ function TruckArt() {
   const rail = 2 * WHEEL + 0.03;
   const frame = [
     line([0.3, rail, width - 0.12], [length + 0.1, rail, width - 0.12]),
-    line([length - 0.6, rail - 0.1, width - 0.12], [CAB.to, rail - 0.1, width - 0.12]),
+    line([DRIVE_AXLE - WHEEL - 0.35, rail - 0.1, width - 0.12], [CAB.to, rail - 0.1, width - 0.12]),
   ].join('');
 
   return (
