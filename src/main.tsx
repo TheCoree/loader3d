@@ -25,6 +25,15 @@ useAuth.subscribe((state, prev) => {
 });
 void useAuth.getState().bootstrap();
 
+// A tab opened before a deploy asks for code split off into chunks (the editor, the PDF) under names the new
+// build no longer has: load the new version instead of failing. Not on a page that has only just loaded,
+// so a chunk that is really missing cannot make it reload over and over.
+window.addEventListener('vite:preloadError', (event) => {
+  if (performance.now() < 10_000) return;
+  event.preventDefault();
+  window.location.reload();
+});
+
 const app = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>

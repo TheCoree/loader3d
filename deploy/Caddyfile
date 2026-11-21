@@ -47,9 +47,13 @@
 		@landing path /landing/*
 		header @landing Cache-Control "public, max-age=86400"
 
-		# HTML must be revalidated so a new deploy is picked up immediately.
+		# HTML must be revalidated so a new deploy is picked up immediately: the pages themselves and every
+		# route of the app (no file by that name: try_files below answers it with app.html). Without the
+		# header browsers keep such a page by heuristics and go on running the previous bundle after a deploy.
 		@html path / /index.html /app.html
 		header @html Cache-Control "no-cache"
+		@route not file
+		header @route Cache-Control "no-cache"
 
 		# index.html is the landing page prerendered for search engines (scripts/prerender.mjs);
 		# every other route of the app gets the empty shell app.html.
