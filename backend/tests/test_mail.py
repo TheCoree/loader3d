@@ -1,6 +1,7 @@
 """Outgoing mail (app/mail.py): the letters, the SMTP backend and what the API does when sending fails."""
 
 import smtplib
+import socket
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -163,3 +164,14 @@ async def test_payment_and_reminder_letters(settings: Settings, smtp: type[FakeS
 
     assert ending["Subject"] == "Пробный период тарифа «Pro» заканчивается 20 декабря 2026"
     assert "Продлить «Pro»" in _body(ending, "html")
+
+
+def test_a_letter_without_a_sender_does_not_look_up_the_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def slow_lookup(*args: Any) -> str:
+        raise AssertionError("socket.getfqdn() may take seconds")
+
+    monkeypatch.setattr(socket, "getfqdn", slow_lookup)
+    message = mail.build_message(make_settings(tmp_path), "anna@example.com", "Тема", "Текст", None, [])
+    assert message["Message-ID"].endswith("@loader3d.local>")

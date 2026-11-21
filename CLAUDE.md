@@ -98,7 +98,11 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   the server charges its own `PRICES` (the same numbers as `src/lib/tiers.ts` — change both), never an amount
   from the client. A tier changes only in `apply_payment` (idempotent: providers repeat notifications;
   extends from the end of the current «Pro» period) after the provider confirms; a provider's webhook must
-  check its signature first. `PAYMENT_PROVIDER=test` is refused in production. Without a provider the UI
+  check its signature first (cisPay: `app/cispay.py`, `POST /api/billing/cispay/webhook`; sandbox payments
+  count only with `CISPAY_SANDBOX`, development). Results go through `billing.settle()`, which locks the payment row;
+  `billing.reconcile()` (app/jobs.py, every 5 min) asks providers about payments still pending. No DB transaction
+  is held while a provider answers.
+  `PAYMENT_PROVIDER=test` is refused in production. Without a provider the UI
   falls back to requests (LeadForm).
 - The landing page (`pages/LandingPage.tsx`, `Shell.tsx`) is rendered on the server by
   `scripts/prerender.mjs` and hydrated by `main.tsx`: nothing it imports may touch `window`/`document`

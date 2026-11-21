@@ -69,7 +69,8 @@ docker compose up -d
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | — | Логин ящика и пароль (у Яндекса и Mail.ru — пароль приложения); пустой логин — без авторизации |
 | `FORWARDED_ALLOW_IPS` | `*` | Чьему `X-Forwarded-For` API верит, определяя IP посетителя (лимиты входа и регистрации, список сессий); `*` — API доступен только через Caddy |
 | `TIERS_ENABLED` | `false` | `true` — тарифы: цены на сайте, выбор при регистрации, лимиты, тариф в аккаунте и админке; `false` — о тарифах ни слова, без лимитов; после смены — `--build` |
-| `PAYMENT_PROVIDER` | `none` | Онлайн-оплата «Pro» из аккаунта (с `TIERS_ENABLED=true`): `none` — платные тарифы по заявке и через админа; `test` — тестовая страница оплаты, только для разработки (прод с ним не запустится) |
+| `PAYMENT_PROVIDER` | `none` | Онлайн-оплата «Pro» из аккаунта (с `TIERS_ENABLED=true`): `none` — платные тарифы по заявке и через админа; `test` — тестовая страница оплаты, только для разработки (прод с ним не запустится); `cispay` — cisPay (карта, СБП), нужны `CISPAY_SHOP_ID`, `CISPAY_API_KEY` и `SITE_URL` |
+| `CISPAY_SHOP_ID`, `CISPAY_API_KEY` | — | Магазин cisPay: Shop ID и секретный ключ `cis_sec_…` из его кабинета («Настройки магазина»). Там же адрес вебхука: `https://<домен>/api/billing/cispay/webhook` |
 | `ANALYTICS_ENABLED` / `ANALYTICS_RETENTION_DAYS` | `true` / `400` | Статистика посещений публичных страниц для вкладки «Посещаемость» админки (без cookie, IP не хранится) и сколько дней хранить сырые визиты |
 | `POSTGRES_PASSWORD` | — (обязательно) | Пароль БД, применяется при первом создании базы |
 | `POSTGRES_DB` / `POSTGRES_USER` | `loader3d` / `loader3d` | Имя базы и пользователя |
@@ -157,7 +158,8 @@ uv run ruff check . && uv run ruff format --check .
 для деплоя) или `backend/.env` (важнее корневого): `DATABASE_URL`, `DATABASE_PASSWORD`, `JWT_SECRET`,
 `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REGISTRATION_OPEN`, `EMAIL_VERIFICATION`, `MAIL_BACKEND`,
 `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SITE_URL`,
-`FORWARDED_ALLOW_IPS` (без него — `127.0.0.1`), `TIERS_ENABLED`, `PAYMENT_PROVIDER`, `CORS_ORIGINS`,
+`FORWARDED_ALLOW_IPS` (без него — `127.0.0.1`), `TIERS_ENABLED`, `PAYMENT_PROVIDER`, `CISPAY_SHOP_ID`,
+`CISPAY_API_KEY`, `CISPAY_SANDBOX` (только разработка: платежи песочницы cisPay считаются оплаченными), `CORS_ORIGINS`,
 `ENVIRONMENT` (см. [config.py](backend/app/config.py)). `TIERS_ENABLED` из корневого `.env` читает и Vite —
 после его смены перезапустите оба процесса.
 
@@ -202,7 +204,8 @@ uv run ruff check . && uv run ruff format --check .
 | `GET /api/admin/leads`, `PATCH/DELETE /api/admin/leads/{id}` | Админ: заявки, отметка «обработана», удаление |
 | `GET /api/billing` | Без входа: можно ли оплатить онлайн и цены, которые списываются |
 | `POST /api/billing/checkout` | `{period: "month" \| "year"}` → платёж «Pro» и `paymentUrl` страницы оплаты (нужен подтверждённый email) |
-| `GET /api/billing/payments`, `GET /api/billing/payments/{id}` | Платежи аккаунта; страница возврата опрашивает свой платёж |
+| `GET /api/billing/payments`, `GET /api/billing/payments/{id}` | Платежи аккаунта; страница возврата опрашивает свой платёж (ожидающий API заодно сверяет с провайдером, не чаще раза в 5 с) |
+| `POST /api/billing/cispay/webhook` | Уведомление cisPay о статусе платежа; без верной подписи `X-Signature` — 401 |
 | `GET /api/admin/payments` | Админ: платежи (`?status=paid\|pending\|canceled`) и сумма полученного |
 | `POST /api/analytics/collect` | Без входа: отчёт страницы о визите (страницы, время в разделах лендинга, клики, регистрация) — `navigator.sendBeacon` |
 | `GET /api/admin/analytics?days=7\|30\|90` | Админ: посещаемость за период и сравнение с прошлым |
@@ -267,8 +270,15 @@ uv run ruff check . && uv run ruff format --check .
   письмо «оплата получена», за 3 дня до конца — «тариф заканчивается» (API проверяет каждый час,
   `python -m app send-reminders` — сразу). История оплат — на «Тариф и оплата», все платежи — во вкладке «Платежи»
   админки. Без провайдера (`none`) всё как раньше: «Pro» по заявке. `PAYMENT_PROVIDER=test` — тестовая страница
-  «Оплатить / Отменить» для разработки; настоящий провайдер (cisPay, СБП) — ещё один класс в `billing.py`:
-  `create()` и webhook, который проверяет подпись и вызывает `apply_payment` / `cancel_payment`.
+  «Оплатить / Отменить» для разработки. **cisPay** (`PAYMENT_PROVIDER=cispay`, `backend/app/cispay.py`): счёт в
+  копейках с `order_id` = id нашего платежа, покупатель платит картой или по СБП на странице cisPay и
+  возвращается на `SITE_URL/billing?payment=…`; результат приходит вебхуком с подписью HMAC-SHA256 (ключ —
+  `CISPAY_API_KEY`), а пока страница возврата ждёт, API сам спрашивает статус у cisPay; кроме того, раз в 5 минут
+  API сверяет с провайдером все ещё ожидающие платежи за последние двое суток — потерянный вебхук и закрытая
+  вкладка не подвешивают оплату. Письмо «оплата получена» уходит после ответа, вебхук не ждёт почту. `FAILED`/`EXPIRED` — платёж отменён (оплата после повторной попытки на странице cisPay
+  всё равно засчитается), `REFUNDED` — только в журнал: тариф после возврата решает админ. Платежи песочницы
+  (`is_sandbox`) не засчитываются, кроме `CISPAY_SANDBOX=true` в разработке. Другой провайдер — ещё один класс в
+  `billing.py` (`create()`, `check()`) и вебхук, который проверяет подпись и вызывает `settle()`.
 - **Админ-панель** (`/admin`): статистика, пользователи (поиск, фильтры по тарифу и статусу), тариф и срок,
   лимиты «Индивидуального», блокировка, права администратора, новый пароль, завершение сессий, удаление,
   создание аккаунтов; заявки с сайта; онлайн-платежи и сумма полученного.

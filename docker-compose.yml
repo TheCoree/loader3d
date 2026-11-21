@@ -66,12 +66,14 @@ services:
       SMTP_SECURITY: ${SMTP_SECURITY:-ssl}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      # The link at the bottom of the letters.
+      # The link at the bottom of the letters; where the customer comes back after paying (cisPay).
       SITE_URL: ${SITE_URL:-}
       # The api is reachable only from the compose network (through Caddy), so its X-Forwarded-For is trusted.
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-*}
       TIERS_ENABLED: ${TIERS_ENABLED:-false}
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-none}
+      CISPAY_SHOP_ID: ${CISPAY_SHOP_ID:-}
+      CISPAY_API_KEY: ${CISPAY_API_KEY:-}
       ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
       ANALYTICS_RETENTION_DAYS: ${ANALYTICS_RETENTION_DAYS:-400}
     depends_on:

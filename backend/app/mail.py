@@ -91,7 +91,9 @@ def build_message(
     message["From"] = settings.mail_from
     message["To"] = to
     message["Date"] = formatdate(localtime=False)
-    sender_domain = parseaddr(settings.mail_from)[1].rpartition("@")[2] or None
+    # Not the host's name when there is no sender (console letters): socket.getfqdn() may wait on DNS for
+    # seconds, and the whole API with it.
+    sender_domain = parseaddr(settings.mail_from)[1].rpartition("@")[2] or "loader3d.local"
     message["Message-ID"] = make_msgid(domain=sender_domain)
     message["Auto-Submitted"] = "auto-generated"
     head = f"{lead}\n\n{code}" if code else lead
