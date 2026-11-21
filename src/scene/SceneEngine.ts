@@ -27,6 +27,9 @@ import { partsChanged, vehicleParts } from './displayParts';
 import { VehicleView } from './VehicleView';
 import { COLORS } from './theme';
 
+/** While only the camera moves, the x-ray is re-checked at most this often, ms (fades ease over ~90 ms anyway). */
+const XRAY_INTERVAL = 30;
+
 export type PickResult =
   | { kind: 'item'; id: string; point: THREE.Vector3 }
   | { kind: 'handle'; id: string; face: Face; point: THREE.Vector3 };
@@ -58,15 +61,26 @@ export class SceneEngine {
 
   private preview: CargoItem[] | null = null;
   private hoverId: string | null = null;
+  private hoverFace: Face | null = null;
   private frameHandle = 0;
   private framePending = false;
   private lastFrame = 0;
-  /** What the last x-ray pass was computed for; skipped while nothing changed. */
+  /** Drawn with the second frame only, see {@link CargoView.warmUp} and {@link frame}. */
+  private warmUp: THREE.Object3D | null;
+  /** What the last x-ray pass was computed for (settings and selection; camera position and direction). */
   private xrayKey = '';
+  private readonly xrayView = new Float64Array(6);
   /** Duration of the last x-ray pass and when it ended, ms: big plans are re-checked less often while the camera moves. */
   private xrayCost = 0;
   private xrayAt = 0;
-  private owners: { items: readonly CargoItem[]; layout: VehicleLayout; byId: Map<string, string | null> } | null = null;
+  private readonly screenPoint = { x: 0, y: 0, depth: 0 };
+  /** Vehicle of every item (null: on a shared dock) and the boxes for the x-ray, per item list and layout. */
+  private owners: {
+    items: readonly CargoItem[];
+    layout: VehicleLayout;
+    byId: Map<string, string | null>;
+    entries: XrayEntry[];
+  } | null = null;
   /** Fixed cargo and what it stands on, cached per item list. */
   private pinned: { items: readonly CargoItem[]; ids: Set<string> } | null = null;
   /** Level buttons of the selected item, cached per item list. */
@@ -82,6 +96,9 @@ export class SceneEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // The sun does not follow the camera: the shadow map is redrawn only when what casts shadows changes.
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.domElement.className = 'scene-canvas';
     host.appendChild(this.renderer.domElement);
@@ -109,6 +126,7 @@ export class SceneEngine {
     this.yard.receiveShadow = true;
 
     this.scene.add(this.yard, this.vehicle.root, this.cargo.root, this.loadLength.root, this.selection.root, this.guides.root);
+    this.warmUp = this.cargo.warmUp();
 
     this.rig = new CameraRig(this.camera, this.renderer.domElement, this.requestRender);
     this.interaction = new InteractionManager(this, host);
@@ -182,10 +200,13 @@ export class SceneEngine {
   }
 
   setHover(itemId: string | null, face: Face | null): void {
+    // Called on every mouse move over the scene: a frame only when the highlight changes.
+    if (itemId === this.hoverId && face === this.hoverFace) return;
     if (itemId !== this.hoverId) {
       this.hoverId = itemId;
       this.cargo.setHighlight(itemId, useStore.getState().selectedId);
     }
+    this.hoverFace = face;
     this.selection.setHoveredFace(face);
     this.requestRender();
   }
@@ -301,12 +322,23 @@ export class SceneEngine {
     this.camera.updateMatrixWorld();
     this.updateXray();
     const fading = this.cargo.animate(dt);
+    if (this.cargo.opacityChanged) this.renderer.shadowMap.needsUpdate = true;
     this.lastFrame = animating || fading ? now : 0;
     this.vehicle.fitLabels(this.camera, this.viewportWidth, this.viewportHeight);
     this.loadLength.fitLabels(this.camera, this.viewportWidth, this.viewportHeight);
     this.selection.beforeRender(this.camera, this.viewportWidth, this.viewportHeight);
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);
+    if (this.warmUp?.parent) {
+      this.scene.remove(this.warmUp);
+      this.warmUp = null;
+    } else if (this.warmUp) {
+      // Into the next frame, not the first: three.js compiles the shadow shaders with the lights of the
+      // frame before, which the first frame does not have yet (the x-ray would compile them again).
+      this.scene.add(this.warmUp);
+      this.renderer.shadowMap.needsUpdate = true;
+      this.requestRender();
+    }
     if (animating || fading) this.requestRender();
   };
 
@@ -316,6 +348,7 @@ export class SceneEngine {
     const bodiesChanged = s.vehicles !== prev.vehicles || s.dockMode !== prev.dockMode;
     const viewChanged = st.units !== pt.units || st.showDimensions !== pt.showDimensions;
 
+    if (bodiesChanged || s.items !== prev.items || st !== pt) this.renderer.shadowMap.needsUpdate = true;
     if (bodiesChanged || viewChanged) this.rebuildVehicle();
     else {
       if (s.activeVehicleId !== prev.activeVehicleId) this.vehicle.setActive(s.activeVehicleId);
@@ -377,16 +410,22 @@ export class SceneEngine {
     const { xray, xrayOpacity } = s.settings;
     const items = this.displayItems;
     const layout = this.layout;
-    const e = this.camera.matrixWorld.elements;
-    const key = [xray, xrayOpacity, s.selectedId, s.activeVehicleId, e[12], e[13], e[14], e[8], e[9], e[10]].join('|');
-    if (key === this.xrayKey && this.owners?.items === items && this.owners.layout === layout) return;
+    const key = `${xray}|${xrayOpacity}|${s.selectedId}|${s.activeVehicleId}`;
+    const changed = key !== this.xrayKey || this.owners?.items !== items || this.owners.layout !== layout;
+    // Where the camera is matters only when something is faded for being in the way.
+    const byCamera = xray === 'auto' || (xray === 'selection' && s.selectedId !== null) || (xray !== 'off' && layout.vehicles.length > 1);
+    if (!changed && !(byCamera && this.cameraMoved())) return;
     const started = performance.now();
-    if (this.xrayCost > 8 && started - this.xrayAt < this.xrayCost * 4) {
+    // While only the camera moves, re-check every XRAY_INTERVAL ms at most (and less often when a pass is slow).
+    const gap = Math.max(changed ? 0 : XRAY_INTERVAL, this.xrayCost > 8 ? this.xrayCost * 4 : 0);
+    if (started - this.xrayAt < gap) {
       this.requestRender(); // try again on a later frame
       return;
     }
     this.xrayKey = key;
-    const byId = this.ownersOf(items, layout);
+    const e = this.camera.matrixWorld.elements;
+    this.xrayView.set([e[12], e[13], e[14], e[8], e[9], e[10]]);
+    const { byId, entries } = this.ownersOf(items, layout);
     if (xray === 'off') {
       this.cargo.setFade(null);
       this.xrayCost = 0;
@@ -394,14 +433,16 @@ export class SceneEngine {
     }
 
     const selected = s.selectedId && byId.has(s.selectedId) ? s.selectedId : null;
-    const entries: XrayEntry[] = items.map((i) => ({ id: i.id, box: itemBox(i) }));
     const eye = this.camera.position;
     this.camera.getWorldDirection(this.forward);
+    const point = this.screenPoint;
     const toScreen = (p: Vec3) => {
       const v = this.projected.set(p.x, p.y, p.z);
-      const depth = (p.x - eye.x) * this.forward.x + (p.y - eye.y) * this.forward.y + (p.z - eye.z) * this.forward.z;
+      point.depth = (p.x - eye.x) * this.forward.x + (p.y - eye.y) * this.forward.y + (p.z - eye.z) * this.forward.z;
       v.project(this.camera);
-      return { x: v.x * this.camera.aspect, y: v.y, depth };
+      point.x = v.x * this.camera.aspect;
+      point.y = v.y;
+      return point;
     };
 
     let faded: Set<string>;
@@ -425,17 +466,29 @@ export class SceneEngine {
     this.xrayCost = this.xrayAt - started;
   }
 
-  /** Vehicle of every item (null: on a shared dock), cached per item list and layout. */
-  private ownersOf(items: readonly CargoItem[], layout: VehicleLayout): Map<string, string | null> {
+  /** Whether the camera moved or turned since the last x-ray pass. */
+  private cameraMoved(): boolean {
+    const e = this.camera.matrixWorld.elements;
+    const v = this.xrayView;
+    return v[0] !== e[12] || v[1] !== e[13] || v[2] !== e[14] || v[3] !== e[8] || v[4] !== e[9] || v[5] !== e[10];
+  }
+
+  /** Vehicle of every item (null: on a shared dock) and the x-ray boxes, cached per item list and layout. */
+  private ownersOf(
+    items: readonly CargoItem[],
+    layout: VehicleLayout,
+  ): { byId: Map<string, string | null>; entries: XrayEntry[] } {
     if (this.owners?.items !== items || this.owners.layout !== layout) {
-      const byId = new Map(items.map((i) => [i.id, ownerVehicle(itemBox(i), layout)?.vehicle.id ?? null]));
-      this.owners = { items, layout, byId };
+      const entries: XrayEntry[] = items.map((i) => ({ id: i.id, box: itemBox(i) }));
+      const byId = new Map(entries.map((e) => [e.id, ownerVehicle(e.box, layout)?.vehicle.id ?? null]));
+      this.owners = { items, layout, byId, entries };
     }
-    return this.owners.byId;
+    return this.owners;
   }
 
   private syncCargo(): void {
     const s = useStore.getState();
+    this.renderer.shadowMap.needsUpdate = true;
     this.cargo.sync(this.displayItems, layoutOf(s), {
       highlightOverflow: s.settings.highlightOverflow,
       showLabels: s.settings.showLabels,

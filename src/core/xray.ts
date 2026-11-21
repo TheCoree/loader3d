@@ -7,6 +7,7 @@ export interface ScreenPoint {
   depth: number;
 }
 
+/** The point is read at once: a projector may return the same object every time (and get the same `p`). */
 export type Projector = (p: Vec3) => ScreenPoint;
 
 export interface XrayEntry {
@@ -28,21 +29,32 @@ const INSET = 0.12;
 /** Occluders are shrunk by this much (cm) so a box resting against the target does not hide it. */
 const SKIN = 0.5;
 
+/** Reused for every corner: the x-ray runs while the camera turns, every corner object would be garbage. */
+const corner: Vec3 = { x: 0, y: 0, z: 0 };
+
 function project(entry: XrayEntry, toScreen: Projector): Projected {
   const { min, max } = entry.box;
-  const out: Projected = { ...entry, minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, near: Infinity, far: -Infinity };
-  for (const x of [min.x, max.x]) {
-    for (const y of [min.y, max.y]) {
-      for (const z of [min.z, max.z]) {
-        const p = toScreen({ x, y, z });
-        out.near = Math.min(out.near, p.depth);
-        out.far = Math.max(out.far, p.depth);
-        out.minX = Math.min(out.minX, p.x);
-        out.maxX = Math.max(out.maxX, p.x);
-        out.minY = Math.min(out.minY, p.y);
-        out.maxY = Math.max(out.maxY, p.y);
-      }
-    }
+  const out: Projected = {
+    id: entry.id,
+    box: entry.box,
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+    near: Infinity,
+    far: -Infinity,
+  };
+  for (let i = 0; i < 8; i++) {
+    corner.x = i & 1 ? max.x : min.x;
+    corner.y = i & 2 ? max.y : min.y;
+    corner.z = i & 4 ? max.z : min.z;
+    const p = toScreen(corner);
+    out.near = Math.min(out.near, p.depth);
+    out.far = Math.max(out.far, p.depth);
+    out.minX = Math.min(out.minX, p.x);
+    out.maxX = Math.max(out.maxX, p.x);
+    out.minY = Math.min(out.minY, p.y);
+    out.maxY = Math.max(out.maxY, p.y);
   }
   // A box reaching behind the camera projects inside out: let it overlap everything.
   if (out.near <= 0) Object.assign(out, { minX: -Infinity, maxX: Infinity, minY: -Infinity, maxY: Infinity });

@@ -65,8 +65,14 @@ Architecture, controls, API endpoints and extension points are in README.md — 
 - Pointer routing lives in `scene/InteractionManager.ts`: press on empty space goes to OrbitControls,
   press on an item/handle is captured and becomes a `Tool`. New gestures implement `scene/tools/Tool.ts`.
 - Rendering is on demand: call `engine.requestRender()` after changing anything in the scene. X-ray (see-through
-  cargo, `core/xray.ts`) is recomputed in the frame only when the camera, the cargo or the settings changed;
-  picking skips see-through items when something opaque is behind them.
+  cargo, `core/xray.ts`) is recomputed in the frame only when the camera, the cargo or the settings changed (while
+  only the camera moves, at most every 30 ms); picking skips see-through items when something opaque is behind them.
+  The shadow map is not redrawn every frame (the sun does not follow the camera): `SceneEngine` sets
+  `renderer.shadowMap.needsUpdate` on store changes, cargo syncs and x-ray fades — anything new that casts a shadow
+  and changes outside those must set it too.
+- Nothing heavy may run while the user turns the camera: the plan card picture (`editor/planThumbnail.ts`) waits
+  for a moment without input and reuses one `SnapshotRenderer` (a new WebGL context compiles every shader again);
+  the x-ray's shader variants are compiled as the scene opens (`CargoView.warmUp`).
 - In dev the engine is exposed as `window.__loader3d` for debugging in the browser console.
 - The scene listens for shortcuts on `window` (Del, R, arrows, Ctrl+Z). `guardSceneShortcuts` on the editor
   root stops keys inside menus/dialogs (and arrows inside tabs/selects) from reaching it — keep new

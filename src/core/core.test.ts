@@ -583,6 +583,14 @@ describe('x-ray', () => {
     expect([...findOccluders(eye, entries, toScreen, () => true, (id) => id !== 'b')]).toEqual(['a']);
   });
 
+  it('works with a projector that returns the same object every time', () => {
+    const point = { x: 0, y: 0, depth: 0 };
+    const reused = (p: { x: number; y: number; z: number }) => Object.assign(point, toScreen(p));
+    const entries = [entry('a', 0), entry('b', 200), entry('c', 400), entry('d', 0, 300)];
+    expect([...findOccluders(eye, entries, reused, () => true)].sort()).toEqual(['a', 'b']);
+    expect([...findOccluders(eye, entries, reused, (id) => id === 'b')]).toEqual(['a']);
+  });
+
   it('does not count a box the target only rests on', () => {
     const entries = [entry('target', 0, 0, 100), entry('under', 0, 0, 0)];
     const above = { x: 50, y: 5000, z: 50 };

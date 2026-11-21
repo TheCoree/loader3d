@@ -88,6 +88,18 @@ function fadedShadowMaterial(): { material: THREE.MeshDepthMaterial; opacity: { 
   return { material, opacity };
 }
 
+/** Fill of a cargo box. */
+function itemMaterial(color: string): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.72,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  });
+}
+
 function edgeColor(color: string): THREE.Color {
   return new THREE.Color(color).lerp(new THREE.Color('#0b1220'), 0.5);
 }
@@ -99,8 +111,12 @@ function edgeColor(color: string): THREE.Color {
  */
 export class CargoView {
   readonly root = new THREE.Group();
+  /** Whether the last {@link animate} changed an opacity (faded items cast paler shadows). */
+  opacityChanged = false;
   private readonly visuals = new Map<string, ItemVisual>();
   private pickList: THREE.Mesh[] | null = null;
+  /** Materials of {@link warmUp}, kept so that their compiled shaders are too. */
+  private readonly warmMaterials: THREE.Material[] = [];
 
   private readonly unitBox = new THREE.BoxGeometry(1, 1, 1);
   private readonly unitEdges = new THREE.EdgesGeometry(this.unitBox);
@@ -167,8 +183,10 @@ export class CargoView {
   animate(dt: number): boolean {
     const k = 1 - Math.exp(-Math.max(0, dt) / FADE_MS);
     let running = false;
+    this.opacityChanged = false;
     for (const v of this.visuals.values()) {
       if (v.alpha === v.targetAlpha) continue;
+      this.opacityChanged = true;
       const next = v.alpha + (v.targetAlpha - v.alpha) * k;
       v.alpha = Math.abs(next - v.targetAlpha) < 0.01 ? v.targetAlpha : next;
       this.applyAlpha(v);
@@ -209,8 +227,38 @@ export class CargoView {
     }
   }
 
+  /**
+   * A box with the materials of an item faded by the x-ray, to be drawn once as the scene opens: three.js
+   * compiles a shader for each material variant when it is first used, and compiling these when the x-ray
+   * first fades something stalls a frame while the camera turns. Drawn out of sight; the materials stay until
+   * {@link dispose}, so the compiled shaders do too.
+   */
+  warmUp(): THREE.Object3D {
+    const fill = itemMaterial('#ffffff');
+    const edges = new THREE.LineBasicMaterial();
+    const shadow = fadedShadowMaterial();
+    for (const m of [fill, edges]) {
+      m.transparent = true;
+      m.depthWrite = false;
+      m.opacity = 0.5;
+    }
+    shadow.opacity.value = 0.5;
+    const mesh = new THREE.Mesh(this.unitBox, fill);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.customDepthMaterial = shadow.material;
+    const lines = new THREE.LineSegments(this.unitEdges, edges);
+    // Never culled, so it is drawn (and its shaders compiled), but far outside the view and the shadow camera.
+    mesh.frustumCulled = lines.frustumCulled = false;
+    const group = new THREE.Group();
+    group.position.y = -1e6;
+    group.add(mesh, lines);
+    this.warmMaterials.push(fill, edges, shadow.material);
+    return group;
+  }
+
   dispose(): void {
     for (const [id, v] of this.visuals) this.destroy(id, v);
+    this.warmMaterials.forEach((m) => m.dispose());
     this.unitBox.dispose();
     this.unitEdges.dispose();
     this.unitPlane.dispose();
@@ -219,15 +267,7 @@ export class CargoView {
   }
 
   private create(item: CargoItem): ItemVisual {
-    const material = new THREE.MeshStandardMaterial({
-      color: item.color,
-      roughness: 0.72,
-      metalness: 0,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
-    });
-    const mesh = new THREE.Mesh(this.unitBox, material);
+    const mesh = new THREE.Mesh(this.unitBox, itemMaterial(item.color));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData = { itemId: item.id, sharedGeometry: true };
