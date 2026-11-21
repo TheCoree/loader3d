@@ -10,28 +10,33 @@ PRICES are what is charged; src/lib/tiers.ts shows the same numbers (price.month
 change both. There are no automatic renewals: `send_tier_reminders` writes a few days before the end.
 
 Providers: "test" is a page of the API that pays or cancels at a click (development; production refuses
-it). A real one (cisPay, SBP) is another `PaymentProvider` with create() and a webhook route that checks
-the provider's signature and then calls `apply_payment` / `cancel_payment`.
+it); "cispay" is cisPay (app/cispay.py): its page, a signed webhook, and the status asked while the
+customer's return page waits. A provider reports through `settle`, which applies the result once.
 """
 
 import calendar
 import logging
+import uuid
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, Protocol
 
+from fastapi import status
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import mail
+from app import cispay, mail
 from app.config import Settings
+from app.errors import ApiError
 from app.models import Payment, User
 from app.tiers import TIER_NAMES, effective_tier
 
 logger = logging.getLogger("app.billing")
 
 Period = Literal["month", "year"]
+# How a payment stands at the provider.
+ProviderState = Literal["pending", "paid", "canceled"]
 PERIOD_MONTHS: dict[str, int] = {"month": 1, "year": 12}
 PERIOD_NAMES: dict[str, str] = {"month": "на месяц", "year": "на год"}
 # Roubles for one period of the tier.
@@ -100,6 +105,18 @@ class PaymentProvider(Protocol):
 
     async def create(self, payment: Payment, settings: Settings) -> PaymentPage: ...
 
+    async def check(self, payment: Payment, settings: Settings) -> ProviderState | None:
+        """Asks the provider how the payment stands; None: unknown (no answer, or nothing to ask)."""
+        ...
+
+
+def provider_failed() -> ApiError:
+    return ApiError(
+        status.HTTP_502_BAD_GATEWAY,
+        "payment_provider_failed",
+        "Платёжный сервис не ответил — попробуйте ещё раз через минуту",
+    )
+
 
 class TestProvider:
     """Development: GET /api/billing/test/<id> is the «payment page» with «Оплатить» and «Отменить»."""
@@ -109,14 +126,75 @@ class TestProvider:
     async def create(self, payment: Payment, settings: Settings) -> PaymentPage:
         return PaymentPage(provider_payment_id=None, url=f"/api/billing/test/{payment.id}")
 
+    async def check(self, payment: Payment, settings: Settings) -> ProviderState | None:
+        return None  # its page reports at the click
+
+
+class CisPayProvider:
+    """cisPay (app/cispay.py): its page with a card or SBP; the result comes by the webhook."""
+
+    name = "cispay"
+
+    async def create(self, payment: Payment, settings: Settings) -> PaymentPage:
+        what = f"Loader3D: тариф «{TIER_NAMES[payment.tier]}» {PERIOD_NAMES[payment.period]}"
+        back = f"{settings.site_url.rstrip('/')}{return_path(payment)}" if settings.site_url else None
+        try:
+            provider_id, url = await cispay.create_invoice(settings, payment, what, back)
+        except cispay.CisPayError as error:
+            logger.error("cisPay made no invoice for payment %s: %s", payment.id, error)
+            raise provider_failed() from error
+        return PaymentPage(provider_payment_id=provider_id, url=url)
+
+    async def check(self, payment: Payment, settings: Settings) -> ProviderState | None:
+        try:
+            return await cispay.fetch_state(settings, payment)
+        except cispay.CisPayError as error:
+            logger.warning("cisPay did not tell the status of payment %s: %s", payment.id, error)
+            return None
+
+
+def provider_named(name: str, settings: Settings) -> PaymentProvider | None:
+    """The provider a payment was made with, if it is set up here (PAYMENT_PROVIDER may have changed)."""
+    if name == "test" and settings.payment_provider == "test":
+        return TestProvider()
+    if name == "cispay" and cispay.configured(settings):
+        return CisPayProvider()
+    return None
+
 
 def get_provider(settings: Settings) -> PaymentProvider | None:
     """None: no online payment (PAYMENT_PROVIDER=none or TIERS_ENABLED=false)."""
     if not settings.tiers_enabled:
         return None
-    if settings.payment_provider == "test":
-        return TestProvider()
-    return None
+    return provider_named(settings.payment_provider, settings)
+
+
+async def settle(
+    db: AsyncSession, settings: Settings, payment_id: uuid.UUID, state: ProviderState, now: datetime
+) -> Payment | None:
+    """Applies what the provider reported and commits; after a payment that changed something — the
+    «оплата получена» letter. The rows are read again under a lock (Postgres), so a webhook and the return
+    page's check at the same moment extend the tier once. A payment canceled earlier may still be paid: the
+    customer can try again on the provider's page."""
+    payment = await db.scalar(
+        select(Payment)
+        .where(Payment.id == payment_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if payment is None:
+        return None
+    if state == "paid":
+        user = None
+        if payment.user_id is not None:
+            user = await db.get(User, payment.user_id, populate_existing=True, with_for_update=True)
+        applied = apply_payment(user, payment, now)
+        await db.commit()
+        if applied:
+            await notify_paid(settings, payment)
+    elif state == "canceled" and cancel_payment(payment):
+        await db.commit()
+    return payment
 
 
 async def notify_paid(settings: Settings, payment: Payment) -> None:

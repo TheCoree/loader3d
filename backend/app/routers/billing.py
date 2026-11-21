@@ -1,27 +1,33 @@
-"""Online payment of tiers (app/billing.py): prices, checkout, the customer's payments, the test provider."""
+"""Online payment of tiers (app/billing.py): prices, checkout, the customer's payments, the cisPay webhook,
+the test provider."""
 
+import json
+import logging
 import uuid
 from datetime import timedelta
 from html import escape
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
-from app import billing
+from app import billing, cispay
 from app.auth import CurrentAuth, VerifiedAuth
 from app.db import Db
 from app.deps import SettingsDep
 from app.errors import ApiError, not_found
-from app.models import Payment, User, utcnow
+from app.models import Payment, utcnow
 from app.ratelimit import RateLimiter, too_many
 from app.schemas.billing import BillingOut, CheckoutIn, CheckoutOut, PaymentOut, PriceOut
 from app.tiers import TIER_NAMES, effective_tier
 
 router = APIRouter(prefix="/billing", tags=["billing"])
+logger = logging.getLogger("app.billing")
 
 # Against a script opening payments in a loop; a person needs a handful.
 CHECKOUTS_PER_USER = RateLimiter(20, timedelta(hours=1))
+# The return page polls every 2 s; the provider is asked about a pending payment at most this often.
+STATUS_CHECKS = RateLimiter(1, timedelta(seconds=5))
 
 
 @router.get("")
@@ -89,12 +95,53 @@ async def my_payments(auth: CurrentAuth, db: Db) -> list[PaymentOut]:
 
 
 @router.get("/payments/{payment_id}")
-async def my_payment(payment_id: uuid.UUID, auth: CurrentAuth, db: Db) -> PaymentOut:
-    """One payment of the account: the page the customer returns to polls it until it is not pending."""
+async def my_payment(payment_id: uuid.UUID, auth: CurrentAuth, db: Db, settings: SettingsDep) -> PaymentOut:
+    """One payment of the account: the page the customer returns to polls it until it is not pending.
+    A pending payment is checked with the provider too, in case its notification is late or lost."""
     payment = await db.get(Payment, payment_id)
     if payment is None or payment.user_id != auth.user.id:
         raise not_found("payment_not_found", "Платёж не найден")
+    if payment.status == "pending" and STATUS_CHECKS.allow(str(payment.id)) == 0:
+        provider = billing.provider_named(payment.provider, settings)
+        state = await provider.check(payment, settings) if provider else None
+        if state in ("paid", "canceled"):
+            payment = await billing.settle(db, settings, payment.id, state, utcnow()) or payment
     return PaymentOut.model_validate(payment)
+
+
+# --- cisPay (PAYMENT_PROVIDER=cispay, app/cispay.py) ------------------------------------------------
+
+
+@router.post("/cispay/webhook", include_in_schema=False)
+async def cispay_webhook(request: Request, db: Db, settings: SettingsDep) -> dict[str, bool]:
+    """cisPay reports a new status of a payment. Any 2xx stops its retries, so a notification the API cannot
+    use is logged and acknowledged; only one without a valid signature is refused."""
+    raw = await request.body()
+    if not cispay.configured(settings) or not cispay.signature_ok(
+        settings, raw, request.headers.get("x-signature", "")
+    ):
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, "bad_signature", "Неверная подпись уведомления")
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        raise ApiError(status.HTTP_400_BAD_REQUEST, "bad_notification", "Неверное уведомление")
+    if "event" in data:
+        # Events of cisPay subscriptions: «Pro» is sold by periods, without subscriptions.
+        return {"ok": True}
+    try:
+        payment_id = uuid.UUID(str(data.get("order_id")))
+    except ValueError:
+        payment_id = None
+    payment = await db.get(Payment, payment_id) if payment_id else None
+    if payment is None or payment.provider != "cispay":
+        logger.warning("cisPay notification about an unknown order %r", data.get("order_id"))
+        return {"ok": True}
+    state = cispay.state_of(settings, payment, data)
+    if state in ("paid", "canceled"):
+        await billing.settle(db, settings, payment.id, state, utcnow())
+    return {"ok": True}
 
 
 # --- The test provider (PAYMENT_PROVIDER=test, development only) ------------------------------------
@@ -158,17 +205,12 @@ async def test_payment_page(payment_id: uuid.UUID, db: Db, settings: SettingsDep
 @router.post("/test/{payment_id}/pay", include_in_schema=False)
 async def test_pay(payment_id: uuid.UUID, db: Db, settings: SettingsDep) -> RedirectResponse:
     payment = await _test_payment(db, settings, payment_id)
-    user = await db.get(User, payment.user_id) if payment.user_id else None
-    applied = billing.apply_payment(user, payment, utcnow())
-    await db.commit()
-    if applied:
-        await billing.notify_paid(settings, payment)
+    await billing.settle(db, settings, payment.id, "paid", utcnow())
     return RedirectResponse(billing.return_path(payment), status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/test/{payment_id}/cancel", include_in_schema=False)
 async def test_cancel(payment_id: uuid.UUID, db: Db, settings: SettingsDep) -> RedirectResponse:
     payment = await _test_payment(db, settings, payment_id)
-    billing.cancel_payment(payment)
-    await db.commit()
+    await billing.settle(db, settings, payment.id, "canceled", utcnow())
     return RedirectResponse(billing.return_path(payment), status_code=status.HTTP_303_SEE_OTHER)
