@@ -51,6 +51,7 @@ const FONT = 'Inter, "Segoe UI", system-ui, sans-serif';
 /** Device pixels per CSS px: an integer, so the WebGL frame is copied pixel for pixel. */
 const SCALE = 2;
 const PADDING = 1.03;
+const JPEG_QUALITY = 0.88;
 
 /** Faces of a box by their outward normal, used to put a number on the side facing the camera. */
 const FACES = [
@@ -66,6 +67,7 @@ type ToPixel = (p: THREE.Vector3) => { x: number; y: number };
 /**
  * Renders still images of the plan for the PDF report with the scene's own vehicle and cargo
  * views, in a separate WebGL context that does not touch the editor's camera or canvas.
+ * A new context compiles all its shaders again: keep one renderer for a series of pictures.
  */
 export class SnapshotRenderer {
   private readonly renderer: THREE.WebGLRenderer;
@@ -76,14 +78,18 @@ export class SnapshotRenderer {
   private readonly edgeMaterial = fatMaterial('#1e293b', 1.1, { opacity: 0.5 });
   private edges: LineSegments2 | null = null;
   private readonly raycaster = new THREE.Raycaster();
+  private layout!: VehicleLayout;
+  /** Vehicle materials already turned into the print silhouette: they outlive rebuilds of the vehicle. */
+  private readonly ghosted = new WeakSet<THREE.Material>();
 
   constructor(
-    private readonly layout: VehicleLayout,
+    layout: VehicleLayout,
     private readonly highlightOverflow: boolean,
     /** false: the vehicle in its own colours (previews) instead of the light print silhouette. */
-    ghostVehicle = true,
+    private readonly ghostVehicle = true,
   ) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    // The same GPU as the editor's canvas on laptops with two of them.
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(SCALE);
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.scene.background = new THREE.Color(BACKGROUND);
@@ -95,7 +101,14 @@ export class SnapshotRenderer {
     const fill = new THREE.DirectionalLight('#e3ebff', 0.55);
     fill.position.set(2000, 1200, -2400);
     this.scene.add(hemi, sun, fill);
+    this.scene.add(this.vehicle.root, this.cargo.root);
+    this.setLayout(layout);
+  }
 
+  /** The vehicles to draw (the context and its compiled shaders stay). */
+  setLayout(layout: VehicleLayout): void {
+    if (layout === this.layout) return;
+    this.layout = layout;
     // Units only matter for the dimension lines, which reports do not show.
     withScenePalette(false, () => this.vehicle.build(layout, { units: 'm', showDimensions: false }));
     // The dock (everything behind the rear doors) is not part of the plan.
@@ -105,29 +118,55 @@ export class SnapshotRenderer {
     }
     // Print-friendly: the vehicle as a light grey silhouette (this view's own materials) so the cargo stands out.
     const ghost = new THREE.Color('#dde2e8');
-    const seen = new Set<THREE.Material>();
-    if (ghostVehicle) this.vehicle.root.traverse((obj) => {
+    if (this.ghostVehicle) this.vehicle.root.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
       for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) {
-        if (seen.has(m) || !(m instanceof THREE.MeshStandardMaterial) || m.transparent) continue;
-        seen.add(m);
+        if (this.ghosted.has(m) || !(m instanceof THREE.MeshStandardMaterial) || m.transparent) continue;
+        this.ghosted.add(m);
         m.color.lerp(ghost, 0.62);
       }
     });
-    this.scene.add(this.vehicle.root, this.cargo.root);
   }
 
   render(shot: Shot): Snapshot {
     // Cargo materials are made while syncing: keep them light too.
-    return withScenePalette(false, () => this.renderLight(shot));
+    return withScenePalette(false, () => {
+      const { canvas, height } = this.draw(shot, this.prepare(shot));
+      const dataUrl =
+        shot.format === 'png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+      return { dataUrl, width: shot.width, height };
+    });
   }
 
-  private renderLight(shot: Shot): Snapshot {
-    const background = shot.background ?? BACKGROUND;
-    this.scene.background = new THREE.Color(background);
+  /**
+   * {@link render} as an image file, without blocking the page for long: the shaders are compiled in the
+   * background first (on a new context that takes a tenth of a second, on weak GPUs far more) and the
+   * image is encoded off the main thread. One at a time per renderer.
+   */
+  async renderBlob(shot: Shot): Promise<Blob> {
+    const view = withScenePalette(false, () => this.prepare(shot));
+    await this.renderer.compileAsync(this.scene, view.camera);
+    const { canvas } = withScenePalette(false, () => this.draw(shot, view));
+    return new Promise((resolve, reject) =>
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('The picture could not be encoded'))),
+        `image/${shot.format}`,
+        JPEG_QUALITY,
+      ),
+    );
+  }
+
+  /** Puts the shot's cargo into the scene and frames it. */
+  private prepare(shot: Shot): Framing {
+    this.scene.background = new THREE.Color(shot.background ?? BACKGROUND);
     this.cargo.sync(shot.items, this.layout, { highlightOverflow: this.highlightOverflow, showLabels: false });
     this.setEdges(shot.items);
+    return frame(shot);
+  }
 
+  /** Renders the prepared scene and draws rulers and numbers over it; `height` is in CSS px. */
+  private draw(shot: Shot, view: Framing): { canvas: HTMLCanvasElement; height: number } {
+    const background = shot.background ?? BACKGROUND;
     // CSS px per printed pt: everything drawn over the frame is sized in pt.
     const pt = shot.width / shot.printWidth;
     const margin =
@@ -137,7 +176,6 @@ export class SnapshotRenderer {
           ? { l: 30, r: 6, t: 4, b: 4 }
           : { l: 0, r: 0, t: 0, b: 0 };
     const [l, r, t, b] = [margin.l, margin.r, margin.t, margin.b].map((v) => Math.round(v * pt));
-    const view = frame(shot);
     const w = shot.width - l - r;
     const h = Math.round(w / view.aspect);
     this.renderer.setSize(w, h, false);
@@ -160,9 +198,7 @@ export class SnapshotRenderer {
     if (shot.rulers === 'top') this.drawTopRulers(ctx, toPixel, pt);
     if (shot.rulers === 'side') this.drawSideRuler(ctx, toPixel, pt);
     this.drawLabels(ctx, shot, view.camera, toPixel, pt);
-
-    const dataUrl = shot.format === 'png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.88);
-    return { dataUrl, width: shot.width, height: totalH };
+    return { canvas, height: totalH };
   }
 
   dispose(): void {

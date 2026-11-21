@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import type { Vehicle } from '../core/types';
+import type { CargoItem, Vehicle } from '../core/types';
 import { itemBox } from '../core/item';
 import { pinnedIds } from '../core/physics';
 import type { VehicleLayout } from '../core/layout';
@@ -20,10 +20,24 @@ export function useActiveVehicle(): Vehicle {
   return useStore(activeVehicle);
 }
 
+const placements = new WeakMap<CargoItem, { layout: VehicleLayout; placement: Placement }>();
+
+/**
+ * Where an item is, cached per item object and layout: an edit replaces only the items it changes, so the
+ * others keep the same placement object and their memoized list rows skip rendering.
+ */
+function placementOf(item: CargoItem, layout: VehicleLayout): Placement {
+  const cached = placements.get(item);
+  if (cached?.layout === layout) return cached.placement;
+  const placement = classify(itemBox(item), layout);
+  placements.set(item, { layout, placement });
+  return placement;
+}
+
 export function usePlacements(): Map<string, Placement> {
   const items = useStore((s) => s.items);
   const layout = useLayout();
-  return useMemo(() => new Map(items.map((i) => [i.id, classify(itemBox(i), layout)])), [items, layout]);
+  return useMemo(() => new Map(items.map((i) => [i.id, placementOf(i, layout)])), [items, layout]);
 }
 
 /** Fixed cargo and what it stands on (they cannot be moved, turned or resized). */
