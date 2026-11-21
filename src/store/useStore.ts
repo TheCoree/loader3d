@@ -57,6 +57,8 @@ export interface Settings {
   xrayOpacity: number;
   /** Colour theme of the app (lib/theme.ts); "system" follows the OS. The public pages stay light. */
   theme: Theme;
+  /** The id of the newest release of «Что нового» the user has seen (lib/changelog.ts); '' — none yet. */
+  updatesSeen: string;
 }
 
 export type Theme = 'system' | 'light' | 'dark';
@@ -180,6 +182,7 @@ export const DEFAULT_SETTINGS: Settings = {
   xray: 'selection',
   xrayOpacity: 0.22,
   theme: 'system',
+  updatesSeen: '',
 };
 
 const UNITS: readonly Units[] = ['mm', 'cm', 'm'];

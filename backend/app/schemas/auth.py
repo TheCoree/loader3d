@@ -205,3 +205,6 @@ class DisplaySettingsIn(ApiModel):
     xray_opacity: Annotated[float, Field(ge=0.08, le=0.8)] | None = None
     # Colour theme of the app; "system" follows the OS.
     theme: Literal["system", "light", "dark"] | None = None
+    # The newest release of «Что нового» the user has seen (src/lib/changelog.ts ids: "2026-11-21",
+    # "2026-11-21.2").
+    updates_seen: Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}(\.\d{1,2})?$")] | None = None

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import type { PlanSort, PlanSummary, Subscription } from '@/api/types';
 import { AppHeader } from '@/components/AppHeader';
+import { UpdatesStrip } from '@/components/updates';
 import { LogoMark } from '@/components/Logo';
 import { LimitSegments, SubscriptionStateBadge, TIER_PANEL_TONE, TierCube, TierWordmark } from '@/components/TierBadge';
 import { UpgradeDialog, useUpgrade, useUpgradeAction } from '@/components/UpgradeDialog';
@@ -116,6 +117,8 @@ export function HomePage() {
         </div>
 
         {subscription && <SubscriptionStrip sub={subscription} plans={loading || q !== '' ? undefined : total} />}
+
+        <UpdatesStrip className={subscription ? 'mt-3' : 'mt-6'} />
 
         <LegacyPlanBanner />
 
