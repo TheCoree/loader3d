@@ -8,15 +8,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+from fastapi import FastAPI
+from sqlalchemy import update
 
-from app import cispay, mail
+from app import billing, cispay, jobs, mail
 from app.config import Settings
-from app.models import Payment
+from app.models import Payment, utcnow
 from app.routers import billing as billing_router
 from tests.conftest import error_code, make_settings, register
 
@@ -35,12 +38,14 @@ class FakeCisPay:
 
     def __init__(self) -> None:
         self.requests: list[urllib.request.Request] = []
+        self.timeouts: list[float] = []
         self.invoices: dict[str, dict[str, Any]] = {}  # transaction id → the invoice asked for
         self.status: dict[str, str] = {}  # transaction id → what GET /payments/status says
         self.down = False
 
-    def open(self, request: urllib.request.Request) -> bytes:
+    def open(self, request: urllib.request.Request, timeout: float) -> bytes:
         self.requests.append(request)
+        self.timeouts.append(timeout)
         if self.down:
             raise urllib.error.URLError("connection refused")
         url = urllib.parse.urlsplit(request.full_url)
@@ -71,6 +76,14 @@ class FakeCisPay:
 
     def status_checks(self) -> int:
         return sum(r.get_method() == "GET" for r in self.requests)
+
+    def asked_about(self) -> list[str]:
+        """Transactions asked about with GET /payments/status, in order."""
+        return [
+            urllib.parse.parse_qs(urllib.parse.urlsplit(r.full_url).query)["id"][0]
+            for r in self.requests
+            if r.get_method() == "GET"
+        ]
 
     def notice(self, tx: str, status: str | None = None, **changes: Any) -> dict[str, Any]:
         """A webhook body (GET /payments/status answers with the same fields)."""
@@ -303,3 +316,76 @@ def test_cispay_settings(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="CISPAY_SANDBOX"):
         make_settings(tmp_path, **production, site_url="https://loader3d.pro", cispay_sandbox=True)
     assert make_settings(tmp_path, **production, site_url="https://loader3d.pro").payment_provider == "cispay"
+
+
+async def test_requests_have_time_limits(client: httpx.AsyncClient, api: FakeCisPay) -> None:
+    await register(client)
+    checkout = await _checkout(client)
+    await client.get(f"/api/billing/payments/{checkout['payment']['id']}")
+    assert api.timeouts == [cispay.CREATE_TIMEOUT, cispay.STATUS_TIMEOUT]
+
+
+async def test_a_sandbox_payment_that_ends_closes_ours(client: httpx.AsyncClient, api: FakeCisPay) -> None:
+    """Sandbox transactions are also payments of a customer cisPay has blocked: never paid, but they end."""
+    await register(client)
+    await _checkout(client)
+    await _notify(client, api.notice(api.tx, "PAID", is_sandbox=True))
+    assert await _statuses(client) == ["pending"]
+    await _notify(client, api.notice(api.tx, "EXPIRED", is_sandbox=True))
+    assert await _statuses(client) == ["canceled"]
+
+
+async def test_pending_payments_are_asked_about_in_the_background(
+    app: FastAPI, settings: Settings, client: httpx.AsyncClient, api: FakeCisPay, letters: list
+) -> None:
+    """The customer paid and closed the page, and the webhook was lost: the job settles it anyway."""
+    await register(client)
+    ids = {name: (await _checkout(client))["payment"]["id"] for name in ("paid", "expired", "fresh", "old")}
+    tx = dict(zip(ids, api.invoices, strict=True))
+    api.status[tx["paid"]] = "PAID"
+    api.status[tx["expired"]] = "EXPIRED"
+    api.status[tx["old"]] = "PAID"
+    now = utcnow()
+    ages = {"paid": timedelta(minutes=10), "expired": timedelta(minutes=40), "old": timedelta(days=3)}
+    async with app.state.sessionmaker() as db:
+        for name, age in ages.items():
+            await db.execute(
+                update(Payment).where(Payment.id == uuid.UUID(ids[name])).values(created_at=now - age)
+            )
+        await db.commit()
+
+    await jobs.check_payments_once(app.state.sessionmaker, settings)
+    # The newest first; a payment younger than RECONCILE_AFTER and one older than RECONCILE_WITHIN are left.
+    assert api.asked_about() == [tx["paid"], tx["expired"]]
+    statuses = {p["id"]: p["status"] for p in (await client.get("/api/billing/payments")).json()}
+    assert [statuses[ids[name]] for name in ("paid", "expired", "fresh", "old")] == [
+        "paid",
+        "canceled",
+        "pending",
+        "pending",
+    ]
+    assert (await _sub(client))["tier"] == "pro"
+    assert len(letters) == 1
+
+    # Nothing pending in the window any more: the next run asks nobody.
+    await jobs.check_payments_once(app.state.sessionmaker, settings)
+    assert api.status_checks() == 2
+
+
+async def test_the_background_check_waits_out_cispay_failures(
+    app: FastAPI, settings: Settings, client: httpx.AsyncClient, api: FakeCisPay
+) -> None:
+    await register(client)
+    checkout = await _checkout(client)
+    async with app.state.sessionmaker() as db:
+        await db.execute(update(Payment).values(created_at=utcnow() - timedelta(minutes=10)))
+        await db.commit()
+        api.down = True
+        assert await billing.reconcile(db, settings, utcnow()) == 0
+    assert await _statuses(client) == ["pending"]
+    api.down = False
+    api.status[api.tx] = "PAID"
+    async with app.state.sessionmaker() as db:
+        assert await billing.reconcile(db, settings, utcnow()) == 1
+    payment = (await client.get(f"/api/billing/payments/{checkout['payment']['id']}")).json()
+    assert payment["status"] == "paid"

@@ -96,7 +96,9 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   from the client. A tier changes only in `apply_payment` (idempotent: providers repeat notifications;
   extends from the end of the current «Pro» period) after the provider confirms; a provider's webhook must
   check its signature first (cisPay: `app/cispay.py`, `POST /api/billing/cispay/webhook`; sandbox payments
-  count only with `CISPAY_SANDBOX`, development). Results go through `billing.settle()`, which locks the payment row.
+  count only with `CISPAY_SANDBOX`, development). Results go through `billing.settle()`, which locks the payment row;
+  `billing.reconcile()` (app/jobs.py, every 5 min) asks providers about payments still pending. No DB transaction
+  is held while a provider answers.
   `PAYMENT_PROVIDER=test` is refused in production. Without a provider the UI
   falls back to requests (LeadForm).
 - The landing page (`pages/LandingPage.tsx`, `Shell.tsx`) is rendered on the server by

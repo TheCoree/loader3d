@@ -1,5 +1,6 @@
-"""Hourly work of the API (started by the lifespan in app/main.py): «тариф заканчивается» letters
-(app/billing.py, with tiers on) and the removal of old visit statistics (app/analytics.py)."""
+"""Background work of the API (started by the lifespan in app/main.py). Hourly: «тариф заканчивается»
+letters (app/billing.py, with tiers on) and the removal of old visit statistics (app/analytics.py). Every
+few minutes: pending payments are asked about at their provider (billing.reconcile)."""
 
 import asyncio
 import logging
@@ -14,6 +15,7 @@ from app.models import utcnow
 logger = logging.getLogger("app.jobs")
 
 INTERVAL = timedelta(hours=1)
+PAYMENTS_INTERVAL = timedelta(minutes=5)
 
 
 async def run_once(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
@@ -35,3 +37,21 @@ async def hourly(sessionmaker: async_sessionmaker[AsyncSession], settings: Setti
         except Exception:
             logger.exception("hourly jobs failed")
         await asyncio.sleep(INTERVAL.total_seconds())
+
+
+async def check_payments_once(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
+    if not settings.tiers_enabled:
+        return
+    async with sessionmaker() as db:
+        if changed := await billing.reconcile(db, settings, utcnow()):
+            print(f"[jobs] payments settled by a status check: {changed}", flush=True)
+
+
+async def check_payments(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
+    await asyncio.sleep(90)
+    while True:
+        try:
+            await check_payments_once(sessionmaker, settings)
+        except Exception:
+            logger.exception("payment checks failed")
+        await asyncio.sleep(PAYMENTS_INTERVAL.total_seconds())

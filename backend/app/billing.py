@@ -11,7 +11,9 @@ change both. There are no automatic renewals: `send_tier_reminders` writes a few
 
 Providers: "test" is a page of the API that pays or cancels at a click (development; production refuses
 it); "cispay" is cisPay (app/cispay.py): its page, a signed webhook, and the status asked while the
-customer's return page waits. A provider reports through `settle`, which applies the result once.
+customer's return page waits. A provider reports through `settle`, which applies the result once. Every few
+minutes `reconcile` (app/jobs.py) asks about the payments still pending, so a payment never hangs unpaid
+because a notification was lost and the customer closed the page.
 """
 
 import calendar
@@ -22,14 +24,14 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal, Protocol
 
-from fastapi import status
+from fastapi import BackgroundTasks, status
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import cispay, mail
 from app.config import Settings
 from app.errors import ApiError
-from app.models import Payment, User
+from app.models import Payment, User, utcnow
 from app.tiers import TIER_NAMES, effective_tier
 
 logger = logging.getLogger("app.billing")
@@ -44,6 +46,10 @@ PRICES: dict[tuple[str, str], int] = {("pro", "month"): 1990, ("pro", "year"): 1
 
 # How long before the end of «Pro» the reminder goes out (app/jobs.py looks for such accounts every hour).
 REMINDER_BEFORE = timedelta(days=3)
+# `reconcile` asks about pending payments older than this (the return page and the webhook usually settle
+# them sooner) and younger than that (an invoice expires within about an hour).
+RECONCILE_AFTER = timedelta(minutes=2)
+RECONCILE_WITHIN = timedelta(days=2)
 
 
 def add_months(moment: datetime, months: int) -> datetime:
@@ -170,12 +176,19 @@ def get_provider(settings: Settings) -> PaymentProvider | None:
 
 
 async def settle(
-    db: AsyncSession, settings: Settings, payment_id: uuid.UUID, state: ProviderState, now: datetime
+    db: AsyncSession,
+    settings: Settings,
+    payment_id: uuid.UUID,
+    state: ProviderState,
+    now: datetime,
+    *,
+    later: BackgroundTasks | None = None,
 ) -> Payment | None:
     """Applies what the provider reported and commits; after a payment that changed something — the
-    «оплата получена» letter. The rows are read again under a lock (Postgres), so a webhook and the return
-    page's check at the same moment extend the tier once. A payment canceled earlier may still be paid: the
-    customer can try again on the provider's page."""
+    «оплата получена» letter (after the response with `later`, so a webhook is answered at once). The rows are
+    read again under a lock (Postgres), so a webhook and the return page's check at the same moment extend
+    the tier once. A payment canceled earlier may still be paid: the customer can try again on the
+    provider's page."""
     payment = await db.scalar(
         select(Payment)
         .where(Payment.id == payment_id)
@@ -190,11 +203,45 @@ async def settle(
             user = await db.get(User, payment.user_id, populate_existing=True, with_for_update=True)
         applied = apply_payment(user, payment, now)
         await db.commit()
-        if applied:
+        if applied and later is not None:
+            later.add_task(notify_paid, settings, payment)
+        elif applied:
             await notify_paid(settings, payment)
     elif state == "canceled" and cancel_payment(payment):
         await db.commit()
     return payment
+
+
+async def reconcile(db: AsyncSession, settings: Settings, now: datetime) -> int:
+    """Asks the providers about the payments still pending (from RECONCILE_AFTER to RECONCILE_WITHIN old) and
+    applies the answers; returns how many payments were paid or canceled. No transaction is held while a
+    provider answers."""
+    rows = (
+        await db.execute(
+            select(Payment.id, Payment.provider)
+            .where(
+                Payment.status == "pending",
+                Payment.created_at <= now - RECONCILE_AFTER,
+                Payment.created_at > now - RECONCILE_WITHIN,
+            )
+            .order_by(Payment.created_at.desc())
+            .limit(100)
+        )
+    ).all()
+    await db.commit()
+    changed = 0
+    for payment_id, name in rows:
+        provider = provider_named(name, settings)
+        payment = await db.get(Payment, payment_id) if provider is not None else None
+        await db.commit()
+        if provider is None or payment is None or payment.status != "pending":
+            continue
+        state = await provider.check(payment, settings)
+        if state in ("paid", "canceled"):
+            settled = await settle(db, settings, payment_id, state, utcnow())
+            if settled is not None and settled.status == state:
+                changed += 1
+    return changed
 
 
 async def notify_paid(settings: Settings, payment: Payment) -> None:

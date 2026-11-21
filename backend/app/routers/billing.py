@@ -7,7 +7,7 @@ import uuid
 from datetime import timedelta
 from html import escape
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, BackgroundTasks, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
@@ -66,6 +66,7 @@ async def checkout(body: CheckoutIn, auth: VerifiedAuth, db: Db, settings: Setti
     if wait := CHECKOUTS_PER_USER.allow(str(user.id)):
         raise too_many(wait, "Слишком много попыток оплаты")
     payment = Payment(
+        id=uuid.uuid7(),
         user_id=user.id,
         email=user.email,
         tier=body.tier,
@@ -73,11 +74,13 @@ async def checkout(body: CheckoutIn, auth: VerifiedAuth, db: Db, settings: Setti
         amount=billing.PRICES[(body.tier, body.period)],
         provider=provider.name,
     )
-    db.add(payment)
-    await db.flush()
+    # The provider first, outside a transaction: nothing is written if it does not answer. Its notification
+    # cannot come before the commit — the customer has not seen the payment page yet.
+    await db.commit()
     page = await provider.create(payment, settings)
     payment.provider_payment_id = page.provider_payment_id
     payment.payment_url = page.url
+    db.add(payment)
     await db.commit()
     return CheckoutOut(payment=PaymentOut.model_validate(payment), payment_url=page.url)
 
@@ -95,7 +98,9 @@ async def my_payments(auth: CurrentAuth, db: Db) -> list[PaymentOut]:
 
 
 @router.get("/payments/{payment_id}")
-async def my_payment(payment_id: uuid.UUID, auth: CurrentAuth, db: Db, settings: SettingsDep) -> PaymentOut:
+async def my_payment(
+    payment_id: uuid.UUID, auth: CurrentAuth, db: Db, settings: SettingsDep, later: BackgroundTasks
+) -> PaymentOut:
     """One payment of the account: the page the customer returns to polls it until it is not pending.
     A pending payment is checked with the provider too, in case its notification is late or lost."""
     payment = await db.get(Payment, payment_id)
@@ -103,9 +108,10 @@ async def my_payment(payment_id: uuid.UUID, auth: CurrentAuth, db: Db, settings:
         raise not_found("payment_not_found", "Платёж не найден")
     if payment.status == "pending" and STATUS_CHECKS.allow(str(payment.id)) == 0:
         provider = billing.provider_named(payment.provider, settings)
+        await db.commit()  # no transaction while the provider answers
         state = await provider.check(payment, settings) if provider else None
         if state in ("paid", "canceled"):
-            payment = await billing.settle(db, settings, payment.id, state, utcnow()) or payment
+            payment = await billing.settle(db, settings, payment.id, state, utcnow(), later=later) or payment
     return PaymentOut.model_validate(payment)
 
 
@@ -113,7 +119,9 @@ async def my_payment(payment_id: uuid.UUID, auth: CurrentAuth, db: Db, settings:
 
 
 @router.post("/cispay/webhook", include_in_schema=False)
-async def cispay_webhook(request: Request, db: Db, settings: SettingsDep) -> dict[str, bool]:
+async def cispay_webhook(
+    request: Request, db: Db, settings: SettingsDep, later: BackgroundTasks
+) -> dict[str, bool]:
     """cisPay reports a new status of a payment. Any 2xx stops its retries, so a notification the API cannot
     use is logged and acknowledged; only one without a valid signature is refused."""
     raw = await request.body()
@@ -140,7 +148,7 @@ async def cispay_webhook(request: Request, db: Db, settings: SettingsDep) -> dic
         return {"ok": True}
     state = cispay.state_of(settings, payment, data)
     if state in ("paid", "canceled"):
-        await billing.settle(db, settings, payment.id, state, utcnow())
+        await billing.settle(db, settings, payment.id, state, utcnow(), later=later)
     return {"ok": True}
 
 
@@ -203,9 +211,11 @@ async def test_payment_page(payment_id: uuid.UUID, db: Db, settings: SettingsDep
 
 
 @router.post("/test/{payment_id}/pay", include_in_schema=False)
-async def test_pay(payment_id: uuid.UUID, db: Db, settings: SettingsDep) -> RedirectResponse:
+async def test_pay(
+    payment_id: uuid.UUID, db: Db, settings: SettingsDep, later: BackgroundTasks
+) -> RedirectResponse:
     payment = await _test_payment(db, settings, payment_id)
-    await billing.settle(db, settings, payment.id, "paid", utcnow())
+    await billing.settle(db, settings, payment.id, "paid", utcnow(), later=later)
     return RedirectResponse(billing.return_path(payment), status_code=status.HTTP_303_SEE_OTHER)
 
 

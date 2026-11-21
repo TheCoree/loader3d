@@ -22,14 +22,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = create_engine(settings.sqlalchemy_url)
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
-        # Hourly: «тариф заканчивается» letters and the removal of old visit statistics (app/jobs.py).
-        hourly = asyncio.create_task(jobs.hourly(app.state.sessionmaker, settings))
+        # Hourly: «тариф заканчивается» letters and the removal of old visit statistics; every few minutes:
+        # pending payments asked about at their provider (app/jobs.py).
+        tasks = [
+            asyncio.create_task(jobs.hourly(app.state.sessionmaker, settings)),
+            asyncio.create_task(jobs.check_payments(app.state.sessionmaker, settings)),
+        ]
         try:
             yield
         finally:
-            hourly.cancel()
-            with suppress(asyncio.CancelledError):
-                await hourly
+            for task in tasks:
+                task.cancel()
+            for task in tasks:
+                with suppress(asyncio.CancelledError):
+                    await task
             await engine.dispose()
 
     app = FastAPI(
