@@ -3,6 +3,7 @@ import { NavLink } from 'react-router';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { SubscriptionChip } from '@/components/TierBadge';
+import { UpdatesButton } from '@/components/updates';
 import { UserMenu } from '@/components/UserMenu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
@@ -24,7 +25,10 @@ function Tab({ to, children, end = true }: { to: string; children: ReactNode; en
   );
 }
 
-/** Header of the plans, tariff, account and admin pages; follows the theme. */
+/**
+ * Header of the plans, tariff, account, «Что нового» and admin pages; follows the theme. Narrow screens
+ * get the sections from the account menu; the tier chip and the account name grow in from lg/xl.
+ */
 export function AppHeader({ children }: { children?: ReactNode }) {
   const isAdmin = useAuth((s) => s.user?.isAdmin);
   const tiers = useAuth((s) => !!s.user?.subscription);
@@ -32,17 +36,23 @@ export function AppHeader({ children }: { children?: ReactNode }) {
     <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
         <Logo to="/plans" />
-        <nav aria-label="Разделы" className="hidden items-center gap-1 sm:flex">
+        <nav aria-label="Разделы" className="hidden items-center gap-1 md:flex">
           <Tab to="/plans">Схемы</Tab>
           {tiers && <Tab to="/billing">Тариф</Tab>}
           <Tab to="/account" end={false}>
             Аккаунт
           </Tab>
-          {isAdmin && <Tab to="/admin">Администрирование</Tab>}
+          {isAdmin && (
+            <Tab to="/admin">
+              <span className="hidden lg:inline">Администрирование</span>
+              <span className="lg:hidden">Админка</span>
+            </Tab>
+          )}
         </nav>
         <div className="flex flex-1 items-center justify-end gap-1">
           {children}
           <SubscriptionChip />
+          <UpdatesButton />
           <ThemeToggle />
           <UserMenu />
         </div>

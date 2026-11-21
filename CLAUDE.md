@@ -11,6 +11,9 @@ Architecture, controls, API endpoints and extension points are in README.md — 
 - Units: lengths are stored in centimetres, weights in kilograms; `core/units.ts` converts for display
   (мм / см / м, кг / т). `weight` (item) and `maxLoad` (body) are optional — plans from before weights.
 - Repository: https://github.com/TheCoree/loader3d, branch `main`. Commit only when the user asks.
+- «Что нового» (`/updates`, `src/lib/changelog.ts`): every change users can notice adds a line there in the same
+  pull request — a release dated the day of the deploy at the top (or one more change in today's release), written
+  for users, kind `new` / `improved` / `fixed`, `tiers: true` when it only makes sense with tiers on.
 - UI: build from shadcn components in `src/components/ui` (style radix-nova; add more with
   `npx shadcn@latest add <name>`), lucide icons, Tailwind classes. Theme tokens live in `src/index.css`;
   `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app

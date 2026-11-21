@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage';
 import { LandingRoute } from './pages/LandingPage';
 import { LegalPage } from './pages/LegalPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { UpdatesPage } from './pages/UpdatesPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { TIERS_ENABLED } from './lib/tiers';
 
@@ -40,6 +41,7 @@ export function App() {
       />
       <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
       <Route path="/account/:section" element={<RequireAuth><AccountPage /></RequireAuth>} />
+      <Route path="/updates" element={<RequireAuth><UpdatesPage /></RequireAuth>} />
       <Route path="/billing" element={TIERS_ENABLED ? <RequireAuth><BillingPage /></RequireAuth> : <Navigate to="/account" replace />} />
       <Route
         path="/admin"

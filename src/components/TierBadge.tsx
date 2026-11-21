@@ -111,12 +111,12 @@ export function SubscriptionChip() {
         asChild
         variant="ghost"
         size="sm"
-        className="h-8 gap-1.5 rounded-full bg-foreground/[0.06] px-3 hover:bg-foreground/10 dark:bg-foreground/10 dark:hover:bg-foreground/15"
+        className="h-8 shrink-0 gap-1.5 rounded-full bg-foreground/[0.06] px-3 whitespace-nowrap hover:bg-foreground/10 dark:bg-foreground/10 dark:hover:bg-foreground/15"
       >
         <Link to="/billing" title={subscriptionSummary(sub)}>
           <LogoMark tone="mono" className="size-4 text-primary" />
-          <span className="hidden sm:inline">{label}</span>
-          <span className="sm:hidden">Pro</span>
+          <span className="hidden lg:inline">{label}</span>
+          <span className="lg:hidden">Pro</span>
         </Link>
       </Button>
     );
@@ -128,13 +128,13 @@ export function SubscriptionChip() {
       to="/billing"
       title={subscriptionSummary(sub)}
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         state === 'ending' ? 'bg-warning/12 text-warning hover:bg-warning/18' : cn(TIER_TONE[sub.tier], 'hover:brightness-95 dark:hover:brightness-125'),
       )}
     >
       <LogoMark tone="mono" className="size-4" />
       {sub.name}
-      {extra && <span className="hidden font-normal opacity-80 md:inline">· {extra}</span>}
+      {extra && <span className="hidden font-normal opacity-80 xl:inline">· {extra}</span>}
     </Link>
   );
 }

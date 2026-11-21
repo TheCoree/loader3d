@@ -1,8 +1,9 @@
-import { ChevronDown, CreditCard, LayoutGrid, LogOut, ShieldCheck, SunMoon, UserRound } from 'lucide-react';
+import { ChevronDown, CreditCard, LayoutGrid, LogOut, Megaphone, ShieldCheck, SunMoon, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { THEME_OPTIONS } from '@/components/ThemeToggle';
 import { SubscriptionStateBadge, TierBadge } from '@/components/TierBadge';
+import { UnseenCount } from '@/components/updates';
 import { UserAvatar } from '@/components/settings';
 import {
   AlertDialog,
@@ -45,12 +46,12 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-9 gap-2 rounded-full px-1.5 data-[state=open]:bg-muted sm:pr-2.5" aria-label="Меню аккаунта">
+          <Button variant="ghost" className="h-9 gap-2 rounded-full px-1.5 data-[state=open]:bg-muted lg:pr-2.5" aria-label="Меню аккаунта">
             <UserAvatar user={user} />
             {!compact && (
               <>
-                <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">{user.displayName}</span>
-                <ChevronDown className="hidden text-muted-foreground sm:inline" />
+                <span className="hidden max-w-40 truncate text-sm font-medium lg:inline">{user.displayName}</span>
+                <ChevronDown className="hidden text-muted-foreground lg:inline" />
               </>
             )}
           </Button>
@@ -80,6 +81,10 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
                 <CreditCard /> Тариф и оплата
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem onSelect={() => navigate('/updates')}>
+              <Megaphone /> Что нового
+              <UnseenCount className="ml-auto" />
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           {user.isAdmin && (
             <>

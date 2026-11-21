@@ -156,6 +156,17 @@ async def test_display_settings_are_validated(client):
         assert (await client.patch("/api/users/me/settings", json=bad)).status_code == 422
 
 
+async def test_the_seen_release_of_the_updates_is_saved(client):
+    """«Что нового» (src/lib/changelog.ts): the newest release the user saw, kept with the settings."""
+    await register(client)
+    for seen in ("2026-11-21", "2026-11-21.2"):
+        saved = await client.patch("/api/users/me/settings", json={"updatesSeen": seen})
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["updatesSeen"] == seen
+    for bad in ("", "latest", "2026-11-21.123", "21.11.2026", 20261121):
+        assert (await client.patch("/api/users/me/settings", json={"updatesSeen": bad})).status_code == 422
+
+
 async def test_display_modes_are_saved(client):
     """The «Только рёбра» preset and the finer display options (src/editor/displayPresets.ts)."""
     await register(client)
