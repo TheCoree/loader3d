@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { memo, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -327,7 +327,20 @@ function StatusBadge({ placement }: { placement?: Placement }) {
   );
 }
 
-function CargoRow({ item, placement, selected }: { item: CargoItem; placement?: Placement; selected: boolean }) {
+/**
+ * Memoized: an edit or a new selection re-renders only the rows it touches, not all of them (with a
+ * hundred items and more, re-rendering every row held the page for up to a tenth of a second).
+ * `item` and `placement` keep their identity while unchanged (see usePlacements).
+ */
+const CargoRow = memo(function CargoRow({
+  item,
+  placement,
+  selected,
+}: {
+  item: CargoItem;
+  placement?: Placement;
+  selected: boolean;
+}) {
   const select = useStore((s) => s.select);
   const removeItem = useStore((s) => s.removeItem);
   const units = useUnits();
@@ -384,7 +397,7 @@ function CargoRow({ item, placement, selected }: { item: CargoItem; placement?: 
       {selected && <ItemInspector item={item} units={units} />}
     </li>
   );
-}
+});
 
 const AXES: Array<{ axis: RotationAxis; label: string; hint: string; keys: string }> = [
   { axis: 'y', label: 'Y', hint: 'Вокруг вертикали (ось Y)', keys: 'R' },
