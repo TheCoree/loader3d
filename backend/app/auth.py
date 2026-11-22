@@ -246,6 +246,7 @@ _bearer = HTTPBearer(auto_error=False, description="accessToken из /api/auth/l
 
 
 async def get_auth(
+    request: Request,
     db: Db,
     settings: SettingsDep,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -274,6 +275,8 @@ async def get_auth(
     if row is None:
         raise unauthorized("session_expired", SESSION_ENDED)
     session, user = row
+    # «Online now» of the owner's widget (app/metrics.py): only the id and the moment, in memory.
+    request.app.state.activity.seen(user.id)
     return AuthContext(user=user, session=session)
 
 
@@ -281,6 +284,7 @@ CurrentAuth = Annotated[AuthContext, Depends(get_auth)]
 
 
 async def get_optional_auth(
+    request: Request,
     db: Db,
     settings: SettingsDep,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -289,7 +293,7 @@ async def get_optional_auth(
     if credentials is None:
         return None
     try:
-        return await get_auth(db, settings, credentials)
+        return await get_auth(request, db, settings, credentials)
     except ApiError:
         return None
 

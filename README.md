@@ -42,6 +42,8 @@ docker compose up -d
 Доступ к админ-панели (`/admin`) — у аккаунта с правами администратора. Выдать права существующему
 аккаунту: `docker compose exec api python -m app make-admin you@example.com` (`--revoke` — забрать).
 Проверить почту (`MAIL_BACKEND=smtp`): `docker compose exec api python -m app send-test-mail you@example.com`.
+Виджет сайта на iPhone (статус, нагрузка, онлайн, выручка и регистрации) — [tools/scriptable](tools/scriptable/README.md):
+ключ — `python -m app widget-key`, его хэш — в `WIDGET_KEY_SHA256`.
 
 Обновление: `git pull && docker compose up -d --build`. Логи: `docker compose logs -f`.
 Если сервер развёрнут до появления бэкенда — перед обновлением добавить в `.env` новые переменные
@@ -72,6 +74,7 @@ docker compose up -d
 | `PAYMENT_PROVIDER` | `none` | Онлайн-оплата «Pro» из аккаунта (с `TIERS_ENABLED=true`): `none` — платные тарифы по заявке и через админа; `test` — тестовая страница оплаты, только для разработки (прод с ним не запустится); `cispay` — cisPay (карта, СБП), нужны `CISPAY_SHOP_ID`, `CISPAY_API_KEY` и `SITE_URL` |
 | `CISPAY_SHOP_ID`, `CISPAY_API_KEY` | — | Магазин cisPay: Shop ID и секретный ключ `cis_sec_…` из его кабинета («Настройки магазина»). Там же адрес вебхука: `https://<домен>/api/billing/cispay/webhook` |
 | `ANALYTICS_ENABLED` / `ANALYTICS_RETENTION_DAYS` | `true` / `400` | Статистика посещений публичных страниц для вкладки «Посещаемость» админки (без cookie, IP не хранится) и сколько дней хранить сырые визиты |
+| `WIDGET_KEY_SHA256` | — | Виджет владельца для iPhone ([tools/scriptable](tools/scriptable/README.md)): SHA-256 ключей из `python -m app widget-key` через запятую (сами ключи на сервере не хранятся); пусто — `GET /api/widget/stats` нет (404) |
 | `POSTGRES_PASSWORD` | — (обязательно) | Пароль БД, применяется при первом создании базы |
 | `POSTGRES_DB` / `POSTGRES_USER` | `loader3d` / `loader3d` | Имя базы и пользователя |
 | `LOG_MAX_SIZE` / `LOG_MAX_FILE` | `10m` / `3` | Ротация логов контейнеров |
@@ -159,7 +162,7 @@ uv run ruff check . && uv run ruff format --check .
 `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REGISTRATION_OPEN`, `EMAIL_VERIFICATION`, `MAIL_BACKEND`,
 `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SITE_URL`,
 `FORWARDED_ALLOW_IPS` (без него — `127.0.0.1`), `TIERS_ENABLED`, `PAYMENT_PROVIDER`, `CISPAY_SHOP_ID`,
-`CISPAY_API_KEY`, `CISPAY_SANDBOX` (только разработка: платежи песочницы cisPay считаются оплаченными), `CORS_ORIGINS`,
+`CISPAY_API_KEY`, `CISPAY_SANDBOX` (только разработка: платежи песочницы cisPay считаются оплаченными), `WIDGET_KEY_SHA256`, `CORS_ORIGINS`,
 `ENVIRONMENT` (см. [config.py](backend/app/config.py)). `TIERS_ENABLED` из корневого `.env` читает и Vite —
 после его смены перезапустите оба процесса.
 
@@ -210,6 +213,7 @@ uv run ruff check . && uv run ruff format --check .
 | `POST /api/analytics/collect` | Без входа: отчёт страницы о визите (страницы, время в разделах лендинга, клики, регистрация) — `navigator.sendBeacon` |
 | `GET /api/admin/analytics?days=7\|30\|90` | Админ: посещаемость за период и сравнение с прошлым |
 | `GET /api/health` | Проверка живости и связи с БД |
+| `GET /api/widget/stats` | Виджет владельца ([tools/scriptable](tools/scriptable/README.md)), только с `WIDGET_KEY_SHA256`: ключ в `Authorization: Bearer`; статус и проблемы, нагрузка (запросы в минуту, p95, 5xx, время БД, CPU/память/диск), онлайн, выручка, регистрации и посетители по дням за 14 дней — только агрегаты. 30 запросов в минуту с IP, 10 неверных ключей за 15 минут → 429 |
 
 Ошибки: `{"detail": {"code": "...", "message": "..."}}` — `code` для логики клиента, `message` по-русски
 для показа; ошибки валидации — стандартный ответ FastAPI `422`.

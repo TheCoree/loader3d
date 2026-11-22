@@ -5,6 +5,8 @@
 `python -m app send-test-mail EMAIL`: send a test letter with the current mail settings (MAIL_*, SMTP_*).
 
 `python -m app send-reminders`: send the «тариф заканчивается» letters now (the API does it every hour).
+
+`python -m app widget-key`: a new key for the phone widget and the WIDGET_KEY_SHA256 line for .env.
 """
 
 import argparse
@@ -14,7 +16,7 @@ import sys
 import uvicorn
 from sqlalchemy import select
 
-from app import billing, mail
+from app import billing, mail, widget
 from app.config import BACKEND_DIR, Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.migrate import upgrade_database
@@ -60,7 +62,17 @@ def main() -> None:
     )
     test_mail.add_argument("email", help="where to send it")
     commands.add_parser("send-reminders", help="send the «тариф заканчивается» letters now")
+    commands.add_parser("widget-key", help="a new key for the phone widget (tools/scriptable)")
     args = parser.parse_args()
+
+    if args.command == "widget-key":
+        # Needs neither the settings nor the database: it can be run on any computer.
+        key = widget.new_key()
+        print("Widget key (enter it in Scriptable; it is shown once and not stored on the server):")
+        print(f"  {key}")
+        print("Line for .env on the server (add more hashes separated by commas, one per device):")
+        print(f"  WIDGET_KEY_SHA256={widget.key_hash(key)}")
+        return
 
     settings = get_settings()
     if args.command == "send-test-mail":

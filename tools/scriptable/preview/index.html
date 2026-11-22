@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Виджет Loader3D — превью</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --page: #f2f2f7;
+        --text: #1c1c1e;
+        --muted: #6e6e73;
+        --home: #dfe3ea;
+        --lock: #1b2433;
+        --line: rgba(60, 60, 67, 0.18);
+        color-scheme: light;
+      }
+      :root[data-theme='dark'] {
+        --page: #000;
+        --text: #f2f2f7;
+        --muted: #98989d;
+        --home: #2c2f36;
+        --line: rgba(235, 235, 245, 0.16);
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font: 14px/1.45 Inter, -apple-system, system-ui, sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        align-items: center;
+        padding: 14px 24px;
+        background: var(--page);
+        border-bottom: 1px solid var(--line);
+      }
+      h1 { margin: 0; font-size: 17px; font-weight: 600; }
+      label { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); }
+      select, input, button {
+        font: inherit;
+        color: var(--text);
+        background: rgba(120, 120, 128, 0.16);
+        border: 0;
+        border-radius: 8px;
+        padding: 6px 10px;
+      }
+      button { cursor: pointer; }
+      main { padding: 8px 24px 48px; }
+      section { padding: 18px 0 8px; border-bottom: 1px solid var(--line); }
+      h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+      h2 small { color: var(--muted); font-weight: 500; margin-left: 8px; }
+      .screens { display: flex; flex-wrap: wrap; gap: 16px; }
+      .screen { border-radius: 18px; padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+      .screen.home { background: var(--home); }
+      .screen.lock { background: var(--lock); align-items: center; }
+      .cell { display: flex; flex-direction: column; gap: 6px; }
+      .cell span { font-size: 11px; color: var(--muted); }
+      .screen.lock .cell span { color: rgba(255, 255, 255, 0.55); }
+      .widget { border-radius: 22px; overflow: hidden; position: relative; }
+      .widget.accessoryCircular { border-radius: 50%; }
+      .widget.accessoryRectangular { border-radius: 12px; }
+      .widget.accessoryInline { border-radius: 0; }
+      .error { color: #ff453a; white-space: pre-wrap; font: 12px ui-monospace, monospace; }
+      .note { color: var(--muted); max-width: 70ch; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Виджет Loader3D</h1>
+      <label>Тема <select id="theme"><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
+      <label>Ситуация <select id="scenario"></select></label>
+      <label>Вид
+        <select id="view">
+          <option value="all">Все</option>
+          <option value="">overview — обзор</option>
+          <option value="revenue">revenue — выручка</option>
+          <option value="signups">signups — регистрации</option>
+          <option value="online">online — онлайн</option>
+          <option value="load">load — нагрузка</option>
+          <option value="status">status — статус</option>
+        </select>
+      </label>
+      <label>Живые данные <input id="key" type="password" placeholder="ключ l3dw_… (в памяти страницы)" size="28" autocomplete="off" /></label>
+      <button id="live">Показать с API</button>
+    </header>
+    <main id="out"></main>
+    <script type="module">
+      import widgetSource from '../loader3d-widget.js?raw';
+      import { runScript } from './scriptable-shim.js';
+      import { FRAMES, renderWidget, fitTexts } from './render.js';
+      import { SCENARIOS, scenarioFetch, scenarioFiles, scenarioKeychain } from './mock.js';
+
+      const $ = (id) => document.getElementById(id);
+      const VIEWS = ['', 'revenue', 'signups', 'online', 'load', 'status'];
+      const NAMES = { '': 'Обзор', revenue: 'Выручка', signups: 'Регистрации', online: 'Онлайн', load: 'Нагрузка', status: 'Статус' };
+      const HOME = ['small', 'medium', 'large'];
+      const LOCK = ['accessoryCircular', 'accessoryRectangular', 'accessoryInline'];
+      let liveKey = null;
+
+      for (const [name, scenario] of Object.entries(SCENARIOS)) $('scenario').add(new Option(scenario.title, name));
+      const params = new URLSearchParams(location.search);
+      if (params.get('theme')) $('theme').value = params.get('theme');
+      if (params.get('scenario')) $('scenario').value = params.get('scenario');
+      if (params.has('view')) $('view').value = params.get('view');
+
+      const canvasFactory = (width, height) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        return { canvas, context: canvas.getContext('2d') };
+      };
+      const liveFetch = async (request) => {
+        const response = await fetch(request.url, { method: request.method, headers: request.headers, redirect: 'manual' });
+        return { status: response.status, body: await response.text() };
+      };
+
+      async function cell(family, parameter, theme, scenario) {
+        const wrap = document.createElement('div');
+        wrap.className = 'cell';
+        try {
+          const live = liveKey !== null;
+          const outcome = await runScript(widgetSource, {
+            family,
+            parameter,
+            canvasFactory,
+            isPad: family === 'extraLarge',
+            keychain: live ? { 'loader3d.widget.url': location.origin, 'loader3d.widget.key': liveKey } : scenarioKeychain(scenario),
+            files: live ? {} : scenarioFiles(scenario),
+            fetch: live ? liveFetch : scenarioFetch(scenario),
+          });
+          wrap.appendChild(renderWidget(outcome.widget, family, theme));
+        } catch (error) {
+          const pre = document.createElement('div');
+          pre.className = 'error';
+          pre.textContent = error.stack;
+          wrap.appendChild(pre);
+        }
+        const caption = document.createElement('span');
+        caption.textContent = `${family} · ${FRAMES[family].join('×')}`;
+        wrap.appendChild(caption);
+        return wrap;
+      }
+
+      async function draw() {
+        const theme = $('theme').value;
+        const scenario = $('scenario').value;
+        document.documentElement.dataset.theme = theme;
+        const out = $('out');
+        out.textContent = '';
+        const views = $('view').value === 'all' ? VIEWS : [$('view').value];
+        for (const view of views) {
+          const section = document.createElement('section');
+          section.innerHTML = `<h2>${NAMES[view]}<small>параметр: ${view || 'пусто'}</small></h2>`;
+          const screens = document.createElement('div');
+          screens.className = 'screens';
+          for (const [kind, families] of [['home', HOME], ['lock', LOCK]]) {
+            const screen = document.createElement('div');
+            screen.className = `screen ${kind}`;
+            for (const family of families) screen.appendChild(await cell(family, view || null, theme, scenario));
+            screens.appendChild(screen);
+          }
+          section.appendChild(screens);
+          out.appendChild(section);
+        }
+        await document.fonts.ready;
+        fitTexts(out);
+      }
+
+      $('theme').onchange = $('scenario').onchange = $('view').onchange = () => { liveKey = null; draw(); };
+      $('live').onclick = () => { liveKey = $('key').value.trim(); draw(); };
+      draw();
+    </script>
+  </body>
+</html>

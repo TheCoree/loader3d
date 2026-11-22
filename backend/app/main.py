@@ -6,9 +6,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import jobs
+from app.analytics import LIVE_WINDOW
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
-from app.routers import admin, analytics, auth, billing, health, leads, plans, users
+from app.metrics import Activity, RequestMetricsMiddleware, RequestStats
+from app.routers import admin, analytics, auth, billing, health, leads, plans, users, widget
+from app.widget import WidgetCache
 
 API_PREFIX = "/api"
 
@@ -49,6 +52,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=f"{API_PREFIX}/openapi.json" if settings.environment == "development" else None,
     )
     app.state.settings = settings
+    # For the owner's widget (app/metrics.py): requests and their times, users seen a moment ago.
+    app.state.request_stats = RequestStats()
+    app.state.activity = Activity(LIVE_WINDOW.total_seconds())
+    app.add_middleware(RequestMetricsMiddleware, stats=app.state.request_stats)
 
     if settings.cors_origins:
         app.add_middleware(
@@ -61,4 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for module in (health, auth, users, plans, leads, billing, analytics, admin):
         app.include_router(module.router, prefix=API_PREFIX)
+    # Without a key the widget's endpoint does not exist at all: 404 like any unknown path.
+    if settings.widget_key_sha256:
+        app.state.widget_cache = WidgetCache()
+        app.include_router(widget.router, prefix=API_PREFIX)
     return app

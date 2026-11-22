@@ -1,3 +1,4 @@
+import re
 from email.utils import parseaddr
 from functools import lru_cache
 from pathlib import Path
@@ -14,6 +15,8 @@ ROOT_DIR = BACKEND_DIR.parent
 
 # Used only when ENVIRONMENT=development and JWT_SECRET is not set; production refuses to start with it.
 DEV_JWT_SECRET = "loader3d-development-secret-do-not-use-in-production"
+
+_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
 class Settings(BaseSettings):
@@ -77,12 +80,31 @@ class Settings(BaseSettings):
     # Comma-separated origins allowed to call the API cross-origin.
     # Empty: same-origin only, which is how Caddy (production) and the Vite proxy (development) serve it.
     cors_origins: Annotated[list[str], NoDecode] = []
+    # The owner's phone widget (routers/widget.py, tools/scriptable): SHA-256 of its keys, comma-separated
+    # (one per device), from `python -m app widget-key`. The keys themselves are never stored on the server.
+    # Empty: GET /api/widget/stats does not exist (404).
+    widget_key_sha256: Annotated[list[str], NoDecode] = []
 
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("widget_key_sha256", mode="before")
+    @classmethod
+    def _split_hashes(cls, value: object) -> object:
+        if isinstance(value, str):
+            value = value.split(",")
+        if isinstance(value, list):
+            hashes = [str(item).strip().lower() for item in value if str(item).strip()]
+            if not all(_SHA256_HEX.fullmatch(item) for item in hashes):
+                raise ValueError(
+                    "WIDGET_KEY_SHA256 takes the SHA-256 of a key (64 hex characters) printed by "
+                    "`python -m app widget-key`, not the key itself"
+                )
+            return hashes
         return value
 
     @model_validator(mode="after")
