@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
@@ -24,13 +25,26 @@ export function priceOf(info: BillingInfo | undefined, period: BillingPeriod): P
   return info?.prices.find((p) => p.period === period);
 }
 
-/** Starts a payment and leaves for the provider's page; the customer comes back to /billing?payment=… */
+/**
+ * Starts a payment and leaves for the provider's page; the customer comes back to /billing?payment=…
+ * «Back» from that page may restore this one as it was left (the back/forward cache), with the buttons
+ * still waiting for the departure: the mutation is reset then.
+ */
 export function usePay() {
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: billingApi.checkout,
     onSuccess: ({ paymentUrl }) => window.location.assign(paymentUrl),
     onError: (error) => toast.error(errorMessage(error)),
   });
+  const { reset } = mutation;
+  useEffect(() => {
+    const restored = (event: PageTransitionEvent) => {
+      if (event.persisted) reset();
+    };
+    window.addEventListener('pageshow', restored);
+    return () => window.removeEventListener('pageshow', restored);
+  }, [reset]);
+  return mutation;
 }
 
 export const PERIOD_LABEL: Record<BillingPeriod, string> = { month: 'на месяц', year: 'на год' };

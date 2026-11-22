@@ -51,13 +51,22 @@ class Settings(BaseSettings):
     # Empty username: no login (a relay that trusts the server's address).
     smtp_username: str = ""
     smtp_password: SecretStr = SecretStr("")
-    # Public address of the site (https://example.com): the link at the bottom of the letters. May be empty.
+    # Public address of the site (https://example.com): the link at the bottom of the letters, and where the
+    # customer comes back after paying (cisPay). May be empty without online payment.
     site_url: str = ""
     # Subscription tiers (app/tiers.py). Off: no limits, and neither the API nor the site mention tiers.
     tiers_enabled: bool = False
     # Online payment of tiers (app/billing.py), with TIERS_ENABLED only. "none": paid tiers by a request
-    # and an admin; "test": a fake payment page that pays or cancels at a click (development only).
-    payment_provider: Literal["none", "test"] = "none"
+    # and an admin; "test": a fake payment page that pays or cancels at a click (development only);
+    # "cispay": cisPay (app/cispay.py), with the shop below.
+    payment_provider: Literal["none", "test", "cispay"] = "none"
+    # The cisPay shop (its account, «Настройки магазина»): the id (UUID) and the secret key cis_sec_…, which
+    # also signs the webhooks.
+    cispay_shop_id: str = ""
+    cispay_api_key: SecretStr = SecretStr("")
+    cispay_api_url: str = "https://api.cispay.app"
+    # Count the sandbox payments of the cisPay account as paid: development only.
+    cispay_sandbox: bool = False
     # Visit statistics of the public pages for the admin panel (app/analytics.py), and how many days
     # the raw visits are kept.
     analytics_enabled: bool = True
@@ -84,6 +93,16 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET must be set to a random string of at least 32 characters")
             if self.payment_provider == "test":
                 raise ValueError("PAYMENT_PROVIDER=test gives «Pro» away for free: development only")
+            if self.cispay_sandbox:
+                raise ValueError("CISPAY_SANDBOX=true counts test payments as paid: development only")
+            if self.payment_provider == "cispay" and not self.site_url:
+                raise ValueError(
+                    "PAYMENT_PROVIDER=cispay needs SITE_URL: customers return there after paying"
+                )
+        if self.payment_provider == "cispay" and not (
+            self.cispay_shop_id and self.cispay_api_key.get_secret_value()
+        ):
+            raise ValueError("PAYMENT_PROVIDER=cispay needs CISPAY_SHOP_ID and CISPAY_API_KEY of the shop")
         if self.mail_backend == "smtp":
             if not self.smtp_host:
                 raise ValueError("MAIL_BACKEND=smtp needs SMTP_HOST")
