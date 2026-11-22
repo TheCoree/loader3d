@@ -76,6 +76,8 @@ services:
       CISPAY_API_KEY: ${CISPAY_API_KEY:-}
       ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
       ANALYTICS_RETENTION_DAYS: ${ANALYTICS_RETENTION_DAYS:-400}
+      # SHA-256 of the keys of the owner's phone widget (tools/scriptable); empty — no widget endpoint.
+      WIDGET_KEY_SHA256: ${WIDGET_KEY_SHA256:-}
     depends_on:
       db:
         condition: service_healthy

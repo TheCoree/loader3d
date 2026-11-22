@@ -112,6 +112,11 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   not signed in, only on `PUBLIC_PATHS`; nothing is written to the browser (no cookies, no storage) and the server
   keeps no IP or user agent (a daily salted hash). Landing sections carry `data-section` and tracked buttons
   `data-track` (names in `SECTION_NAMES` / `TRACK_NAMES`) — keep them when the landing page changes.
+- The owner's phone widget (`routers/widget.py`, `app/widget.py`, `app/metrics.py`, `tools/scriptable`): the route
+  exists only with `WIDGET_KEY_SHA256` (SHA-256 of keys from `python -m app widget-key`; the key travels only in
+  `Authorization: Bearer`) and answers aggregates only — no email, name, id or IP. `get_auth` notes the user id in
+  memory for «online»; nothing else of a request is kept. When `schemas/widget.py` changes, change the script too and
+  run `node tools/scriptable/preview/check.mjs`.
 - The access token is kept in memory by `api/client.ts`; on 401 it refreshes once via the cookie and
   retries. Never store tokens in localStorage.
 - Admin API (`routers/admin.py`) needs `AdminAuth`; an admin cannot block, demote or delete themselves.
