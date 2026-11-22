@@ -390,6 +390,14 @@ function TierAction({ tier, sub, period }: { tier: TierId; sub: Subscription; pe
       </Button>
     );
   }
+  if (sub.tier === 'pro' && !sub.expiresAt) {
+    // Given by an admin without an end date: a paid month would only shorten it (the API refuses).
+    return (
+      <Button variant="outline" className={size} disabled>
+        Без ограничения по сроку
+      </Button>
+    );
+  }
   if (state === 'free' && sub.trialAvailable) {
     return (
       <Button className={size} onClick={() => trial.mutate()} disabled={trial.isPending}>

@@ -57,11 +57,17 @@ async def checkout(body: CheckoutIn, auth: VerifiedAuth, db: Db, settings: Setti
             "Онлайн-оплата пока не подключена — оставьте заявку, и мы подключим тариф",
         )
     user = auth.user
-    if effective_tier(user, utcnow()) == "custom":
+    if not billing.renewable(user, utcnow()):
+        if effective_tier(user, utcnow()) == "custom":
+            raise ApiError(
+                status.HTTP_409_CONFLICT,
+                "custom_tier",
+                "У вас индивидуальный тариф — он продлевается по договору",
+            )
         raise ApiError(
             status.HTTP_409_CONFLICT,
-            "custom_tier",
-            "У вас индивидуальный тариф — он продлевается по договору",
+            "unlimited_tier",
+            "У вас «Pro» без ограничения по сроку — продлевать его не нужно",
         )
     if wait := CHECKOUTS_PER_USER.allow(str(user.id)):
         raise too_many(wait, "Слишком много попыток оплаты")

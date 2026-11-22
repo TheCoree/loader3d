@@ -148,7 +148,8 @@ export function useUpgradeAction(): { label: string; run(): void; pending: boole
       return { label: online ? 'Оплатить «Pro»' : 'Оформить подписку', ...offer };
     case 'active':
     case 'ending':
-      return { label: 'Продлить «Pro»', ...offer };
+      // «Pro» without an end date (given by an admin): nothing to renew.
+      return sub.expiresAt ? { label: 'Продлить «Pro»', ...offer } : null;
     case 'custom':
       return { label: 'Связаться по договору', run: () => show(undefined, 'custom'), pending: false };
   }

@@ -170,6 +170,23 @@ async def test_custom_tier_is_renewed_by_contract(app: FastAPI, client: httpx.As
     assert error_code(response) == "custom_tier"
 
 
+async def test_pro_without_an_end_date_is_not_shortened(app: FastAPI, client: httpx.AsyncClient) -> None:
+    """An admin gave «Pro» without an end date: a month's payment must not turn it into a month."""
+    await register(client)
+    checkout = await _checkout(client)
+    async with app.state.sessionmaker() as db:
+        await db.execute(update(User).values(tier="pro", tier_expires_at=None, tier_trial=False))
+        await db.commit()
+    response = await client.post("/api/billing/checkout", json={"period": "month"})
+    assert response.status_code == 409
+    assert error_code(response) == "unlimited_tier"
+    # A payment started before still gets recorded, without touching the tier.
+    assert (await _pay(client, checkout)).status_code == 303
+    sub = await _me(client)
+    assert (sub["tier"], sub["expiresAt"]) == ("pro", None)
+    assert [p["status"] for p in (await client.get("/api/billing/payments")).json()] == ["paid"]
+
+
 @asynccontextmanager
 async def _client_of(tmp_path: Path, **overrides: Any) -> AsyncIterator[httpx.AsyncClient]:
     """A client of an app with other settings than this module's fixture."""

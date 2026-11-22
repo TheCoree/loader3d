@@ -41,6 +41,14 @@ export function onRefreshed(handler: (auth: AuthResponse) => void): void {
   refreshed = handler;
 }
 
+const TIER_LIMIT_CODES = new Set(['plan_limit', 'vehicle_limit', 'item_limit']);
+let tierLimitHit: () => void = () => {};
+
+/** The API refused something over the tier's limits: the tier the app knows may be out of date. */
+export function onTierLimit(handler: () => void): void {
+  tierLimitHit = handler;
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -117,7 +125,11 @@ function send(path: string, { method = 'GET', body, query, auth = true, signal }
 }
 
 async function parse<T>(response: Response, type: 'json' | 'blob' = 'json'): Promise<T> {
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) {
+    const error = await toApiError(response);
+    if (error.status === 403 && TIER_LIMIT_CODES.has(error.code)) tierLimitHit();
+    throw error;
+  }
   if (response.status === 204) return undefined as T;
   if (type === 'blob') return (await response.blob()) as T;
   return (await response.json()) as T;

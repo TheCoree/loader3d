@@ -33,6 +33,18 @@ export const CHANGE_KINDS: Record<ChangeKind, { label: string; filter: string }>
 
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-22',
+    title: 'Тариф обновляется сразу',
+    changes: [
+      {
+        kind: 'fixed',
+        text: 'Тариф в приложении меняется сразу, без перезагрузки страницы: когда заканчивается срок «Pro» и когда оплата прошла в другой вкладке.',
+        tiers: true,
+      },
+      { kind: 'fixed', text: 'Бессрочный «Pro» больше не предлагается продлить: оплата не сократит его до месяца.', tiers: true },
+    ],
+  },
+  {
     id: '2026-11-21',
     title: 'История обновлений и плавный редактор',
     changes: [

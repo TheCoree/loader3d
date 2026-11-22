@@ -6,6 +6,7 @@ import { ApiError } from './api/client';
 import { Shell } from './Shell';
 import { useAuth, wasSignedIn } from './store/useAuth';
 import './store/accountSync';
+import './store/subscriptionSync';
 import './index.css';
 
 const queryClient = new QueryClient({
