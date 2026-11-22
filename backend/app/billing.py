@@ -66,17 +66,26 @@ def period_start(user: User, now: datetime) -> datetime:
     return now
 
 
+def renewable(user: User, now: datetime) -> bool:
+    """A payment of «Pro» can extend the account's tier: not «Индивидуальный», not «Pro» without an end."""
+    tier = effective_tier(user, now)
+    return tier == "free" or (tier == "pro" and user.tier_expires_at is not None)
+
+
 def apply_payment(user: User | None, payment: Payment, now: datetime) -> bool:
     """Marks the payment paid and extends the tier; the caller commits. False if it was paid already
-    (providers repeat their notifications). «Индивидуальный» is kept as it is: the payment is recorded
-    for an admin to sort out, and so is one of a deleted account."""
+    (providers repeat their notifications). «Индивидуальный» and «Pro» without an end date (given by an
+    admin) are kept as they are — a month must not shorten them: the payment is recorded for an admin to
+    sort out, and so is one of a deleted account."""
     if payment.status == "paid":
         return False
     payment.status = "paid"
     payment.paid_at = now
-    if user is None or effective_tier(user, now) == "custom":
+    if user is None or not renewable(user, now):
         logger.warning(
-            "payment %s is paid, but the tier was not changed: no account or a custom tier", payment.id
+            "payment %s is paid, but the tier was not changed: no account, a custom tier or «Pro» "
+            "without an end date",
+            payment.id,
         )
         return True
     user.tier = payment.tier

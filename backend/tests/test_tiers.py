@@ -1,12 +1,13 @@
 """Subscriptions (app/tiers.py), display settings and requests from the landing page."""
 
 import copy
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import update
 
 from app.models import User, utcnow
+from app.tiers import TRIAL_DAYS, effective_tier, tier_limits
 from tests.conftest import ClientFactory, error_code, login, make_settings, register
 from tests.test_plans import plan_data
 
@@ -37,6 +38,48 @@ async def test_registering_for_pro_starts_its_trial_once(client):
     assert sub["trialAvailable"] is False
     assert sub["limits"]["autoload"] is True
     client.headers["authorization"] = f"Bearer {response.json()['accessToken']}"
+    assert error_code(await client.post("/api/users/me/trial")) == "trial_used"
+
+
+def _at(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+async def test_the_trial_lasts_exactly_its_days(client):
+    before = utcnow()
+    await register(client, tier="pro")
+    sub = (await client.get("/api/users/me")).json()["subscription"]
+    trial = timedelta(days=TRIAL_DAYS)
+    assert before + trial <= _at(sub["expiresAt"]) <= utcnow() + trial
+
+
+def test_a_paid_tier_ends_at_its_exact_moment():
+    end = datetime(2027, 1, 4, 20, 38, tzinfo=UTC)
+    pro = User(tier="pro", tier_expires_at=end)
+    assert effective_tier(pro, end - timedelta(microseconds=1)) == "pro"
+    assert effective_tier(pro, end) == "free"
+    assert tier_limits(pro, end).plans == 3
+    assert tier_limits(pro, end).autoload is False
+    # No end date: it does not end.
+    assert effective_tier(User(tier="pro", tier_expires_at=None), end + timedelta(days=3650)) == "pro"
+    custom = User(tier="custom", tier_expires_at=end, tier_limits={"plans": 50, "vehicles": 4})
+    assert (tier_limits(custom, end - timedelta(seconds=1)).plans, tier_limits(custom, end).plans) == (50, 3)
+
+
+async def test_an_ended_tier_applies_at_once_without_any_job(app, client):
+    """Nothing has to run for a tier to end: every request computes the tier for this moment."""
+    await register(client, tier="pro")
+    for name in ("Один", "Два", "Три", "Четыре"):
+        assert (await client.post("/api/plans", json={"name": name, "data": plan_data(1)})).status_code == 201
+    async with app.state.sessionmaker() as db:
+        await db.execute(update(User).values(tier_expires_at=utcnow() - timedelta(seconds=1)))
+        await db.commit()
+    sub = (await client.get("/api/users/me")).json()["subscription"]
+    assert (sub["tier"], sub["expiresAt"], sub["trial"], sub["expiredTier"]) == ("free", None, False, "pro")
+    assert sub["limits"] == {"plans": 3, "vehicles": 1, "items": 100, "autoload": False, "pdfSteps": False}
+    fifth = await client.post("/api/plans", json={"name": "Пять", "data": plan_data(1)})
+    assert error_code(fifth) == "plan_limit"
+    # The trial was the one: no second one.
     assert error_code(await client.post("/api/users/me/trial")) == "trial_used"
 
 
