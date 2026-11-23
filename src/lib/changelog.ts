@@ -33,6 +33,17 @@ export const CHANGE_KINDS: Record<ChangeKind, { label: string; filter: string }>
 
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-23',
+    title: 'Оплата «Pro» в аккаунте',
+    changes: [
+      {
+        kind: 'new',
+        text: '«Pro» можно оплатить прямо в аккаунте по СБП — на месяц или сразу на год. Тариф подключается сразу после оплаты, без заявок и ожидания.',
+        tiers: true,
+      },
+    ],
+  },
+  {
     id: '2026-11-22',
     title: 'Тариф обновляется сразу',
     changes: [
