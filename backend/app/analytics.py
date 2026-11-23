@@ -305,7 +305,15 @@ def _breakdown(rows: list[_Row], key: Any, limit: int = 20) -> list[dict[str, An
 # A visit is «on the site now» if the page reported within this time (it reports every 15 s while active).
 LIVE_WINDOW = timedelta(minutes=5)
 # Buttons that lead to the registration (src/lib/analytics.ts TRACK_NAMES), for the funnel.
-SIGNUP_CLICKS = {"header_register", "hero_register", "pricing_free", "pricing_pro", "cta_register"}
+SIGNUP_CLICKS = {
+    "header_register",
+    "hero_register",
+    "pricing_free",
+    "pricing_pro",
+    "cta_register",
+    "tool_try3d",
+    "tool_cta_register",
+}
 RECENT_VISITS = 25
 
 DURATION_BUCKETS: list[tuple[str, int]] = [

@@ -37,6 +37,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { trackAction, useSectionTracking } from '@/lib/analytics';
 import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, type TierInfo } from '@/lib/tiers';
+import { FEATURED_TOOLS, TOOLS_HUB, toolPage } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 import { useAuth, wasSignedIn } from '@/store/useAuth';
 
@@ -186,6 +187,7 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
         <Integration />
         {TIERS_ENABLED && <Pricing />}
         <Faq />
+        <Tools />
         <div data-section="cta">
           <Contact />
           <FinalCta />
@@ -1090,6 +1092,49 @@ function Faq() {
             </details>
           ))}
         </div>
+      </Container>
+    </section>
+  );
+}
+
+/** Links to the free calculators (pages/tools): for visitors and for search engines. */
+function Tools() {
+  return (
+    <section id="tools" data-section="tools" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
+      <Container>
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <Heading>Бесплатные калькуляторы</Heading>
+            <p className={cn(mutedText, 'mt-5 max-w-xl text-lg leading-relaxed')}>
+              Быстрые ответы без регистрации: сколько паллет встанет в машину, погрузочные метры и нагрузка на оси.
+            </p>
+          </div>
+          <Button asChild variant="outline" className={secondaryPill}>
+            <Link to={TOOLS_HUB.path} data-track="tools_all">
+              Все калькуляторы <ArrowRight />
+            </Link>
+          </Button>
+        </div>
+        <ul className="mt-14 grid gap-px overflow-hidden rounded-xl border border-white/[0.09] bg-white/[0.09] sm:grid-cols-2 lg:grid-cols-4">
+          {FEATURED_TOOLS.map((id) => {
+            const page = toolPage(id);
+            return (
+              <li key={id} className="bg-black">
+                <Link
+                  to={page.path}
+                  data-track="tools_card"
+                  className="group flex h-full flex-col justify-between gap-8 p-6 transition-colors hover:bg-[#0a0a0a]"
+                >
+                  <span>
+                    <span className="block text-[16px] font-medium tracking-[-0.01em] text-[#ededed]">{page.name}</span>
+                    <span className="mt-1.5 block text-[14px] leading-relaxed text-[#a1a1a1]">{page.blurb}</span>
+                  </span>
+                  <ArrowRight className="size-4 text-white/40 transition-all group-hover:translate-x-0.5 group-hover:text-white" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </Container>
     </section>
   );

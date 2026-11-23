@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SECTION_NAMES, TRACK_NAMES } from '@/lib/analytics';
 import { timeAgo } from '@/lib/format';
+import { TOOL_PAGES, TOOLS_HUB } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 
 /**
@@ -38,6 +39,8 @@ const PAGES: Record<string, string> = {
   '/terms': 'Соглашение',
   '/privacy': 'Политика',
   '/reset-password': 'Сброс пароля',
+  [TOOLS_HUB.path]: 'Калькуляторы',
+  ...Object.fromEntries(TOOL_PAGES.map((p) => [p.path, `Калькулятор: ${p.name}`])),
 };
 const FUNNEL: Record<AnalyticsReport['funnel'][number]['step'], string> = {
   landing: 'Открыли главную',
