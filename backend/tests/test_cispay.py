@@ -298,13 +298,23 @@ def test_status_of_a_payment(tmp_path: Path) -> None:
     notice = {"id": "tx-1", "order_id": str(payment.id), "status": "PAID", "amount": 1990_00}
     assert cispay.state_of(settings, payment, notice) == "paid"
     assert cispay.state_of(settings, payment, notice | {"status": "PENDING"}) == "pending"
-    # A crypto payment is reported in USD cents.
+    # A crypto payment is reported in USD cents; the roubles of the invoice come apart and are compared.
+    crypto = notice | {"currency": "USD", "amount": 2215, "source_currency": "RUB", "source_amount": 1990_00}
+    assert cispay.state_of(settings, payment, crypto) == "paid"
+    assert cispay.state_of(settings, payment, crypto | {"source_amount": 100_00}) is None
+    # Without the roubles (not expected for our invoices in RUB) it cannot be compared and is applied.
     assert cispay.state_of(settings, payment, notice | {"currency": "USD", "amount": 2215}) == "paid"
+    # Paid in roubles, but not the price.
+    assert cispay.state_of(settings, payment, notice | {"amount": 1_00}) is None
     # Sandbox payments count only where allowed (development).
     sandbox = notice | {"is_sandbox": True}
     assert cispay.state_of(settings, payment, sandbox) is None
     allowed = make_settings(tmp_path, **CISPAY, cispay_sandbox=True)
     assert cispay.state_of(allowed, payment, sandbox) == "paid"
+    # A customer cisPay has blocked never pays for real, even where the sandbox counts.
+    blocked = notice | {"is_sandbox": True, "block_reason": "Покупатель заблокирован"}
+    assert cispay.state_of(allowed, payment, blocked) is None
+    assert cispay.state_of(settings, payment, notice | {"block_reason": "Покупатель заблокирован"}) is None
 
 
 def test_cispay_settings(tmp_path: Path) -> None:
