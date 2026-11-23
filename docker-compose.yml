@@ -26,6 +26,9 @@ services:
         SITE_URL: ${SITE_URL:-}
         # Tariffs on the site (the landing page is prerendered with or without them); the api reads it too.
         TIERS_ENABLED: ${TIERS_ENABLED:-false}
+        # Codes of the verification meta tags of Yandex.Webmaster and Google Search Console (may be empty).
+        YANDEX_VERIFICATION: ${YANDEX_VERIFICATION:-}
+        GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}

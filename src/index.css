@@ -58,6 +58,27 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  /* The calculator pages (.tool-page below). */
+  --color-site-bg: var(--site-bg);
+  --color-site-fg: var(--site-fg);
+  --color-site-muted: var(--site-muted);
+  --color-site-faint: var(--site-faint);
+  --color-site-line: var(--site-line);
+  --color-site-strong: var(--site-strong);
+  --color-site-panel: var(--site-panel);
+  --color-site-soft: var(--site-soft);
+  --color-site-field: var(--site-field);
+  --color-site-solid: var(--site-solid);
+  --color-site-solid-fg: var(--site-solid-fg);
+  --color-site-ring: var(--site-ring);
+  --color-site-warn: var(--site-warn);
+  --color-site-warn-soft: var(--site-warn-soft);
+  --color-site-error: var(--site-error);
+  --color-site-plan-floor: var(--site-plan-floor);
+  --color-site-plan-line: var(--site-plan-line);
+  --color-site-piece: var(--site-piece);
+  --color-site-piece-turned: var(--site-piece-turned);
+  --color-site-piece-line: var(--site-piece-line);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -264,8 +285,63 @@
 }
 
 /*
+ * The calculator pages (pages/tools): in the manner of vercel.com like the landing page, but light by default —
+ * whoever lands on one from a search engine sees it light; .dark on their root (lib/theme.ts useToolTheme) gives
+ * the dark look of the landing page. Used through the site-* colours (bg-site-bg, text-site-muted…).
+ */
+.tool-page {
+  --site-bg: #ffffff;
+  --site-fg: #171717;
+  --site-muted: #5c5c5c;
+  --site-faint: #7d7d7d;
+  --site-line: #ebebeb;
+  --site-strong: #c9c9c9;
+  --site-panel: #fafafa;
+  --site-soft: #f2f2f2;
+  --site-field: #ffffff;
+  --site-solid: #171717;
+  --site-solid-fg: #ffffff;
+  --site-ring: rgb(0 0 0 / 0.12);
+  --site-warn: #9a5700;
+  --site-warn-soft: #fff5e6;
+  --site-error: #e5484d;
+  --site-plan-floor: rgb(0 0 0 / 0.02);
+  --site-plan-line: rgb(0 0 0 / 0.45);
+  --site-piece: #f0f0f0;
+  --site-piece-turned: #e0e0e0;
+  --site-piece-line: rgb(0 0 0 / 0.5);
+  color-scheme: light;
+  background: var(--site-bg);
+  color: var(--site-fg);
+}
+.tool-page.dark {
+  --site-bg: #000000;
+  --site-fg: #ededed;
+  --site-muted: #a1a1a1;
+  --site-faint: #8f8f8f;
+  --site-line: rgb(255 255 255 / 0.09);
+  --site-strong: rgb(255 255 255 / 0.25);
+  --site-panel: #0a0a0a;
+  --site-soft: rgb(255 255 255 / 0.05);
+  --site-field: rgb(255 255 255 / 0.03);
+  --site-solid: #ededed;
+  --site-solid-fg: #000000;
+  --site-ring: rgb(255 255 255 / 0.2);
+  --site-warn: #ffcf8a;
+  --site-warn-soft: rgb(255 159 10 / 0.1);
+  --site-error: rgb(255 97 102 / 0.7);
+  --site-plan-floor: rgb(237 237 237 / 0.03);
+  --site-plan-line: rgb(237 237 237 / 0.45);
+  --site-piece: #1c1c1c;
+  --site-piece-turned: #2a2a2a;
+  --site-piece-line: rgb(237 237 237 / 0.6);
+  color-scheme: dark;
+}
+
+/*
  * The dark theme of the app (Settings.theme, applied by lib/theme.ts as class="dark" on <html>).
- * The public pages (landing, sign-in, documents) are always dark. The 3D scene stays light in both
+ * The public pages (landing, sign-in, documents) are always dark, the calculators light by default (.tool-page).
+ * The 3D scene stays light in both
  * themes (LIGHT_COLORS in src/scene/theme.ts, --scene = its background). --primary stays equal to
  * COLORS.accent.
  */

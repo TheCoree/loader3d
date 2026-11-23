@@ -13,6 +13,11 @@ ENV SITE_URL=${SITE_URL}
 # Tariffs on the site (vite.config.ts reads it like the repository's .env); the api gets it at runtime.
 ARG TIERS_ENABLED=false
 ENV TIERS_ENABLED=${TIERS_ENABLED}
+# Verification meta tags of Yandex.Webmaster and Google Search Console on the landing page; may be empty.
+ARG YANDEX_VERIFICATION=
+ENV YANDEX_VERIFICATION=${YANDEX_VERIFICATION}
+ARG GOOGLE_SITE_VERIFICATION=
+ENV GOOGLE_SITE_VERIFICATION=${GOOGLE_SITE_VERIFICATION}
 
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

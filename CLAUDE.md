@@ -19,7 +19,10 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app
   (`Settings.theme`, `lib/theme.ts`, `.dark` tokens): use tokens (`bg-background`, `text-foreground`,
   `bg-muted`…), not fixed colours, in app UI. The public pages (landing, sign-in, documents) are dark only, in the
-  manner of vercel.com (`publicRoot` and the shared kit in `components/site.tsx`, Geist). The 3D scene is always light,
+  manner of vercel.com (`publicRoot` and the shared kit in `components/site.tsx`, Geist). The calculators
+  (`pages/tools/`) have the same look in two themes: light by default (search visitors land there), dark after the
+  dark pages of the site or by the switch in their header — for the visit only (`useToolTheme`, `lib/theme.ts`);
+  they use the `site-*` colours of `.tool-page` (`index.css`), never fixed ones. The 3D scene is always light,
   whatever the app theme: the editor sets `LIGHT_COLORS` (`scene/theme.ts`) and the scene labels have no dark
   styles; only the interface around it is dark. The PDF report and plan previews are light too (`withScenePalette`).
   The landing pictures in `public/landing` are screenshots of the editor: dark interface, light 3D scene (side/top: the
@@ -108,6 +111,13 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   `scripts/prerender.mjs` and hydrated by `main.tsx`: nothing it imports may touch `window`/`document`
   while rendering or at module level, and its first render must not depend on the browser. The FAQ there is
   also the FAQPage JSON-LD (`src/prerender.tsx`).
+- The calculator pages (`/kalkulyator…`: `lib/toolPages.ts`, `pages/tools/`, numbers in `core/tools/`) are prerendered
+  and hydrated like the landing page, one HTML file each (`dist/kalkulyator/<name>.html`, Caddy tries `{path}.html`):
+  the same rule — no `window`/`document` while rendering, a first render that does not depend on the browser. A page
+  is added to `TOOL_PAGES`; routes, sitemap, `PUBLIC_PATHS` and the dark theme follow from it (`toolPages.test.ts`).
+  Their FAQ is also their FAQPage JSON-LD. The page list with the search queries is `docs/seo.md`.
+  «Попробовать в 3D» carries the calculation to `/start?d=…` (`core/tools/startPlan.ts`, through the registration
+  in `state.from`), which saves it as the user's first plan and opens the editor.
 - Visit statistics (`src/lib/analytics.ts`, `backend/app/analytics.py`, admin «Посещаемость»): only visitors who are
   not signed in, only on `PUBLIC_PATHS`; nothing is written to the browser (no cookies, no storage) and the server
   keeps no IP or user agent (a daily salted hash). Landing sections carry `data-section` and tracked buttons

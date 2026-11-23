@@ -7,10 +7,13 @@ import { BillingPage } from './pages/BillingPage';
 import { HomePage } from './pages/HomePage';
 import { LandingRoute } from './pages/LandingPage';
 import { LegalPage } from './pages/LegalPage';
+import { ToolPage, ToolsHub } from './pages/tools';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { StartPlanPage } from './pages/StartPlanPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { TIERS_ENABLED } from './lib/tiers';
+import { TOOL_PAGES, TOOLS_HUB } from './lib/toolPages';
 
 // The editor brings three.js and the scene: loaded only when a plan is opened.
 const EditorPage = lazy(() => import('./pages/EditorPage').then((m) => ({ default: m.EditorPage })));
@@ -24,11 +27,18 @@ export function App() {
       <Route path="/pricing" element={TIERS_ENABLED ? <LandingRoute section="pricing" /> : <Navigate to="/" replace />} />
       <Route path="/terms" element={<LegalPage doc="terms" />} />
       <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+      {/* Public calculators (prerendered too, one HTML file each): open signed in or not. */}
+      <Route path={TOOLS_HUB.path} element={<ToolsHub />} />
+      {TOOL_PAGES.map((p) => (
+        <Route key={p.id} path={p.path} element={<ToolPage id={p.id} />} />
+      ))}
       <Route path="/login" element={<PublicOnly><AuthPage mode="login" /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><AuthPage mode="register" /></PublicOnly>} />
       <Route path="/reset-password" element={<PublicOnly><ResetPasswordPage /></PublicOnly>} />
       <Route path="/verify-email" element={<RequireAuth unverified><VerifyEmailPage /></RequireAuth>} />
       <Route path="/plans" element={<RequireAuth><HomePage /></RequireAuth>} />
+      {/* «Попробовать в 3D» of the calculators: makes the plan and opens it. */}
+      <Route path="/start" element={<RequireAuth><StartPlanPage /></RequireAuth>} />
       <Route
         path="/plans/:planId"
         element={

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router';
 import { ApiError } from './api/client';
 import { Shell } from './Shell';
+import { TOOL_PATHS } from './lib/toolPages';
 import { useAuth, wasSignedIn } from './store/useAuth';
 import './store/accountSync';
 import './store/subscriptionSync';
@@ -45,11 +46,13 @@ const app = (
   </StrictMode>
 );
 
-// index.html carries the landing page prerendered for search engines (scripts/prerender.mjs): hydrate
-// it where the page is exactly that. Elsewhere (and for a browser that was logged in, which goes on to
-// its plans) render from scratch.
+// The landing page and the calculators come prerendered for search engines (scripts/prerender.mjs):
+// hydrate them where the page is exactly that. Elsewhere (and at `/` for a browser that was logged in,
+// which goes on to its plans) render from scratch. The calculators are the same signed in or not.
 const root = document.getElementById('root')!;
-if (root.hasChildNodes() && window.location.pathname === '/' && !wasSignedIn()) {
+const path = window.location.pathname;
+const prerendered = path === '/' ? !wasSignedIn() : TOOL_PATHS.includes(path);
+if (root.hasChildNodes() && prerendered) {
   hydrateRoot(root, app);
 } else {
   root.textContent = '';

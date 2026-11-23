@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
+import { TOOL_PATHS } from './toolPages';
 
 /**
  * Visit statistics of the public pages for the admin panel (backend/app/analytics.py).
@@ -13,7 +14,7 @@ import { useLocation } from 'react-router';
  * Nothing here touches window or document at module level or while rendering: the landing page is
  * prerendered on the server (scripts/prerender.mjs).
  */
-export const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/reset-password'];
+export const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/reset-password', ...TOOL_PATHS];
 
 const ENDPOINT = '/api/analytics/collect';
 const FLUSH_EVERY = 15_000;
@@ -181,7 +182,10 @@ export function useSectionTracking(): void {
   }, []);
 }
 
-/** The sections of the landing page (`data-section`), in page order, as the admin panel names them. */
+/**
+ * The sections of the landing page (`data-section`), in page order, as the admin panel names them; then the
+ * sections of the calculator pages (pages/tools, the same on every one of them).
+ */
 export const SECTION_NAMES: Record<string, string> = {
   hero: 'Первый экран',
   showcase: 'Скриншот редактора',
@@ -190,7 +194,13 @@ export const SECTION_NAMES: Record<string, string> = {
   integration: 'Интеграция с 1С',
   pricing: 'Тарифы',
   faq: 'Вопросы',
+  tools: 'Бесплатные калькуляторы',
   cta: 'Финальный призыв',
+  tool_calc: 'Калькулятор: расчёт',
+  tool_guide: 'Калькулятор: объяснение',
+  tool_faq: 'Калькулятор: вопросы',
+  tool_related: 'Калькулятор: другие калькуляторы',
+  tool_cta: 'Калькулятор: финальный призыв',
 };
 
 /** Marked buttons (`data-track`) as the admin panel names them. */
@@ -205,5 +215,10 @@ export const TRACK_NAMES: Record<string, string> = {
   pricing_custom: 'Тарифы: «Индивидуальный»',
   cta_register: 'Финал: «Начать бесплатно»',
   cta_lead: 'Финал: «Оставить заявку»',
+  tools_card: 'Главная: карточка калькулятора',
+  tools_all: 'Главная: «Все калькуляторы»',
+  tool_try3d: 'Калькулятор: «Попробовать в 3D»',
+  tool_cta_register: 'Калькулятор: финальная кнопка регистрации',
+  tool_theme: 'Калькулятор: светлая / тёмная тема',
   lead_sent: 'Заявка отправлена',
 };
