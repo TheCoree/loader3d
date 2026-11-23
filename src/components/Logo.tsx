@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 /**
  * The mark: an isometric box of three faces with thin gaps between them, no tile behind it. The top face
  * takes the text colour, the left one a lighter shade of it, the right one the accent blue.
- * The same drawing is the favicon in index.html — change both.
+ * The same drawing is the favicon, public/favicon.svg — change both, and render favicon.ico (16/32/48 px)
+ * and apple-touch-icon.png (180 px, white tile) from it again.
  */
 const FACES = [
   // [path, centroid] — the gaps come from shrinking each face towards its centroid.
