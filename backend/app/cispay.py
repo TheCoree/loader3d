@@ -123,11 +123,8 @@ async def create_invoice(
         body["redirect_success_url"] = body["redirect_fail_url"] = return_url
     answer = await _request(settings, "POST", "/payments", body=body, seconds=CREATE_TIMEOUT)
     provider_id, url = answer.get("id"), answer.get("payment_url")
-    if (
-        not isinstance(provider_id, str)
-        or not isinstance(url, str)
-        or not url.startswith(("https://", "http://"))
-    ):
+    # The customer is sent to this address: only a page over HTTPS.
+    if not isinstance(provider_id, str) or not isinstance(url, str) or not url.startswith("https://"):
         raise CisPayError(f"POST /payments: no id or payment_url in {sorted(answer)}")
     return provider_id, url
 
@@ -175,16 +172,25 @@ def state_of(settings: Settings, payment: Payment, data: dict[str, Any]) -> Stat
         return None
     if state != "paid":
         return state
+    if data.get("block_reason"):
+        # cisPay blocked the customer: no real payment is ever made (such transactions are sandbox ones too).
+        logger.warning("cisPay: the customer of payment %s is blocked; not counted", payment.id)
+        return None
     if data.get("is_sandbox") and not settings.cispay_sandbox:
         logger.warning("cisPay: payment %s is paid in the sandbox; not counted", payment.id)
         return None
-    # Kopecks of the invoice (a crypto payment is reported in USD cents: its amount is not compared).
-    rub = data.get("currency", "RUB") == "RUB"
-    if rub and data.get("amount") != payment.amount * 100:
+    # Kopecks of the invoice. A crypto payment reports `amount` in USD cents and the invoice's roubles apart
+    # (`source_amount`, with `source_currency` RUB); without them its amount cannot be compared.
+    amount, currency = data.get("amount"), data.get("currency", "RUB")
+    if currency != "RUB" and data.get("source_currency") == "RUB":
+        amount, currency = data.get("source_amount"), "RUB"
+    if currency != "RUB":
+        logger.warning("cisPay: payment %s is paid in %r without the amount in roubles", payment.id, currency)
+    elif amount != payment.amount * 100:
         logger.error(
             "cisPay: payment %s is paid with %r kopecks instead of %s; not applied",
             payment.id,
-            data.get("amount"),
+            amount,
             payment.amount * 100,
         )
         return None
