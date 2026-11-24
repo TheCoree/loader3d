@@ -1,5 +1,7 @@
-import { EURO_RIG } from '../chassis';
+import { EURO_RIG, chassisOf, cleanChassis, typicalChassis } from '../chassis';
 import { COG_LONG_TOLERANCE } from '../stats';
+import type { AxleGroup, ChassisPart, ChassisPatch, Dims } from '../types';
+import { START_MAX_GROUPS, START_MAX_ITEMS, type StartCargo, type StartSpec } from './startPlan';
 
 /**
  * Axle loads of a tractor with a semi-trailer from where the cargo stands: a beam on two supports twice —
@@ -42,6 +44,12 @@ export interface Rig {
  * calculator, to be replaced with the vehicle's own papers. The editor starts from the same ones (core/chassis.ts).
  */
 export const TYPICAL_RIG: Rig = { ...EURO_RIG };
+
+/** The calculator's example: 13 t from the front wall to 8,8 m and 6 t from 8,8 to 13,2 m. */
+export const AXLE_EXAMPLE: readonly LoadGroup[] = [
+  { weight: 13000, from: 0, to: 880 },
+  { weight: 6000, from: 880, to: 1320 },
+];
 
 export interface AxleLoads {
   cargoWeight: number;
@@ -104,4 +112,65 @@ export function axleLoads(groups: readonly LoadGroup[], rig: Rig): AxleLoads {
     aheadOfKingpin: cog !== null && cog < rig.kingpin,
     behindBogie: cog !== null && cog > rig.bogie,
   };
+}
+
+/* ---------- «Попробовать в 3D»: the calculator's vehicle and cargo as a plan (core/tools/startPlan.ts) ---------- */
+
+/** Figures closer than this (cm, kg) are the same: the calculator's come from metres and tonnes. */
+const SAME = 0.5;
+
+/**
+ * The calculator's rig as the running gear of the body of the plan (core/chassis.ts): only the figures that differ
+ * from the body's own — its template's or typical ones — so an untouched calculator gives a plan without overrides.
+ * The tractor's steering axle stays under the editor's cab: the wheelbase there follows from the kingpin and the
+ * fifth wheel's lead, not from the calculator's field.
+ */
+export function rigChassis(rig: Rig, body: StartSpec['body']): ChassisPatch | undefined {
+  const plain = { id: 'start', ...body, chassis: undefined };
+  const typical = typicalChassis(plain, true);
+  const patch: ChassisPatch = {};
+  const set = (part: ChassisPart, field: 'x' | 'tare', value: number, own: AxleGroup | null) => {
+    if (own && Math.abs(value - own[field]) >= SAME) patch[part] = { ...patch[part], [field]: value };
+  };
+  set('front', 'x', rig.kingpin, typical.front);
+  set('front', 'tare', rig.trailerTareKingpin, typical.front);
+  set('rear', 'x', rig.bogie, typical.rear);
+  set('rear', 'tare', rig.trailerTareAxles, typical.rear);
+  set('tractorFront', 'tare', rig.tractorFront, typical.tractorFront);
+  set('tractorDrive', 'tare', rig.tractorDrive, typical.tractorDrive);
+  // The drive axle follows the kingpin by the template's lead: its place is the visitor's own only when it is not there.
+  const moved = chassisOf({ ...plain, chassis: cleanChassis(patch) }, true);
+  set('tractorDrive', 'x', rig.kingpin + rig.fifthWheelAhead, moved.tractorDrive);
+  return cleanChassis(patch);
+}
+
+/** A piece of a group in the plan: a europallet lengthwise, three across a 2,45 m deck. */
+export const AXLE_PIECE: Dims = { l: 120, w: 80, h: 120 };
+
+/**
+ * The calculator's groups as cargo of the plan: rows of pallets evenly along each group's stretch (within the deck),
+ * the group's weight spread over them — so the editor counts the same centre of gravity and axle loads. A row per
+ * pallet length (at least one), fewer when the groups would bring more than START_MAX_ITEMS pieces.
+ */
+export function axleStartCargo(groups: readonly LoadGroup[], deck: Dims): StartCargo[] {
+  const list = groups
+    .map((g, i) => ({ ...g, n: i + 1 }))
+    .filter((g) => g.weight > 0 && Number.isFinite(g.from) && Number.isFinite(g.to))
+    .slice(0, START_MAX_GROUPS);
+  const perRow = Math.max(1, Math.floor(deck.w / AXLE_PIECE.w));
+  const mostRows = Math.max(1, Math.floor(START_MAX_ITEMS / perRow / Math.max(1, list.length)));
+  return list.map((g) => {
+    const from = Math.min(deck.l, Math.max(0, Math.min(g.from, g.to)));
+    const to = Math.min(deck.l, Math.max(0, Math.max(g.from, g.to)));
+    const rows = Math.min(mostRows, Math.max(1, Math.floor((to - from) / AXLE_PIECE.l)));
+    const count = rows * perRow;
+    return { name: `Груз ${g.n}`, dims: { ...AXLE_PIECE }, weight: g.weight / count, count, span: { from, to } };
+  });
+}
+
+/** The body and cargo of the plan of the calculator: `template`'s body as long as the rig's deck, with the rig's axles. */
+export function axleStart(groups: readonly LoadGroup[], rig: Rig, template: StartSpec['body']): Pick<StartSpec, 'body' | 'cargo'> {
+  const base: StartSpec['body'] = { ...template, dims: { ...template.dims, l: rig.deckLength } };
+  const chassis = rigChassis(rig, base);
+  return { body: chassis ? { ...base, chassis } : base, cargo: axleStartCargo(groups, base.dims) };
 }

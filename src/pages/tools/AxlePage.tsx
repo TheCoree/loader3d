@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { COG_LONG_TOLERANCE } from '@/core/stats';
-import { TYPICAL_RIG, axleLoads, type AxleLoads, type Rig } from '@/core/tools/axleLoads';
+import { AXLE_EXAMPLE, TYPICAL_RIG, axleLoads, axleStart, type AxleLoads, type Rig } from '@/core/tools/axleLoads';
 import { toolPage } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 import {
@@ -114,10 +114,7 @@ function RigDrawing({ rig, groups, loads }: { rig: Rig; groups: Array<{ weight: 
 
 function AxleCalculator() {
   const groups = useRows<GroupKey>(
-    [
-      { weight: 13, from: 0, to: 8.8 },
-      { weight: 6, from: 8.8, to: 13.2 },
-    ],
+    AXLE_EXAMPLE.map((g) => ({ weight: g.weight / 1000, from: g.from / 100, to: g.to / 100 })),
     { weight: 1, from: 0, to: 1.2 },
   );
   const t = (kg: number) => kg / 1000;
@@ -234,12 +231,12 @@ function AxleCalculator() {
           title="Посмотрите центр тяжести на своей раскладке"
           start={{
             name: `Полуприцеп ${num(rig.deckLength / 100, 1)} м — ${tonnes(loads.cargoWeight)}`,
-            body: { ...presetBody('tent'), dims: { ...presetBody('tent').dims, l: rig.deckLength } },
-            cargo: [],
+            // The same rig and the groups as pallets along their stretches: the editor's «Нагрузка на оси» gives these loads.
+            ...axleStart(list!, rig, presetBody('tent')),
           }}
         >
-          В Loader3D центр тяжести каждого кузова пересчитывается при каждом движении груза, а автозагрузка ставит тяжёлое к
-          середине сама.
+          Откроется полуприцеп с вашими осями и грузом по группам. В Loader3D центр тяжести и нагрузка на оси пересчитываются
+          при каждом движении груза, а автозагрузка ставит тяжёлое к середине сама.
         </TryIn3D>
       </div>
     );

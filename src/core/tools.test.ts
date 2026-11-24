@@ -4,11 +4,23 @@ import type { FloorFit } from './tools/floorFit';
 import { bestFit, fitOptions, gridFit, tiersUnder } from './tools/floorFit';
 import { floorPlaces, palletLoad, PALLETS } from './tools/pallets';
 import { ldmSummary, rowLdm } from './tools/ldm';
-import { TYPICAL_RIG, axleLoads, cargoCentre } from './tools/axleLoads';
+import {
+  AXLE_EXAMPLE,
+  TYPICAL_RIG,
+  axleLoads,
+  axleStart,
+  axleStartCargo,
+  cargoCentre,
+  rigChassis,
+  type LoadGroup,
+  type Rig,
+} from './tools/axleLoads';
 import { bodyCheck, boxesOnPallet, cargoTotals } from './tools/cargo';
 import { START_MAX_ITEMS, buildStartPlan, decodeStart, encodeStart, fitPlan, type StartSpec } from './tools/startPlan';
 import { computeLayout } from './layout';
-import type { CargoItem } from './types';
+import type { CargoItem, Plan } from './types';
+import { vehicleAxleLoads } from './chassis';
+import { itemBox } from './item';
 import { computeStats } from './stats';
 import { findCollisions, findFloating } from './physics';
 
@@ -307,6 +319,51 @@ describe('a plan from a calculator', () => {
     expect(decodeStart(encodeStart(docked))).toEqual(docked);
   });
 
+  it('carries the axles and the stretches of groups, and reads older links', () => {
+    const own: StartSpec = {
+      name: 'Полуприцеп 13,6 м — 19 т',
+      body: { ...tent, chassisModel: 'euro-tent', chassis: { front: { x: 120, tare: 2500 }, tractorDrive: { x: 200 } } },
+      cargo: [{ name: 'Груз 1', dims: { l: 120, w: 80, h: 120 }, weight: 619, count: 21, span: { from: 0, to: 880 } }],
+    };
+    expect(decodeStart(encodeStart(own))).toEqual(own);
+    // Own figures without a template.
+    const plain: StartSpec = { ...own, body: { ...tent, chassis: { rear: { tare: 5000 } } } };
+    expect(decodeStart(encodeStart(plain))).toEqual(plain);
+    const withTemplate: StartSpec = { ...own, body: { ...tent, chassisModel: 'euro-tent' } };
+    expect(decodeStart(encodeStart(withTemplate))).toEqual(withTemplate);
+
+    // Links made before the axles: without the template, and with it but without own figures.
+    const old = decodeStart(
+      JSON.stringify({ v: 1, n: 'Тент', b: ['Тент', 'semi', 1360, 245, 270, 20000], c: [['Европаллета', 120, 80, 150, 400, 34, 0, 0]] }),
+    )!;
+    expect(old.body).toEqual(tent);
+    expect(old.cargo[0].lay).toEqual({ gap: 0, stackable: false });
+    expect(old.cargo[0].span).toBeUndefined();
+    const older = decodeStart(JSON.stringify({ v: 1, n: 'Тент', b: ['Тент', 'semi', 1360, 245, 270, 20000, 'euro-tent'], c: [] }))!;
+    expect(older.body).toEqual({ ...tent, chassisModel: 'euro-tent' });
+
+    // From the address anything may come: only valid figures and stretches within the body are kept.
+    const junk = decodeStart(
+      JSON.stringify({
+        v: 1,
+        n: 'x',
+        b: ['Тент', 'semi', 1360, 245, 270, 0, 42, { front: { x: 'a', tare: 1e9 }, rear: [1], tractorFront: { axles: 3 }, boat: { x: 1 } }],
+        c: [
+          ['a', 120, 80, 120, 100, 3, [5000, -20]],
+          ['b', 120, 80, 120, 100, 3, ['x', 100]],
+          ['c', 120, 80, 120, 100, 3, [100]],
+        ],
+      }),
+    )!;
+    expect(junk.body.chassisModel).toBeUndefined();
+    expect(junk.body.chassis).toEqual({ front: { tare: 60000 } });
+    expect(junk.cargo[0].span).toEqual({ from: 0, to: 1360 });
+    expect(junk.cargo[0].lay).toBeUndefined();
+    expect(junk.cargo[1].span).toBeUndefined();
+    expect(junk.cargo[2].span).toBeUndefined();
+    expect(decodeStart(JSON.stringify({ v: 1, n: 'x', b: ['Тент', 'semi', 1360, 245, 270, 0, '', 'none'], c: [] }))!.body.chassis).toBeUndefined();
+  });
+
   it('refuses what is not a start and brings values within the limits', () => {
     expect(decodeStart(null)).toBeNull();
     expect(decodeStart('not json')).toBeNull();
@@ -410,5 +467,108 @@ describe('a plan from a calculator', () => {
     expect(findCollisions(fitted.plan.items)).toEqual([]);
     expect(findFloating(fitted.plan.items)).toEqual([]);
     expect(fitted.plan.nextSeq).toBe(100);
+  });
+});
+
+describe('a plan from the axle calculator', () => {
+  const template = (() => {
+    const b = VEHICLE_PRESETS.find((p) => p.id === 'tent')!.bodies[0];
+    return { name: b.name, kind: b.kind, dims: { ...b.dims }, maxLoad: b.maxLoad, chassisModel: b.chassisModel } as StartSpec['body'];
+  })();
+  /** The editor's axle loads of the plan's vehicle, every piece in its one body. */
+  const vehicleAxles = (plan: Plan) => {
+    const pv = computeLayout(plan.vehicles, plan.dockMode).vehicles[0];
+    return vehicleAxleLoads(pv, new Map([[pv.bodies[0].body.id, plan.items.map((i) => ({ box: itemBox(i), weight: i.weight ?? 0 }))]]));
+  };
+  /** What the editor counts for the plan's vehicle, by support. */
+  const editorLoads = (plan: Plan) => {
+    const axles = vehicleAxles(plan);
+    const load = (part: string) => axles.groups.find((g) => g.part === part)!.load;
+    return { front: load('tractorFront'), drive: load('tractorDrive'), kingpin: load('front'), trailer: load('rear'), gross: axles.gross };
+  };
+  /** The calculator's groups and rig through the address into a plan, as «Попробовать в 3D» does. */
+  const through = (groups: readonly LoadGroup[], rig: Rig) => {
+    const spec = decodeStart(encodeStart({ name: 'Оси', ...axleStart(groups, rig, template) }))!;
+    return { spec, plan: buildStartPlan(spec).plan };
+  };
+  const expectSame = (plan: Plan, groups: readonly LoadGroup[], rig: Rig) => {
+    const calc = axleLoads(groups, rig);
+    const editor = editorLoads(plan);
+    // Within the rounding of the pieces' weights (0,01 kg each).
+    for (const key of ['front', 'drive', 'kingpin', 'trailer', 'gross'] as const) expect(Math.abs(editor[key] - calc[key])).toBeLessThan(0.5);
+  };
+
+  it("the example gives the editor the calculator's axle loads, without overrides", () => {
+    const { spec, plan } = through(AXLE_EXAMPLE, TYPICAL_RIG);
+    expect(spec.body.chassis).toBeUndefined();
+    expect(spec.body.chassisModel).toBe('euro-tent');
+    expect(spec.cargo.map((c) => [c.name, c.count])).toEqual([
+      ['Груз 1', 21],
+      ['Груз 2', 9],
+    ]);
+    expectSame(plan, AXLE_EXAMPLE, TYPICAL_RIG);
+    const stats = computeStats(plan.items, computeLayout(plan.vehicles, plan.dockMode));
+    expect(stats.inside).toBe(30);
+    expect(Math.abs(stats.bodies[0].weight - 19000)).toBeLessThan(0.5);
+    // The editor's own axle loads (the stats bar, «Нагрузка на оси») are the same.
+    expect(stats.vehicles[0].axles).toEqual(vehicleAxles(plan));
+    expect(findCollisions(plan.items)).toEqual([]);
+    expect(findFloating(plan.items)).toEqual([]);
+  });
+
+  it("carries the visitor's own rig as the body's axles", () => {
+    const rig: Rig = {
+      ...TYPICAL_RIG,
+      kingpin: 120,
+      bogie: 900,
+      trailerTareKingpin: 2500,
+      trailerTareAxles: 5200,
+      tractorFront: 5400,
+      tractorDrive: 2900,
+      fifthWheelAhead: 80,
+      // The editor's steering axle is under its cab: kingpin + lead + 130 cm.
+      wheelbase: 330,
+    };
+    expect(rigChassis(rig, template)).toEqual({
+      front: { x: 120, tare: 2500 },
+      rear: { x: 900, tare: 5200 },
+      tractorFront: { tare: 5400 },
+      tractorDrive: { tare: 2900, x: 200 },
+    });
+    // 8 t over 9 pallets: 888,89 kg each.
+    const groups = [AXLE_EXAMPLE[0], { ...AXLE_EXAMPLE[1], weight: 8000 }];
+    const { spec, plan } = through(groups, rig);
+    expect(plan.vehicles[0].bodies[0].chassis).toEqual(spec.body.chassis);
+    expectSame(plan, groups, rig);
+    // Another kingpin with the usual lead: the drive axle follows it by itself.
+    expect(rigChassis({ ...TYPICAL_RIG, kingpin: 140 }, template)).toEqual({ front: { x: 140 } });
+  });
+
+  it('stacks overlapping groups and keeps to the limits', () => {
+    const groups: LoadGroup[] = [
+      { weight: 8000, from: 200, to: 800 },
+      { weight: 4000, from: 500, to: 300 },
+      { weight: 0, from: 0, to: 1000 },
+      { weight: 3000, from: 1200, to: 3000 },
+    ];
+    const cargo = axleStartCargo(groups, template.dims);
+    expect(cargo.map((c) => c.name)).toEqual(['Груз 1', 'Груз 2', 'Груз 4']);
+    // Within the deck, from the front wall.
+    expect(cargo[1].span).toEqual({ from: 300, to: 500 });
+    expect(cargo[2].span).toEqual({ from: 1200, to: 1360 });
+    const { plan } = buildStartPlan({ name: 'Оси', body: template, cargo });
+    expect(findCollisions(plan.items)).toEqual([]);
+    expect(findFloating(plan.items)).toEqual([]);
+    expect(plan.items.some((i) => i.pos.y > 0)).toBe(true);
+    const stats = computeStats(plan.items, computeLayout(plan.vehicles, plan.dockMode));
+    expect(stats.inside).toBe(plan.items.length);
+    expect(stats.bodies[0].weight).toBeCloseTo(15000, 6);
+
+    const many = axleStartCargo(
+      Array.from({ length: 30 }, (_, i) => ({ weight: 1000, from: 0, to: 2500 + i })),
+      { l: 2500, w: 245, h: 270 },
+    );
+    expect(many).toHaveLength(20);
+    expect(many.reduce((n, c) => n + c.count, 0)).toBeLessThanOrEqual(START_MAX_ITEMS);
   });
 });

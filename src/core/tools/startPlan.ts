@@ -1,5 +1,6 @@
 import { BODY_LIMITS, BODY_MAX_LOAD_LIMIT, CARGO_COLORS, ITEM_WEIGHT_LIMIT } from '../presets';
-import type { BodyKind, CargoItem, Dims, Plan, Vehicle } from '../types';
+import type { BodyKind, CargoItem, ChassisPatch, Dims, Plan, Vehicle } from '../types';
+import { cleanChassis } from '../chassis';
 import { itemBox, itemSize, sanitizeItemDims, uid } from '../item';
 import { computeLayout } from '../layout';
 import { settle } from '../physics';
@@ -11,8 +12,8 @@ import { bestFit, tiersUnder } from './floorFit';
 /**
  * «Попробовать в 3D» on a calculator page: what was calculated travels through the registration as a short
  * text (`/start?d=…`) and becomes the first plan — the same body, and the same pallets standing as the
- * calculator drew them (or on the dock). Pure: the page encodes, the /start route decodes and saves.
- * Lengths in cm, weights in kg.
+ * calculator drew them (or on the dock), the axles of the calculator's vehicle. Pure: the page encodes, the /start
+ * route decodes and saves. Lengths in cm, weights in kg.
  */
 
 export interface StartCargo {
@@ -25,12 +26,25 @@ export interface StartCargo {
    * tiers when stackable); what does not fit goes to the dock. Missing: on the dock. Only the first group.
    */
   lay?: { gap: number; stackable: boolean };
+  /**
+   * Stand on the floor in rows across the body, the rows evenly along this stretch (cm from the front wall), as the
+   * axle calculator's group lies (core/tools/axleLoads.ts). Any group; not with `lay`.
+   */
+  span?: { from: number; to: number };
 }
 
 export interface StartSpec {
   /** Name of the new plan. */
   name: string;
-  body: { name: string; kind: BodyKind; dims: Dims; maxLoad?: number; chassisModel?: string };
+  body: {
+    name: string;
+    kind: BodyKind;
+    dims: Dims;
+    maxLoad?: number;
+    chassisModel?: string;
+    /** The calculator's own figures for the axles (as CargoBody.chassis). */
+    chassis?: ChassisPatch;
+  };
   cargo: StartCargo[];
 }
 
@@ -40,6 +54,8 @@ export const START_MAX_ITEMS = 500;
 const NAME_LENGTH = 100;
 
 const round = (n: number) => Math.round(n * 10) / 10;
+/** A piece's weight to 0,01 kg: a group's weight spread over its pieces adds up to what the calculator counted. */
+const roundKg = (n: number) => Math.round(n * 100) / 100;
 
 /** The compact text of a start: short keys, numbers only where possible. */
 export function encodeStart(spec: StartSpec): string {
@@ -53,17 +69,19 @@ export function encodeStart(spec: StartSpec): string {
       round(spec.body.dims.w),
       round(spec.body.dims.h),
       spec.body.maxLoad ?? 0,
-      // The template's axles (core/chassis.ts); older links end before it.
-      ...(spec.body.chassisModel ? [spec.body.chassisModel] : []),
+      // The template's axles and the calculator's own figures (core/chassis.ts); older links end before them.
+      ...(spec.body.chassisModel || spec.body.chassis ? [spec.body.chassisModel ?? ''] : []),
+      ...(spec.body.chassis ? [spec.body.chassis] : []),
     ],
     c: spec.cargo.map((c) => [
       c.name,
       round(c.dims.l),
       round(c.dims.w),
       round(c.dims.h),
-      round(c.weight ?? 0),
+      roundKg(c.weight ?? 0),
       Math.round(c.count),
-      ...(c.lay ? [round(c.lay.gap), c.lay.stackable ? 1 : 0] : []),
+      // A layout: the gap and the stacking of `lay`, or the stretch of `span` as a pair (older links have neither).
+      ...(c.lay ? [round(c.lay.gap), c.lay.stackable ? 1 : 0] : c.span ? [[round(c.span.from), round(c.span.to)]] : []),
     ]),
   });
 }
@@ -89,7 +107,7 @@ export function decodeStart(raw: string | null | undefined): StartSpec | null {
   }
   const d = data as { v?: unknown; n?: unknown; b?: unknown; c?: unknown };
   if (!d || d.v !== 1 || !Array.isArray(d.b) || !Array.isArray(d.c)) return null;
-  const [bName, bKind, l, w, h, maxLoad, chassisModel] = d.b as unknown[];
+  const [bName, bKind, l, w, h, maxLoad, chassisModel, chassis] = d.b as unknown[];
   const dims = [l, w, h].map(finite);
   if (dims.some((x) => x === null || x <= 0)) return null;
   const load = finite(maxLoad) ?? 0;
@@ -105,11 +123,15 @@ export function decodeStart(raw: string | null | undefined): StartSpec | null {
     // Only the name of a template's running gear (an unknown one is ignored by core/chassis.ts).
     ...(typeof chassisModel === 'string' && /^[a-z0-9-]{1,40}$/.test(chassisModel) ? { chassisModel } : {}),
   };
+  // Only valid figures within the plan's limits; the editor keeps them within reason for the body (core/chassis.ts).
+  const patch = cleanChassis(chassis);
+  if (patch) body.chassis = patch;
   const cargo: StartCargo[] = [];
   let total = 0;
   for (const entry of (d.c as unknown[]).slice(0, START_MAX_GROUPS)) {
     if (!Array.isArray(entry)) return null;
     const [name, cl, cw, ch, weight, count, gap, stackable] = entry as unknown[];
+    const span = Array.isArray(gap) ? gap.map(finite) : null;
     const size = [cl, cw, ch].map(finite);
     const n = finite(count);
     if (size.some((x) => x === null || x <= 0) || n === null) return null;
@@ -121,9 +143,17 @@ export function decodeStart(raw: string | null | undefined): StartSpec | null {
     cargo.push({
       name: text(name, 'Груз'),
       dims: sanitizeItemDims({ l: size[0]!, w: size[1]!, h: size[2]! }),
-      ...(kg > 0 ? { weight: round(Math.min(kg, ITEM_WEIGHT_LIMIT)) } : {}),
+      ...(kg > 0 ? { weight: roundKg(Math.min(kg, ITEM_WEIGHT_LIMIT)) } : {}),
       count: pieces,
       ...(g !== null && cargo.length === 0 ? { lay: { gap: clamp(g, 0, 50), stackable: stackable === 1 } } : {}),
+      ...(span && span.length === 2 && span[0] !== null && span[1] !== null
+        ? {
+            span: {
+              from: round(clamp(Math.min(span[0], span[1]), 0, body.dims.l)),
+              to: round(clamp(Math.max(span[0], span[1]), 0, body.dims.l)),
+            },
+          }
+        : {}),
     });
   }
   return { name: text(d.n, 'Схема из калькулятора'), body, cargo };
@@ -135,7 +165,32 @@ export interface StartPlan {
   dropped: number;
 }
 
-/** The plan of a start: one vehicle, the first group laid out in the body, the rest on the dock; ends with settle(). */
+/**
+ * Where the pieces of a `span` group stand: rows across the deck, centred, the rows evenly along the stretch, so the
+ * group weighs where the calculator counted it. Min corners in the body's terms: x from the front wall, z from the
+ * left wall.
+ */
+function spanSpots(count: number, size: Dims, deck: Dims, span: { from: number; to: number }): Array<{ x: number; z: number }> {
+  const perRow = Math.max(1, Math.floor(deck.w / size.w));
+  const rows = Math.ceil(count / perRow);
+  const from = clamp(Math.min(span.from, span.to), 0, deck.l);
+  const to = clamp(Math.max(span.from, span.to), 0, deck.l);
+  const pitch = (to - from) / rows;
+  const spots: Array<{ x: number; z: number }> = [];
+  for (let r = 0; r < rows; r++) {
+    // The middle of the row, the piece kept within the deck.
+    const centre = deck.l > size.l ? clamp(from + (r + 0.5) * pitch, size.l / 2, deck.l - size.l / 2) : deck.l / 2;
+    const inRow = Math.min(perRow, count - r * perRow);
+    const z0 = (deck.w - inRow * size.w) / 2;
+    for (let j = 0; j < inRow; j++) spots.push({ x: centre - size.l / 2, z: z0 + j * size.w });
+  }
+  return spots;
+}
+
+/**
+ * The plan of a start: one vehicle, the first group laid out in the body (`lay`), `span` groups along their stretch,
+ * the rest on the dock; ends with settle(), which also stacks pieces of groups whose stretches overlap.
+ */
 export function buildStartPlan(spec: StartSpec, maxItems = START_MAX_ITEMS): StartPlan {
   const vehicle: Vehicle = {
     id: uid('veh'),
@@ -148,6 +203,7 @@ export function buildStartPlan(spec: StartSpec, maxItems = START_MAX_ITEMS): Sta
         dims: { ...spec.body.dims },
         ...(spec.body.maxLoad ? { maxLoad: spec.body.maxLoad } : {}),
         ...(spec.body.chassisModel ? { chassisModel: spec.body.chassisModel } : {}),
+        ...(spec.body.chassis ? { chassis: spec.body.chassis } : {}),
       },
     ],
   };
@@ -170,10 +226,15 @@ export function buildStartPlan(spec: StartSpec, maxItems = START_MAX_ITEMS): Sta
     // The calculator's layout: tier after tier over the same floor spots.
     const fit = index === 0 && group.lay ? bestFit(spec.body.dims, group.dims, group.lay.gap) : null;
     const tiers = fit ? tiersUnder(spec.body.dims.h, group.dims.h, group.lay!.stackable) : 0;
+    const along = !fit && group.span ? spanSpots(count, group.dims, spec.body.dims, group.span) : null;
     for (let n = 0; n < count; n++) {
       const item: CargoItem = { ...base, id: uid('cargo'), seq: seq++, orientation: { yaw: 0 }, pos: { x: 0, y: 0, z: 0 } };
       const tier = fit && fit.count > 0 ? Math.floor(n / fit.count) : Infinity;
-      if (fit && tier < tiers) {
+      if (along) {
+        // On the floor; settle() below puts it on top of another group's pieces where the stretches overlap.
+        const spot = along[n];
+        items.push({ ...item, pos: { x: deck.max.x - spot.x - group.dims.l, y: deck.min.y, z: deck.min.z + spot.z } });
+      } else if (fit && tier < tiers) {
         const spot = fit.spots[n % fit.count];
         const placed: CargoItem = {
           ...item,
