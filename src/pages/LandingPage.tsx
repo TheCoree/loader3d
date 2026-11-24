@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router';
 import {
   ArrowRight,
@@ -40,6 +40,7 @@ import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, type TierInfo } from '@/
 import { FEATURED_TOOLS, TOOLS_HUB, toolPage } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 import { useAuth, wasSignedIn } from '@/store/useAuth';
+import { HeroCubes } from './HeroCubes';
 import { LandingDemo } from './LandingDemo';
 
 /**
@@ -359,234 +360,12 @@ function Hero() {
             </Button>
           </div>
         </div>
-        <div className="landing-rise [animation-delay:200ms]">
-          <TruckArt />
+        {/* Wide screens only: on a phone the motion says little and costs the battery. */}
+        <div className="landing-rise hidden [animation-delay:200ms] lg:block">
+          <HeroCubes />
         </div>
       </Container>
     </section>
-  );
-}
-
-// The hero drawing: an isometric semi-trailer with its tractor, 33 pallets 120 × 80 loaded through the rear
-// doors row after row, then all fading out together before the next load (one timeline, TRUCK_CYCLE).
-const PX = 20.5; // pixels per metre
-const COS30 = Math.cos(Math.PI / 6);
-const ORIGIN = { x: 92, y: 262 };
-const TRAILER = { length: 13.6, width: 2.45, height: 2.6, deck: 1.05 };
-const WHEEL = 0.5; // wheel radius, metres
-const CAB = { from: TRAILER.length + 0.35, to: TRAILER.length + 2.55, bottom: 0.75, top: 3.6 };
-
-/** Screen point of (x along the trailer towards the cab, y up, z across towards the viewer), metres. */
-function iso(x: number, y: number, z: number): [number, number] {
-  return [ORIGIN.x + (x + z) * COS30 * PX, ORIGIN.y + (z - x) * 0.5 * PX - y * PX];
-}
-
-function poly(points: Array<[number, number, number]>): string {
-  return points.map((p) => iso(...p).map((n) => n.toFixed(1)).join(',')).join(' ');
-}
-
-function line(a: [number, number, number], b: [number, number, number]): string {
-  const [x1, y1] = iso(...a);
-  const [x2, y2] = iso(...b);
-  return `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`;
-}
-
-/** The 12 edges of a box; `far` — the three edges hidden behind it, drawn fainter. */
-function boxEdges(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
-  const near = [
-    line([x0, y0, z1], [x1, y0, z1]),
-    line([x0, y1, z1], [x1, y1, z1]),
-    line([x0, y1, z0], [x1, y1, z0]),
-    line([x0, y0, z0], [x0, y0, z1]),
-    line([x0, y1, z0], [x0, y1, z1]),
-    line([x1, y1, z0], [x1, y1, z1]),
-    line([x0, y0, z0], [x0, y1, z0]),
-    line([x0, y0, z1], [x0, y1, z1]),
-    line([x1, y0, z1], [x1, y1, z1]),
-  ].join('');
-  const far = [line([x0, y0, z0], [x1, y0, z0]), line([x1, y0, z0], [x1, y0, z1]), line([x1, y0, z0], [x1, y1, z0])].join('');
-  return { near, far };
-}
-
-/** A circle of radius r in the plane of the vehicle's side (x-y at z), centred at (x, y). */
-function sideCircle(x: number, y: number, z: number, r: number): string {
-  const pts = Array.from({ length: 32 }, (_, i) => {
-    const a = (i / 32) * Math.PI * 2;
-    return iso(x + Math.cos(a) * r, y + Math.sin(a) * r, z);
-  });
-  return `M${pts.map(([px, py]) => `${px.toFixed(1)} ${py.toFixed(1)}`).join('L')}Z`;
-}
-
-/** The tractor's drive axle: under the fifth wheel, well inside the front of the trailer. */
-const DRIVE_AXLE = TRAILER.length - 1.15;
-
-/** Wheels on the near side: the trailer's three axles at the rear, the tractor's drive axle under the
- * front of the trailer and its steering axle under the cab. */
-const WHEELS = [1.45, 2.75, 4.05, DRIVE_AXLE, TRAILER.length + 1.95];
-
-const PALLET = { length: 1.2, width: 0.8, height: 1.35 };
-const ROWS = 11;
-const LOAD_FROM = -1.8; // the pallets come in from the dock behind the rear doors
-
-/** One cycle: rows slide in (rowStep apart, `slide` each), the full trailer holds, everything fades out
- * together, a short empty pause. The page starts with an empty trailer and loads it at once (`lead` after
- * the script runs); the pallets are hidden by CSS until then (`.lp-pallet`), shown with reduced motion. */
-const TRUCK_CYCLE = { total: 13_000, rowStep: 480, colStep: 110, slide: 900, fadeFrom: 10_400, fadeTo: 11_500, lead: 250 };
-
-const PALLETS = (() => {
-  const { length, deck } = TRAILER;
-  const list: Array<{ key: string; x: number; z: number; start: number; tx: number; ty: number }> = [];
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < 3; col++) {
-      const x = length - (row + 1) * PALLET.length - 0.02;
-      const z = 0.03 + col * (PALLET.width + 0.005);
-      const way = x - LOAD_FROM;
-      list.push({
-        key: `${row}-${col}`,
-        x,
-        z,
-        start: row * TRUCK_CYCLE.rowStep + col * TRUCK_CYCLE.colStep,
-        tx: -way * COS30 * PX,
-        ty: way * 0.5 * PX,
-      });
-    }
-  }
-  // Painter's order: from the cab (far) to the doors (near), far side first.
-  return list.sort((a, b) => b.x - a.x || a.z - b.z).map((p) => ({ ...p, y: deck }));
-})();
-
-/** Runs the loading on the shared timeline (Web Animations), after mount; nothing moves with reduced motion. */
-function useTruckLoading(ref: RefObject<SVGSVGElement | null>) {
-  useEffect(() => {
-    const svg = ref.current;
-    if (!svg) return;
-    const pallets = [...svg.querySelectorAll<SVGGElement>('[data-pallet]')];
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (typeof svg.animate !== 'function') {
-      // No Web Animations: the full trailer, as with reduced motion.
-      for (const g of pallets) g.style.opacity = '1';
-      return;
-    }
-    const { total, slide, fadeFrom, fadeTo, lead } = TRUCK_CYCLE;
-    const placed = 'translate(0px, 0px)';
-    const animations = pallets.map((g) => {
-      const away = `translate(${g.dataset.tx}px, ${g.dataset.ty}px)`;
-      const begin = Number(g.dataset.start);
-      const start = begin / total;
-      const end = (begin + slide) / total;
-      return g.animate(
-        [
-          { offset: 0, transform: away, opacity: 0 },
-          { offset: start, transform: away, opacity: 0, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' },
-          { offset: start + (end - start) * 0.35, opacity: 1 },
-          { offset: end, transform: placed, opacity: 1 },
-          { offset: fadeFrom / total, transform: placed, opacity: 1, easing: 'ease-in-out' },
-          { offset: fadeTo / total, transform: placed, opacity: 0 },
-          { offset: 1, transform: away, opacity: 0 },
-        ],
-        { duration: total, iterations: Infinity, delay: lead, fill: 'backwards' },
-      );
-    });
-    return () => animations.forEach((a) => a.cancel());
-  }, [ref]);
-}
-
-function TruckArt() {
-  const svgRef = useRef<SVGSVGElement>(null);
-  useTruckLoading(svgRef);
-  const { length, width, height, deck } = TRAILER;
-  const top = deck + height;
-  const body = boxEdges(0, deck, 0, length, top, width);
-  const cab = boxEdges(CAB.from, CAB.bottom, 0, CAB.to, CAB.top, width);
-  const outline = `M${[
-    iso(0, top, width),
-    iso(length, top, width),
-    iso(length, top, 0),
-    iso(0, top, 0),
-    iso(0, top, width),
-    iso(0, deck, width),
-    iso(length, deck, width),
-    iso(length, top, width),
-  ]
-    .map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`)
-    .join('L')}`;
-  const stroke = 'rgba(237,237,237,0.55)';
-  const faint = 'rgba(237,237,237,0.16)';
-  // The frame the wheels hang on: a rail under the near side of the trailer and the tractor's chassis.
-  const rail = 2 * WHEEL + 0.03;
-  const frame = [
-    line([0.3, rail, width - 0.12], [length + 0.1, rail, width - 0.12]),
-    line([DRIVE_AXLE - WHEEL - 0.35, rail - 0.1, width - 0.12], [CAB.to, rail - 0.1, width - 0.12]),
-  ].join('');
-
-  return (
-    <figure className="relative mx-auto w-full max-w-[600px]" aria-label="Еврофура загружается паллетами">
-      <svg ref={svgRef} viewBox="0 0 470 330" className="w-full" aria-hidden>
-        {/* The ground: a few hairlines in perspective. */}
-        {[-1.2, 0.4, 2, 3.6].map((z) => (
-          <path key={z} d={line([-3, 0, z], [length + 4, 0, z])} stroke="rgba(237,237,237,0.06)" />
-        ))}
-        <g fill="none" strokeWidth="1" strokeLinejoin="round">
-          <path d={body.far} stroke={faint} strokeDasharray="3 4" />
-          <path d={cab.far} stroke={faint} strokeDasharray="3 4" />
-          {/* The floor of the trailer. */}
-          <path d={`M${poly([[0, deck, 0], [length, deck, 0], [length, deck, width], [0, deck, width]])}Z`} fill="rgba(237,237,237,0.025)" stroke="none" />
-        </g>
-        {PALLETS.map((p) => (
-          <g key={p.key} className="lp-pallet" data-pallet="" data-tx={p.tx.toFixed(1)} data-ty={p.ty.toFixed(1)} data-start={p.start}>
-            <Pallet x={p.x} y={p.y} z={p.z} />
-          </g>
-        ))}
-        <g fill="none" strokeWidth="1" strokeLinejoin="round">
-          <path d={body.near} stroke={stroke} />
-          <path d={cab.near} stroke={stroke} />
-          <path d={frame} stroke="rgba(237,237,237,0.3)" />
-          {/* The windscreen. */}
-          <path d={line([CAB.to, 2.3, 0.15], [CAB.to, 2.3, width - 0.15])} stroke={faint} />
-          {/* Wheels: a tyre with its rim, hiding the lines behind it. */}
-          {WHEELS.map((x) => (
-            <g key={x}>
-              <path d={sideCircle(x, WHEEL, width - 0.05, WHEEL)} stroke={stroke} fill="#000" />
-              <path d={sideCircle(x, WHEEL, width - 0.05, WHEEL * 0.45)} stroke={faint} />
-            </g>
-          ))}
-          {/* The light running along the outline. */}
-          <path
-            d={outline}
-            pathLength={1600}
-            className="lp-streak"
-            stroke="#fff"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.9))' }}
-          />
-        </g>
-      </svg>
-      <figcaption className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1 font-geist-mono text-xs text-[#8f8f8f]">
-        <span>Еврофура 13,6 м</span>
-        <span aria-hidden>·</span>
-        <span>33 европаллеты 120 × 80</span>
-        <span aria-hidden>·</span>
-        <span>1 нажатие «Автозагрузка»</span>
-      </figcaption>
-    </figure>
-  );
-}
-
-function Pallet({ x, y, z }: { x: number; y: number; z: number }) {
-  const { length: l, width: w, height: h } = PALLET;
-  const x1 = x + l;
-  const y1 = y + h;
-  const z1 = z + w;
-  const edge = 'rgba(237,237,237,0.6)';
-  return (
-    <g strokeWidth="0.8" strokeLinejoin="round" stroke={edge}>
-      <polygon points={poly([[x, y1, z], [x1, y1, z], [x1, y1, z1], [x, y1, z1]])} fill="#1f1f1f" />
-      <polygon points={poly([[x, y, z], [x, y, z1], [x, y1, z1], [x, y1, z]])} fill="#121212" />
-      <polygon points={poly([[x, y, z1], [x1, y, z1], [x1, y1, z1], [x, y1, z1]])} fill="#0b0b0b" />
-      {/* The pallet under the load. */}
-      <path d={line([x, y + 0.14, z1], [x1, y + 0.14, z1])} strokeOpacity="0.5" fill="none" />
-    </g>
   );
 }
 
@@ -896,96 +675,187 @@ function PdfPage() {
  * jumps and each is loaded before it is chosen. Phones: the steps one under another, each with its widget
  * centred under it.
  */
+/** The sticky header of the landing page, px. */
+const HEADER = 64;
+
+const stepNumber = (i: number) => String(i + 1).padStart(2, '0');
+
+/**
+ * «От заявки до схемы»: on wide screens the section — its heading too — holds still while the page scrolls through
+ * STEPS: the list on the left, the picture of the step on the right (they only fade into each other), the hairline over each step filling as it goes (done steps full); a click
+ * scrolls to a step. Read and written once a frame, only while the section is near the screen (as LandingDemo).
+ * Phones: the steps one under another. Prerendered: the first render is the first step, nothing filled.
+ */
 function Workflow() {
   const [active, setActive] = useState(0);
-  return (
-    <section id="how" data-section="workflow" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
-      <Container>
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <Heading className="max-w-2xl">От заявки до схемы — за пять минут</Heading>
-          <Button asChild className={primaryPill}>
-            <Link to="/register">
-              Попробовать на своём грузе <ArrowRight />
-            </Link>
-          </Button>
-        </div>
+  const track = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLOListElement>(null);
 
-        <div className="mt-14 hidden gap-16 lg:grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)]">
-          <ol className="relative grid content-start gap-2 self-start">
-            <span aria-hidden className="absolute top-6 bottom-6 left-[19px] w-px bg-white/10" />
-            {STEPS.map((s, i) => (
-              <li key={s.title}>
-                <button
-                  type="button"
-                  onClick={() => setActive(i)}
-                  onMouseEnter={() => setActive(i)}
-                  aria-pressed={active === i}
-                  className={cn(
-                    'relative flex w-full items-start gap-4 rounded-xl p-2 pr-4 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white/30',
-                    active === i ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]',
-                  )}
-                >
-                  <StepNumber n={i + 1} active={active === i} className="translate-x-[7px] translate-y-0.5" />
-                  <span className="pl-2">
-                    <span className={cn('block text-base font-medium transition-colors', active === i ? 'text-[#ededed]' : 'text-[#a1a1a1]')}>
-                      {s.title}
-                    </span>
-                    <span className="mt-1 block text-[15px] leading-relaxed text-[#8f8f8f]">{s.text}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div className="relative h-[620px]">
-            {STEPS.map((s, i) => (
-              <div
-                key={s.image.src}
-                aria-hidden={active !== i}
-                className={cn(
-                  'absolute inset-0 flex items-start justify-center transition-opacity duration-300 ease-out',
-                  active === i ? 'opacity-100' : 'pointer-events-none opacity-0',
-                )}
-              >
-                <Shot
-                  {...s.image}
-                  className="h-auto max-h-full w-auto rounded-[18px]"
-                  style={{ maxWidth: Math.min(s.image.width / 1.6, 640) }}
-                />
+  useEffect(() => {
+    const el = track.current;
+    const ol = list.current;
+    if (!el || !ol) return;
+    const media = window.matchMedia('(min-width: 1024px)');
+    const fills = [...ol.querySelectorAll<HTMLElement>('[data-fill]')];
+    let raf = 0;
+    let shown = 0;
+    let last = '';
+    const update = () => {
+      raf = 0;
+      if (!media.matches) return;
+      const rect = el.getBoundingClientRect();
+      const travel = Math.max(1, rect.height - (window.innerHeight - HEADER));
+      const p = Math.min(1, Math.max(0, (HEADER - rect.top) / travel)) * STEPS.length;
+      const i = Math.min(STEPS.length - 1, Math.floor(p));
+      if (i !== shown) {
+        shown = i;
+        setActive(i);
+      }
+      const within = Math.min(1, p - i);
+      const key = `${i}:${within.toFixed(3)}`;
+      if (key === last) return;
+      last = key;
+      fills.forEach((f, k) => {
+        f.style.transform = `scaleX(${k < i ? 1 : k === i ? within : 0})`;
+      });
+    };
+    const schedule = () => {
+      if (!raf) raf = window.requestAnimationFrame(update);
+    };
+    let following = false;
+    const follow = (on: boolean) => {
+      if (on === following) return;
+      following = on;
+      if (on) window.addEventListener('scroll', schedule, { passive: true });
+      else window.removeEventListener('scroll', schedule);
+    };
+    const near = new IntersectionObserver(
+      ([entry]) => {
+        follow(entry.isIntersecting);
+        schedule();
+      },
+      { rootMargin: '25% 0px' },
+    );
+    near.observe(el);
+    window.addEventListener('resize', schedule);
+    return () => {
+      near.disconnect();
+      follow(false);
+      if (raf) window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', schedule);
+    };
+  }, []);
+
+  /** Scrolls to where step `i` is on screen (a little into it, so it is the active one). */
+  const goTo = (i: number) => {
+    const el = track.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const travel = Math.max(1, rect.height - (window.innerHeight - HEADER));
+    const top = window.scrollY + rect.top - HEADER + travel * ((i + 0.05) / STEPS.length);
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top, behavior: reduce ? 'auto' : 'smooth' });
+  };
+
+  return (
+    <section id="how" data-section="workflow" className="scroll-mt-16 border-t border-white/[0.08] pt-24 pb-12 sm:pt-32 lg:pt-0 lg:pb-0">
+      <Container>
+        {/* Wide screens: the heading, the steps and their pictures hold still while the page scrolls through the steps. */}
+        <div ref={track} className="relative lg:h-[300vh]">
+          <div className="lg:sticky lg:top-16 lg:flex lg:h-[calc(100dvh-4rem)] lg:flex-col lg:pt-12 lg:pb-10">
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <Heading className="max-w-2xl lg:text-[3rem]">От заявки до схемы — за пять минут</Heading>
+              <Button asChild className={primaryPill}>
+                <Link to="/register">
+                  Попробовать на своём грузе <ArrowRight />
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mt-10 hidden min-h-0 flex-1 grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)] items-center gap-16 lg:grid">
+              <ol ref={list} className="grid">
+                {STEPS.map((s, i) => (
+                  <li key={s.title}>
+                    <button
+                      type="button"
+                      onClick={() => goTo(i)}
+                      aria-current={active === i ? 'step' : undefined}
+                      className="group relative block w-full py-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    >
+                      <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-white/[0.1]" />
+                      <span aria-hidden data-fill="" className="absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-[#ededed]" />
+                      <span className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
+                        <span
+                          className={cn(
+                            'font-geist-mono text-[13px] tabular-nums transition-colors duration-300',
+                            active === i ? 'text-[#ededed]' : 'text-[#5f5f5f] group-hover:text-[#8f8f8f]',
+                          )}
+                        >
+                          {stepNumber(i)}
+                        </span>
+                        <span>
+                          <span
+                            className={cn(
+                              'block text-lg font-medium tracking-[-0.01em] transition-colors duration-300',
+                              active === i ? 'text-[#ededed]' : 'text-[#8f8f8f] group-hover:text-[#a1a1a1]',
+                            )}
+                          >
+                            {s.title}
+                          </span>
+                          <span
+                            className={cn(
+                              'mt-1.5 block text-[15px] leading-relaxed transition-colors duration-300',
+                              active === i ? 'text-[#a1a1a1]' : 'text-[#5f5f5f]',
+                            )}
+                          >
+                            {s.text}
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              {/* The pictures stand in one place and only fade into each other. */}
+              <div className="relative h-full max-h-[620px]">
+                {STEPS.map((s, i) => (
+                  <div
+                    key={s.image.src}
+                    aria-hidden={active !== i}
+                    className={cn(
+                      'absolute inset-0 flex items-center justify-center transition-opacity duration-500 ease-out motion-reduce:transition-none',
+                      active === i ? 'opacity-100' : 'pointer-events-none opacity-0',
+                    )}
+                  >
+                    <Shot
+                      {...s.image}
+                      className="h-auto max-h-full w-auto rounded-[18px]"
+                      style={{ maxWidth: Math.min(s.image.width / 1.6, 640) }}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Phones and narrow windows: one under another. */}
+            <ol className="mt-12 grid gap-12 lg:hidden">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="border-t border-white/[0.1] pt-6">
+                  <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-baseline">
+                    <span className="font-geist-mono text-[13px] text-[#8f8f8f] tabular-nums">{stepNumber(i)}</span>
+                    <div>
+                      <p className="text-lg font-medium tracking-[-0.01em] text-[#ededed]">{s.title}</p>
+                      <p className="mt-1.5 text-[15px] leading-relaxed text-[#a1a1a1]">{s.text}</p>
+                    </div>
+                  </div>
+                  <Shot {...s.image} className="mx-auto mt-6 w-full rounded-2xl" style={{ maxWidth: s.image.width / 2 }} />
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
-
-        <ol className="mt-12 grid gap-12 lg:hidden">
-          {STEPS.map((s, i) => (
-            <li key={s.title}>
-              <div className="flex items-start gap-4">
-                <StepNumber n={i + 1} active />
-                <div>
-                  <p className="text-base font-medium text-[#ededed]">{s.title}</p>
-                  <p className="mt-1 text-[15px] leading-relaxed text-[#8f8f8f]">{s.text}</p>
-                </div>
-              </div>
-              <Shot {...s.image} className="mx-auto mt-5 w-full rounded-2xl" style={{ maxWidth: s.image.width / 2 }} />
-            </li>
-          ))}
-        </ol>
       </Container>
     </section>
-  );
-}
-
-function StepNumber({ n, active, className }: { n: number; active: boolean; className?: string }) {
-  return (
-    <span
-      className={cn(
-        'relative z-10 grid size-6 shrink-0 place-items-center rounded-full border font-geist-mono text-[11px] transition-colors',
-        active ? 'border-[#ededed] bg-[#ededed] text-black' : 'border-white/20 bg-black text-[#a1a1a1]',
-        className,
-      )}
-    >
-      {n}
-    </span>
   );
 }
 
