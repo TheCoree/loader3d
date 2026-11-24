@@ -18,6 +18,8 @@ interface UiState {
   /** The «Настройки отображения» dialog. */
   displayOpen: boolean;
   pdfOptions: PdfPreferences;
+  /** PDF files made while the app is open (the demo of the landing page counts them). */
+  pdfExports: number;
   setHelpOpen(open: boolean): void;
   setPanelHidden(hidden: boolean): void;
   setDrawerOpen(open: boolean): void;
@@ -27,6 +29,7 @@ interface UiState {
   setPdfOpen(open: boolean): void;
   setDisplayOpen(open: boolean): void;
   setPdfOptions(patch: Partial<PdfPreferences>): void;
+  notePdfExport(): void;
 }
 
 const narrow = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches;
@@ -41,6 +44,7 @@ export const useUi = create<UiState>()((set) => ({
   pdfOpen: false,
   displayOpen: false,
   pdfOptions: { orientation: 'landscape', mode: 'overview', direction: 'rear', projection: 'orthographic' },
+  pdfExports: 0,
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setPanelHidden: (panelHidden) => set({ panelHidden }),
   setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
@@ -50,4 +54,5 @@ export const useUi = create<UiState>()((set) => ({
   setPdfOpen: (pdfOpen) => set({ pdfOpen }),
   setDisplayOpen: (displayOpen) => set({ displayOpen }),
   setPdfOptions: (patch) => set((s) => ({ pdfOptions: { ...s.pdfOptions, ...patch } })),
+  notePdfExport: () => set((s) => ({ pdfExports: s.pdfExports + 1 })),
 }));

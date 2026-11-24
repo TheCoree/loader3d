@@ -11,8 +11,8 @@ import { TOOL_PATHS } from './toolPages';
  * roots carry their theme themselves (components/site.tsx publicRoot, pages/tools ToolShell).
  */
 
-/** Pages that are designed dark-only. */
-const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/reset-password', '/verify-email'];
+/** Pages that are designed dark-only (the demo too: the editor as the landing page's pictures show it). */
+const PUBLIC_PATHS = ['/', '/pricing', '/demo', '/terms', '/privacy', '/login', '/register', '/reset-password', '/verify-email'];
 
 export type ToolTheme = 'light' | 'dark';
 

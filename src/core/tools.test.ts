@@ -6,8 +6,9 @@ import { floorPlaces, palletLoad, PALLETS } from './tools/pallets';
 import { ldmSummary, rowLdm } from './tools/ldm';
 import { TYPICAL_RIG, axleLoads, cargoCentre } from './tools/axleLoads';
 import { bodyCheck, boxesOnPallet, cargoTotals } from './tools/cargo';
-import { START_MAX_ITEMS, buildStartPlan, decodeStart, encodeStart, type StartSpec } from './tools/startPlan';
+import { START_MAX_ITEMS, buildStartPlan, decodeStart, encodeStart, fitPlan, type StartSpec } from './tools/startPlan';
 import { computeLayout } from './layout';
+import type { CargoItem } from './types';
 import { computeStats } from './stats';
 import { findCollisions, findFloating } from './physics';
 
@@ -379,5 +380,35 @@ describe('a plan from a calculator', () => {
     expect(plan.vehicles[0].bodies[0].dims).toEqual(tent.dims);
     expect(plan.vehicles[0].bodies[0].maxLoad).toBe(20000);
     expect(plan.items).toEqual([]);
+  });
+
+  it('brings a carried plan within the limits of the account', () => {
+    const one = buildStartPlan(eur(40)).plan;
+    // Untouched without limits or within them.
+    expect(fitPlan(one, null).plan).toBe(one);
+    expect(fitPlan(one, { vehicles: 1, items: 100 })).toEqual({ plan: one, dropped: 0 });
+
+    // Over the cargo limit: what is on the dock goes first.
+    const fewer = fitPlan(one, { vehicles: 1, items: 36 });
+    expect(fewer.dropped).toBe(4);
+    const fewerStats = computeStats(fewer.plan.items, computeLayout(fewer.plan.vehicles, fewer.plan.dockMode));
+    expect(fewerStats.inside).toBe(34);
+    expect(fewerStats.dock).toBe(2);
+
+    // A second vehicle over the limit: taken away, its cargo goes to the dock.
+    const second = { ...one.vehicles[0], id: 'veh-2', name: 'Машина 2', bodies: [{ ...one.vehicles[0].bodies[0], id: 'body-2' }] };
+    const two = { ...one, vehicles: [one.vehicles[0], second] };
+    const deck = computeLayout(two.vehicles, two.dockMode).bodies[1].box;
+    const pallet: CargoItem = { ...one.items[0], id: 'cargo-extra', seq: 99, orientation: { yaw: 0 }, pos: { x: deck.max.x - 120, y: deck.min.y, z: deck.min.z } };
+    const fitted = fitPlan({ ...two, items: [...two.items, pallet] }, { vehicles: 1, items: 100 });
+    expect(fitted.dropped).toBe(0);
+    expect(fitted.plan.vehicles.map((v) => v.id)).toEqual([one.vehicles[0].id]);
+    expect(fitted.plan.items).toHaveLength(41);
+    const stats = computeStats(fitted.plan.items, computeLayout(fitted.plan.vehicles, fitted.plan.dockMode));
+    expect(stats.inside).toBe(34);
+    expect(stats.dock).toBe(7);
+    expect(findCollisions(fitted.plan.items)).toEqual([]);
+    expect(findFloating(fitted.plan.items)).toEqual([]);
+    expect(fitted.plan.nextSeq).toBe(100);
   });
 });
