@@ -313,6 +313,9 @@ SIGNUP_CLICKS = {
     "cta_register",
     "tool_try3d",
     "tool_cta_register",
+    "demo_save",
+    "demo_toast_save",
+    "demo_gate_register",
 }
 RECENT_VISITS = 25
 

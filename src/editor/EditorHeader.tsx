@@ -59,14 +59,8 @@ export function EditorHeader() {
   const canRedo = useStore((s) => s.history.future.length > 0);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
-  const itemCount = useStore((s) => s.items.length);
   const setHelpOpen = useUi((s) => s.setHelpOpen);
-  const panelHidden = useUi((s) => s.panelHidden);
-  const setPanelHidden = useUi((s) => s.setPanelHidden);
-  const setDrawerOpen = useUi((s) => s.setDrawerOpen);
-  const desktop = useMediaQuery('(min-width: 768px)');
   const replace = useReplaceFromFile();
-  const panelShown = desktop && !panelHidden;
 
   const leave = async () => {
     await flush();
@@ -113,28 +107,41 @@ export function EditorHeader() {
           <MoreMenu onReplace={replace.open} onHelp={() => setHelpOpen(true)} />
         </div>
         {replace.input}
-        <Button
-          variant={panelShown ? 'secondary' : 'outline'}
-          className="ml-1.5 h-9 gap-1.5 rounded-full px-3"
-          onClick={() => (desktop ? setPanelHidden(!panelHidden) : setDrawerOpen(true))}
-          aria-pressed={desktop ? panelShown : undefined}
-          aria-label="Панель грузов"
-        >
-          <Package className={ICON} />
-          <span className="hidden sm:inline">Грузы</span>
-          <Badge variant="outline" className="h-5 min-w-5 bg-background px-1.5 tabular-nums">
-            {itemCount}
-          </Badge>
-        </Button>
+        <CargoButton />
       </div>
     </header>
   );
 }
 
-/** Header icons are a bit larger than the default 16 px. */
-const ICON = 'size-[18px]';
+/** Shows the cargo panel (hides it on wide screens), with the number of items. */
+export function CargoButton({ compact = false }: { compact?: boolean }) {
+  const itemCount = useStore((s) => s.items.length);
+  const panelHidden = useUi((s) => s.panelHidden);
+  const setPanelHidden = useUi((s) => s.setPanelHidden);
+  const setDrawerOpen = useUi((s) => s.setDrawerOpen);
+  const desktop = useMediaQuery('(min-width: 768px)');
+  const panelShown = desktop && !panelHidden;
+  return (
+    <Button
+      variant={panelShown ? 'secondary' : 'outline'}
+      className={cn('h-9 gap-1.5 rounded-full', compact ? 'ml-1 px-2.5' : 'ml-1.5 px-3')}
+      onClick={() => (desktop ? setPanelHidden(!panelHidden) : setDrawerOpen(true))}
+      aria-pressed={desktop ? panelShown : undefined}
+      aria-label="Панель грузов"
+    >
+      <Package className={ICON} />
+      <span className={cn('hidden', !compact && 'sm:inline')}>Грузы</span>
+      <Badge variant="outline" className="h-5 min-w-5 bg-background px-1.5 tabular-nums">
+        {itemCount}
+      </Badge>
+    </Button>
+  );
+}
 
-function IconTip({ label, keys, children }: { label: string; keys?: string; children: React.ReactNode }) {
+/** Header icons are a bit larger than the default 16 px. */
+export const ICON = 'size-[18px]';
+
+export function IconTip({ label, keys, children }: { label: string; keys?: string; children: React.ReactNode }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
@@ -252,7 +259,7 @@ function useOverflowCount(): number {
 }
 
 /** Display toggles and units: the "Вид" menu on desktop, a submenu of "⋯" on phones. */
-function DisplayItems() {
+export function DisplayItems() {
   const settings = useStore((s) => s.settings);
   const setSetting = useStore((s) => s.setSetting);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -330,14 +337,14 @@ function DisplayItems() {
   );
 }
 
-function OverflowDot() {
+export function OverflowDot() {
   const overflow = useOverflowCount();
   const highlight = useStore((s) => s.settings.highlightOverflow);
   if (overflow === 0 || !highlight) return null;
   return <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive ring-2 ring-card" />;
 }
 
-function DisplayMenu() {
+export function DisplayMenu() {
   return (
     <DropdownMenu>
       <IconTip label="Вид и привязка">

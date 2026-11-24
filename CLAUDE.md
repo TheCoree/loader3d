@@ -118,6 +118,11 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   Their FAQ is also their FAQPage JSON-LD. The page list with the search queries is `docs/seo.md`.
   «Попробовать в 3D» carries the calculation to `/start?d=…` (`core/tools/startPlan.ts`, through the registration
   in `state.from`), which saves it as the user's first plan and opens the editor.
+- The demo of the landing page (`/demo`, `pages/DemoPage.tsx`, `editor/demo.ts`, entered from `pages/LandingDemo.tsx`,
+  wide screens only) is the editor with the plan in memory for visitors: no plan or settings API (no `startSync`, no
+  user for accountSync), nothing kept in the browser, no tariff word with tiers off (what it gates opens `DemoGate`;
+  `ProBadge` reads `DemoMode`), and its code loads only once the visitor scrolls to the landing picture or points at
+  it. Its plan reaches a new account through `/start?plan=…` (`lib/demoPlan.ts`, `fitPlan` in `core/tools/startPlan.ts`).
 - Visit statistics (`src/lib/analytics.ts`, `backend/app/analytics.py`, admin «Посещаемость»): only visitors who are
   not signed in, only on `PUBLIC_PATHS`; nothing is written to the browser (no cookies, no storage) and the server
   keeps no IP or user agent (a daily salted hash). Landing sections carry `data-section` and tracked buttons

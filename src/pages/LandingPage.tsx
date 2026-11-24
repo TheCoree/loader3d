@@ -40,6 +40,7 @@ import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, type TierInfo } from '@/
 import { FEATURED_TOOLS, TOOLS_HUB, toolPage } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 import { useAuth, wasSignedIn } from '@/store/useAuth';
+import { LandingDemo } from './LandingDemo';
 
 /**
  * The public product page at `/` (prerendered into index.html by scripts/prerender.mjs for search
@@ -181,6 +182,7 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
       <LandingHeader />
       <main>
         <Hero />
+        <LandingDemo />
         <Showcase />
         <Features />
         <Workflow />
@@ -340,7 +342,13 @@ function Hero() {
                 Начать бесплатно
               </Link>
             </Button>
-            <Button asChild variant="outline" className={secondaryPill}>
+            {/* The demo is for wide screens (LandingDemo); phones get the steps. */}
+            <Button asChild variant="outline" className={cn(secondaryPill, 'hidden lg:inline-flex')}>
+              <Link to="/demo" data-track="hero_demo" onPointerEnter={() => void import('./DemoPage')}>
+                Открыть демо <ArrowRight />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className={cn(secondaryPill, 'lg:hidden')}>
               <a href="#how" data-track="hero_how">
                 Как это работает
               </a>
@@ -584,22 +592,6 @@ function Showcase() {
   return (
     <section data-section="showcase" className="relative">
       <Container>
-        <Frame className="landing-rise [animation-delay:260ms]">
-          <div className="relative flex h-10 items-center gap-1.5 border-b border-white/[0.08] px-4">
-            <span className="size-2.5 rounded-full bg-white/15" />
-            <span className="size-2.5 rounded-full bg-white/15" />
-            <span className="size-2.5 rounded-full bg-white/15" />
-            <span className="absolute inset-x-0 text-center text-xs text-white/40">loader3d.pro — Рейс Москва — Казань</span>
-          </div>
-          <Shot
-            src="/landing/editor.webp"
-            width={2400}
-            height={1500}
-            eager
-            alt="Редактор Loader3D: еврофура с местами в кузове и на доке, размеры кузова, список грузов и статистика"
-            className="w-full"
-          />
-        </Frame>
         <ul className="mt-14 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:mt-16 lg:grid-cols-4">
           {HIGHLIGHTS.map((h) => (
             <li key={h.label}>

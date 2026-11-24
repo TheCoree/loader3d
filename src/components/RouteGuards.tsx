@@ -16,6 +16,22 @@ export function FullScreenLoader({ label = 'Загрузка…' }: { label?: st
   );
 }
 
+/**
+ * While the demo of the landing page loads (pages/DemoPage): the dark interface on the editor's picture the landing
+ * page grew to the whole screen (pages/LandingDemo), so the demo opens where the picture was.
+ */
+export function DemoFallback() {
+  return (
+    <div className="dark relative grid min-h-dvh place-items-center overflow-hidden bg-background">
+      <img src="/landing/editor.webp" alt="" className="absolute inset-0 size-full object-cover object-left-top opacity-25" />
+      <div className="relative flex flex-col items-center gap-4 text-sm text-muted-foreground">
+        <LogoLoader className="size-11 text-foreground" label="Открываем демо…" />
+        Открываем демо…
+      </div>
+    </div>
+  );
+}
+
 /** While the session is being restored on page load. */
 export function SessionLoader() {
   const reconnecting = useAuth((s) => s.reconnecting);

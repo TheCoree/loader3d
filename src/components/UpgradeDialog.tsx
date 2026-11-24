@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { create } from 'zustand';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, Lock } from 'lucide-react';
 import type { BillingInfo, Price, Subscription, TierId } from '@/api/types';
 import { LeadForm } from '@/components/LeadForm';
 import { LogoMark } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { useDemoMode } from '@/lib/demoMode';
 import { PERIOD_LABEL, priceOf, useBilling, usePay, useStartTrial } from '@/lib/billing';
 import { TRIAL_DAYS, formatPrice, longDate, subscriptionState, tierInfo } from '@/lib/tiers';
 import { useAuth } from '@/store/useAuth';
@@ -204,8 +205,20 @@ function PayOptions({ info }: { info: BillingInfo }) {
   );
 }
 
-/** Marks a feature of «Pro» on tiers without it. */
+/** Marks a feature of «Pro» on tiers without it; in the demo of the landing page — what opens after the registration. */
 export function ProBadge() {
+  const demo = useDemoMode();
+  if (demo) {
+    return (
+      <span
+        title="После регистрации"
+        className="ml-auto inline-flex h-4.5 items-center rounded-full bg-primary/10 px-1.5 text-primary"
+      >
+        <Lock className="size-2.5" aria-hidden />
+        <span className="sr-only">После регистрации</span>
+      </span>
+    );
+  }
   return (
     <span className="ml-auto inline-flex h-4.5 items-center rounded-full bg-primary/10 px-1.5 text-[10px] font-semibold tracking-wide text-primary uppercase">
       Pro

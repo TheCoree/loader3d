@@ -14,7 +14,7 @@ import { TOOL_PATHS } from './toolPages';
  * Nothing here touches window or document at module level or while rendering: the landing page is
  * prerendered on the server (scripts/prerender.mjs).
  */
-export const PUBLIC_PATHS = ['/', '/pricing', '/terms', '/privacy', '/login', '/register', '/reset-password', ...TOOL_PATHS];
+export const PUBLIC_PATHS = ['/', '/pricing', '/demo', '/terms', '/privacy', '/login', '/register', '/reset-password', ...TOOL_PATHS];
 
 const ENDPOINT = '/api/analytics/collect';
 const FLUSH_EVERY = 15_000;
@@ -188,7 +188,8 @@ export function useSectionTracking(): void {
  */
 export const SECTION_NAMES: Record<string, string> = {
   hero: 'Первый экран',
-  showcase: 'Скриншот редактора',
+  demo: 'Скриншот редактора и вход в демо',
+  showcase: 'Главное и шаблоны машин',
   features: 'Возможности',
   workflow: 'Как это работает',
   integration: 'Интеграция с 1С',
@@ -209,6 +210,8 @@ export const TRACK_NAMES: Record<string, string> = {
   header_register: 'Шапка: «Начать бесплатно»',
   hero_register: 'Первый экран: «Начать бесплатно»',
   hero_how: 'Первый экран: «Как это работает»',
+  hero_demo: 'Первый экран: «Открыть демо»',
+  showcase_demo: 'Скриншот редактора: «Открыть демо»',
   integration_lead: '1С: «Обсудить подключение»',
   pricing_free: 'Тарифы: «Старт»',
   pricing_pro: 'Тарифы: «Pro»',
@@ -221,4 +224,15 @@ export const TRACK_NAMES: Record<string, string> = {
   tool_cta_register: 'Калькулятор: финальная кнопка регистрации',
   tool_theme: 'Калькулятор: светлая / тёмная тема',
   lead_sent: 'Заявка отправлена',
+  demo_back: 'Демо: назад на главную',
+  demo_save: 'Демо: «Сохранить схему»',
+  demo_toast_save: 'Демо: «Сохранить» после автозагрузки',
+  demo_gate_time: 'Демо: окно регистрации через 5 минут',
+  demo_gate_limits: 'Демо: окно регистрации — лимит машин или грузов',
+  demo_gate_pdf: 'Демо: окно регистрации — второй PDF',
+  demo_gate_save: 'Демо: окно регистрации — сохранение',
+  demo_gate_file: 'Демо: окно регистрации — файлы JSON',
+  demo_gate_register: 'Демо, окно: «Зарегистрироваться бесплатно»',
+  demo_gate_login: 'Демо, окно: «Войти и сохранить схему»',
+  demo_gate_continue: 'Демо, окно: «Продолжить демо»',
 };

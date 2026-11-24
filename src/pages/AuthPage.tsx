@@ -59,6 +59,12 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const copy = COPY[mode];
+  // The demo of the landing page brings its plan along (pages/StartPlanPage): say it will not be lost.
+  const subtitle = from.startsWith('/start?plan=')
+    ? mode === 'register'
+      ? 'Схема из демо сохранится в аккаунте — продолжите с того же места на любом устройстве.'
+      : 'Войдите — схема из демо сохранится в вашем аккаунте.'
+    : copy.subtitle;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -85,7 +91,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     <AuthShell>
       <form onSubmit={submit} className="w-full max-w-[400px]" noValidate>
         <h1 className={cn(displayTitle, 'text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>{copy.title}</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/55">{copy.subtitle}</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-white/55">{subtitle}</p>
 
         {error && (
           <Alert variant="destructive" className="mt-7 rounded-xl">

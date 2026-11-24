@@ -96,6 +96,7 @@ function PdfForm({ busy, setBusy }: { busy: boolean; setBusy(busy: boolean): voi
         (done, total) => setProgress({ done, total }),
       );
       setOpen(false);
+      useUi.getState().notePdfExport();
       toast.success('PDF готов', { description: 'Файл сохранён в загрузки' });
     } catch (error) {
       console.error(error);
