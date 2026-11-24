@@ -56,7 +56,7 @@ export interface Settings {
   xray: XrayMode;
   /** Opacity of see-through cargo, XRAY_OPACITY_RANGE. */
   xrayOpacity: number;
-  /** Colour theme of the app (lib/theme.ts); "system" follows the OS. The public pages stay light. */
+  /** Colour theme of the app (lib/theme.ts): light by default, "system" follows the OS. */
   theme: Theme;
   /** The id of the newest release of «Что нового» the user has seen (lib/changelog.ts); '' — none yet. */
   updatesSeen: string;
@@ -184,7 +184,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowTilt: false,
   xray: 'selection',
   xrayOpacity: 0.22,
-  theme: 'system',
+  theme: 'light',
   updatesSeen: '',
 };
 

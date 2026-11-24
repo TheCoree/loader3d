@@ -1,11 +1,12 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
-import { ArrowRight, ChevronRight, Moon, Plus, Sun } from 'lucide-react';
+import { ArrowRight, ChevronRight, Plus } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { SiteFooter } from '@/components/SiteFooter';
+import { SiteThemeSwitch } from '@/components/site';
 import { Button } from '@/components/ui/button';
 import { useSectionTracking } from '@/lib/analytics';
-import { useToolTheme } from '@/lib/theme';
+import { useSiteTheme } from '@/lib/theme';
 import { TIERS_ENABLED, TRIAL_DAYS } from '@/lib/tiers';
 import { TOOL_PAGES, TOOLS_HUB, type ToolId } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
@@ -16,8 +17,8 @@ import { useAuth } from '@/store/useAuth';
 
 /**
  * Building blocks of the calculator pages (pages/tools): the look of the landing page in the manner of vercel.com,
- * light by default and dark for the visit when the visitor came through the dark landing page or chose it
- * (lib/theme.ts useToolTheme; the colours are the site-* tokens of `.tool-page` in index.css). Prerendered on
+ * light by default and dark for the visit by the switch in the header (lib/theme.ts useSiteTheme; the colours are
+ * the site-* tokens of `.site-page` in index.css). Prerendered on
  * the server like the landing page — nothing here touches window/document while rendering. Sections carry
  * `data-section` and the buttons to the registration `data-track` (lib/analytics.ts).
  */
@@ -87,7 +88,7 @@ function ToolHeader() {
           )}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <ThemeSwitch />
+          <SiteThemeSwitch />
           {user ? (
             <Button asChild className={headerSolid}>
               <Link to="/plans">Мои схемы</Link>
@@ -110,24 +111,6 @@ function ToolHeader() {
         </div>
       </Container>
     </header>
-  );
-}
-
-/** Light or dark, for this visit. */
-function ThemeSwitch() {
-  const [theme, setTheme] = useToolTheme();
-  const dark = theme === 'dark';
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(dark ? 'light' : 'dark')}
-      aria-label={dark ? 'Светлая тема' : 'Тёмная тема'}
-      title={dark ? 'Светлая тема' : 'Тёмная тема'}
-      data-track="tool_theme"
-      className="grid size-8 place-items-center rounded-md text-site-muted transition-colors outline-none hover:bg-site-soft hover:text-site-fg focus-visible:ring-3 focus-visible:ring-site-ring"
-    >
-      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </button>
   );
 }
 
@@ -192,11 +175,11 @@ export function ToolShell({
   useEffect(() => {
     if (key !== 'default') window.scrollTo(0, 0);
   }, [key]);
-  const [theme] = useToolTheme();
+  const [theme] = useSiteTheme();
   return (
     <div
       className={cn(
-        'tool-page min-h-dvh bg-site-bg font-geist text-site-fg antialiased selection:bg-primary/25',
+        'site-page min-h-dvh bg-site-bg font-geist text-site-fg antialiased selection:bg-primary/25',
         theme === 'dark' && 'dark',
       )}
     >
@@ -211,7 +194,7 @@ export function ToolShell({
         </Container>
         {children}
       </main>
-      <SiteFooter tone="site" />
+      <SiteFooter />
     </div>
   );
 }

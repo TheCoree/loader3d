@@ -4,46 +4,43 @@ import { useStore, type Theme } from '@/store/useStore';
 import { TOOL_PATHS } from './toolPages';
 
 /**
- * The colour theme. `Settings.theme` belongs to the account (store/accountSync.ts) and is "system",
- * "light" or "dark"; the app pages follow it, the public pages (landing, sign-in, documents) are always
- * dark, the calculators light or dark for the visit (useToolTheme). Applied as class="dark" on <html> (dark
- * tokens in index.css). Safe on the server: the landing page and the calculators are prerendered, and their
- * roots carry their theme themselves (components/site.tsx publicRoot, pages/tools ToolShell).
+ * The colour theme. `Settings.theme` belongs to the account (store/accountSync.ts) and is "light" (the default),
+ * "dark" or "system"; the app pages follow it. The public pages (landing, sign-in, documents, the demo) and the
+ * calculators share the site theme: light, or dark for this visit by the switch in their header (useSiteTheme).
+ * Applied as class="dark" on <html> (dark tokens in index.css). Safe on the server: the landing page and the
+ * calculators are prerendered light, and their roots carry their theme themselves (components/site.tsx SitePage).
  */
 
-/** Pages that are designed dark-only (the demo too: the editor as the landing page's pictures show it). */
+/** The public pages: they follow the site theme, not the account's. */
 const PUBLIC_PATHS = ['/', '/pricing', '/demo', '/terms', '/privacy', '/login', '/register', '/reset-password', '/verify-email'];
 
-export type ToolTheme = 'light' | 'dark';
+export type SiteTheme = 'light' | 'dark';
 
 /**
- * The theme of the calculator pages for this visit, in memory only (nothing of the app is stored in the browser):
- * light for whoever lands on a calculator — from a search engine or a link; dark for a visitor who came through
- * the dark pages of the site first (the landing page), so the site does not change colour under them; or what
- * the visitor picked with the switch in the header. The server renders light.
+ * The theme of the public pages and the calculators for this visit, in memory only (nothing of the app is stored
+ * in the browser): light, or what the visitor picked with the switch in the header. The server renders light.
  */
-const toolTheme = { value: 'light' as ToolTheme, settled: false, listeners: new Set<() => void>() };
+const siteTheme = { value: 'light' as SiteTheme, listeners: new Set<() => void>() };
 
-function setToolTheme(value: ToolTheme, settled: boolean): void {
-  toolTheme.settled ||= settled;
-  if (toolTheme.value === value) return;
-  toolTheme.value = value;
-  toolTheme.listeners.forEach((l) => l());
+function setSiteTheme(value: SiteTheme): void {
+  if (siteTheme.value === value) return;
+  siteTheme.value = value;
+  siteTheme.listeners.forEach((l) => l());
 }
 
-function subscribeToolTheme(onChange: () => void): () => void {
-  toolTheme.listeners.add(onChange);
-  return () => toolTheme.listeners.delete(onChange);
+function subscribeSiteTheme(onChange: () => void): () => void {
+  siteTheme.listeners.add(onChange);
+  return () => siteTheme.listeners.delete(onChange);
 }
 
-/** The calculators' theme and the switch of the header. */
-export function useToolTheme(): [ToolTheme, (theme: ToolTheme) => void] {
+/** The site theme and its switch (components/site.tsx SiteThemeSwitch). */
+export function useSiteTheme(): [SiteTheme, (theme: SiteTheme) => void] {
   const value = useSyncExternalStore(
-    subscribeToolTheme,
-    () => toolTheme.value,
-    () => 'light' as ToolTheme,
+    subscribeSiteTheme,
+    () => siteTheme.value,
+    () => 'light' as SiteTheme,
   );
-  return [value, (theme) => setToolTheme(theme, true)];
+  return [value, setSiteTheme];
 }
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
@@ -70,24 +67,17 @@ export function resolveTheme(theme: Theme, systemDark: boolean): 'light' | 'dark
 export function useResolvedTheme(): 'light' | 'dark' {
   const theme = useStore((s) => s.settings.theme);
   const systemDark = useSystemDark();
-  const [tool] = useToolTheme();
+  const [site] = useSiteTheme();
   const { pathname } = useLocation();
-  if (TOOL_PATHS.includes(pathname)) return tool;
-  if (PUBLIC_PATHS.includes(pathname)) return 'dark';
+  if (TOOL_PATHS.includes(pathname) || PUBLIC_PATHS.includes(pathname)) return site;
   return resolveTheme(theme, systemDark);
 }
 
 /** Puts the theme on <html>; called once by the app shell. */
 export function useApplyTheme(): 'light' | 'dark' {
   const resolved = useResolvedTheme();
-  const { pathname } = useLocation();
   useEffect(() => {
     document.documentElement.classList.toggle('dark', resolved === 'dark');
   }, [resolved]);
-  useEffect(() => {
-    // The first calculator seen settles their theme for the visit; dark pages seen before it make it dark.
-    if (TOOL_PATHS.includes(pathname)) toolTheme.settled = true;
-    else if (PUBLIC_PATHS.includes(pathname) && !toolTheme.settled) setToolTheme('dark', false);
-  }, [pathname]);
   return resolved;
 }

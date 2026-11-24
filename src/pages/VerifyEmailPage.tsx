@@ -85,13 +85,13 @@ export function VerifyEmailPage() {
   return (
     <AuthShell>
       <div className="w-full max-w-[400px]">
-        <span className="grid size-12 place-items-center rounded-xl border border-white/10 bg-white/[0.06] text-white">
+        <span className="grid size-12 place-items-center rounded-xl border border-site-line bg-site-soft text-site-fg">
           <MailCheck className="size-6" />
         </span>
         <h1 className={cn(displayTitle, 'mt-7 text-[1.8rem] leading-[1.08] sm:text-[2.2rem]')}>Подтвердите email</h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+        <p className="mt-3 text-[15px] leading-relaxed text-site-muted">
           {sent ? 'Отправили новый код на ' : 'Мы отправили 6-значный код на '}
-          <span className="font-medium text-white">{user.email}</span>. Введите его, чтобы открыть схемы.
+          <span className="font-medium text-site-fg">{user.email}</span>. Введите его, чтобы открыть схемы.
         </p>
 
         {error && (
@@ -124,23 +124,23 @@ export function VerifyEmailPage() {
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
           {wait > 0 ? (
-            <span className="text-white/45 tabular-nums">Новый код — через {wait} с</span>
+            <span className="text-site-faint tabular-nums">Новый код — через {wait} с</span>
           ) : (
             <button
               type="button"
-              className="font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-white disabled:opacity-50"
+              className="font-medium text-site-fg underline decoration-site-strong underline-offset-4 hover:decoration-site-fg disabled:opacity-50"
               onClick={() => void resend()}
               disabled={resending}
             >
               {resending ? 'Отправляем…' : 'Отправить код ещё раз'}
             </button>
           )}
-          <button type="button" className="text-white/45 transition-colors hover:text-white" onClick={() => void signOut()}>
+          <button type="button" className="text-site-faint transition-colors hover:text-site-fg" onClick={() => void signOut()}>
             Другой email
           </button>
         </div>
 
-        <p className="mt-9 border-t border-white/10 pt-6 text-xs leading-relaxed text-white/45">
+        <p className="mt-9 border-t border-site-line pt-6 text-xs leading-relaxed text-site-faint">
           Письмо не пришло? Проверьте папку «Спам». Код действует 15 минут.
         </p>
       </div>
@@ -181,7 +181,7 @@ export function CodeInput({
           <InputOTPSlot
             key={i}
             index={i}
-            className="size-13 border-white/10 bg-white/[0.04] font-geist text-2xl font-medium text-white data-[active=true]:border-white/40 data-[active=true]:bg-white/[0.08] data-[active=true]:ring-4 data-[active=true]:ring-white/[0.08]"
+            className="size-13 border-site-line bg-site-soft font-geist text-2xl font-medium text-site-fg data-[active=true]:border-site-strong data-[active=true]:bg-site-line data-[active=true]:ring-4 data-[active=true]:ring-site-line"
           />
         ))}
       </InputOTPGroup>

@@ -5,33 +5,18 @@ import { SUPPORT, telegramUrl } from '@/lib/legal';
 import { TIERS_ENABLED } from '@/lib/tiers';
 import { FEATURED_TOOLS, TOOLS_HUB, toolPage } from '@/lib/toolPages';
 
-/**
- * `dark` — the landing page, the documents; `site` — the calculators, in their light or dark theme (the site-*
- * colours of `.tool-page`, index.css).
- */
-export type FooterTone = 'dark' | 'site';
-
-const TONES = {
-  dark: {
-    footer: 'border-white/10 bg-black text-white',
-    link: 'text-[#a1a1a1] hover:text-white',
-    title: 'text-white',
-    text: 'text-[#a1a1a1]',
-    faint: 'text-[#666]',
-    line: 'border-white/10',
-  },
-  site: {
-    footer: 'border-site-line bg-site-bg text-site-fg',
-    link: 'text-site-muted hover:text-site-fg',
-    title: 'text-site-fg',
-    text: 'text-site-muted',
-    faint: 'text-site-faint',
-    line: 'border-site-line',
-  },
+/** The site colours of the public pages and the calculators (`.site-page`, index.css): light or dark for the visit. */
+const T = {
+  footer: 'border-site-line bg-site-bg text-site-fg',
+  link: 'text-site-muted hover:text-site-fg',
+  title: 'text-site-fg',
+  text: 'text-site-muted',
+  faint: 'text-site-faint',
+  line: 'border-site-line',
 } as const;
 
-function FooterLink({ to, children, tone }: { to: string; children: ReactNode; tone: FooterTone }) {
-  const className = `${TONES[tone].link} transition-colors`;
+function FooterLink({ to, children }: { to: string; children: ReactNode }) {
+  const className = `${T.link} transition-colors`;
   return (
     <li>
       {/^(https?:|mailto:)/.test(to) ? (
@@ -47,18 +32,18 @@ function FooterLink({ to, children, tone }: { to: string; children: ReactNode; t
   );
 }
 
-function Column({ title, children, tone }: { title: string; children: ReactNode; tone: FooterTone }) {
+function Column({ title, children }: { title: string; children: ReactNode }) {
   return (
     <nav aria-label={title}>
-      <p className={`font-medium ${TONES[tone].title}`}>{title}</p>
+      <p className={`font-medium ${T.title}`}>{title}</p>
       <ul className="mt-4 space-y-3">{children}</ul>
     </nav>
   );
 }
 
 /** The footer of the public pages (landing, calculators, documents): sections, calculators, account, documents, support. */
-export function SiteFooter({ tone = 'dark' }: { tone?: FooterTone }) {
-  const t = TONES[tone];
+export function SiteFooter() {
+  const t = T;
   return (
     <footer className={`border-t font-geist text-sm ${t.footer}`}>
       <div className="mx-auto grid w-full max-w-[1280px] grid-cols-2 gap-x-6 gap-y-12 px-5 pt-16 pb-10 sm:px-6 md:grid-cols-3 lg:grid-cols-[1.6fr_repeat(5,minmax(0,1fr))]">
@@ -68,32 +53,32 @@ export function SiteFooter({ tone = 'dark' }: { tone?: FooterTone }) {
             3D-планирование загрузки фуры и контейнера: раскладка, вес, центр тяжести и PDF-схема для водителя.
           </p>
         </div>
-        <Column title="Продукт" tone={tone}>
-          <FooterLink tone={tone} to="/#features">Возможности</FooterLink>
-          <FooterLink tone={tone} to="/#how">Как это работает</FooterLink>
-          {TIERS_ENABLED && <FooterLink tone={tone} to="/#pricing">Тарифы</FooterLink>}
-          <FooterLink tone={tone} to="/#faq">Вопросы</FooterLink>
+        <Column title="Продукт">
+          <FooterLink to="/#features">Возможности</FooterLink>
+          <FooterLink to="/#how">Как это работает</FooterLink>
+          {TIERS_ENABLED && <FooterLink to="/#pricing">Тарифы</FooterLink>}
+          <FooterLink to="/#faq">Вопросы</FooterLink>
         </Column>
-        <Column title="Калькуляторы" tone={tone}>
+        <Column title="Калькуляторы">
           {FEATURED_TOOLS.map((id) => (
-            <FooterLink tone={tone} key={id} to={toolPage(id).path}>
+            <FooterLink key={id} to={toolPage(id).path}>
               {toolPage(id).name}
             </FooterLink>
           ))}
-          <FooterLink tone={tone} to={TOOLS_HUB.path}>Все калькуляторы</FooterLink>
+          <FooterLink to={TOOLS_HUB.path}>Все калькуляторы</FooterLink>
         </Column>
-        <Column title="Аккаунт" tone={tone}>
-          <FooterLink tone={tone} to="/login">Войти</FooterLink>
-          <FooterLink tone={tone} to="/register">Регистрация</FooterLink>
-          <FooterLink tone={tone} to="/#contact">Оставить заявку</FooterLink>
+        <Column title="Аккаунт">
+          <FooterLink to="/login">Войти</FooterLink>
+          <FooterLink to="/register">Регистрация</FooterLink>
+          <FooterLink to="/#contact">Оставить заявку</FooterLink>
         </Column>
-        <Column title="Документы" tone={tone}>
-          <FooterLink tone={tone} to="/terms">Пользовательское соглашение</FooterLink>
-          <FooterLink tone={tone} to="/privacy">Политика конфиденциальности</FooterLink>
+        <Column title="Документы">
+          <FooterLink to="/terms">Пользовательское соглашение</FooterLink>
+          <FooterLink to="/privacy">Политика конфиденциальности</FooterLink>
         </Column>
-        <Column title="Поддержка" tone={tone}>
-          <FooterLink tone={tone} to={telegramUrl}>Telegram @{SUPPORT.telegram}</FooterLink>
-          <FooterLink tone={tone} to={`mailto:${SUPPORT.email}`}>{SUPPORT.email}</FooterLink>
+        <Column title="Поддержка">
+          <FooterLink to={telegramUrl}>Telegram @{SUPPORT.telegram}</FooterLink>
+          <FooterLink to={`mailto:${SUPPORT.email}`}>{SUPPORT.email}</FooterLink>
           <li className={`first-letter:uppercase ${t.faint}`}>{SUPPORT.hours}</li>
         </Column>
         <div
