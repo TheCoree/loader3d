@@ -119,7 +119,9 @@ Architecture, controls, API endpoints and extension points are in README.md — 
 - The landing page (`pages/LandingPage.tsx`, `Shell.tsx`) is rendered on the server by
   `scripts/prerender.mjs` and hydrated by `main.tsx`: nothing it imports may touch `window`/`document`
   while rendering or at module level, and its first render must not depend on the browser. The FAQ there is
-  also the FAQPage JSON-LD (`src/prerender.tsx`).
+  also the FAQPage JSON-LD (`src/prerender.tsx`). Only prerendered pages are for search engines (and in
+  `sitemap.xml`): every other address gets the shell `dist/app.html`, which is `noindex` — a public page that should
+  be found in search has to be prerendered too.
 - The calculator pages (`/kalkulyator…`: `lib/toolPages.ts`, `pages/tools/`, numbers in `core/tools/`) are prerendered
   and hydrated like the landing page, one HTML file each (`dist/kalkulyator/<name>.html`, Caddy tries `{path}.html`):
   the same rule — no `window`/`document` while rendering, a first render that does not depend on the browser. A page

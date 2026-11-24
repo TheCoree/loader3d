@@ -135,11 +135,14 @@ Caddy получает для `MAIL_HOSTNAME`; продления подхват
 Главная (`/`) — лендинг. `npm run build` после сборки рендерит его в `dist/index.html` настоящим HTML
 (`scripts/prerender.mjs` → `src/prerender.tsx`, браузер его гидрирует): заголовки, тексты, тарифы и FAQ
 видны поисковикам без JavaScript; там же мета-теги, Open Graph (`public/landing/og.jpg`), JSON-LD
-(`SoftwareApplication` с ценами и `FAQPage`), `robots.txt`, а с `SITE_URL` — canonical и `sitemap.xml`.
+(`WebSite` и `Organization` — имя сайта «Loader3D» и логотип, `SoftwareApplication` с ценами и `FAQPage`),
+`robots.txt`, а с `SITE_URL` — canonical и `sitemap.xml` (в нём только отрендеренные страницы).
 Так же рендерятся **калькуляторы** (`/kalkulyator` и `/kalkulyator/…`, см. «Что умеет»): каждый — в свой файл
 `dist/kalkulyator/<имя>.html` со своими title, description, canonical и JSON-LD (`WebApplication`, `FAQPage`,
 `BreadcrumbList`); Caddy отдаёт `{path}.html`, адреса со слешем на конце переадресует без него.
-Остальные маршруты приложения Caddy отдаёт из пустой оболочки `dist/app.html`. Права в Яндекс.Вебмастере и Google
+Остальные маршруты приложения (вход, регистрация, демо, `/pricing`, документы, любой неизвестный адрес) Caddy отдаёт
+из пустой оболочки `dist/app.html` — она закрыта от поисковиков (`noindex, follow`, заголовок «Loader3D»), чтобы они
+не принимали `/login` за копию главной. Права в Яндекс.Вебмастере и Google
 Search Console подтверждаются мета-тегом из `YANDEX_VERIFICATION` / `GOOGLE_SITE_VERIFICATION` или DNS-записью;
 список страниц с запросами для Вордстата и что сделать в обоих сервисах — [docs/seo.md](docs/seo.md).
 

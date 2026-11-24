@@ -1,7 +1,7 @@
 // After `vite build`: puts the landing page and the calculator pages into dist/ as real HTML for search
 // engines and link previews (the browser hydrates them) — dist/index.html for `/`, dist/kalkulyator/ldm.html
 // for `/kalkulyator/ldm` and so on (deploy/Caddyfile tries `{path}.html`), — keeps the empty SPA shell as
-// dist/app.html for every other route, and writes robots.txt and sitemap.xml.
+// dist/app.html for every other route (noindex: shellHtml), and writes robots.txt and sitemap.xml.
 //
 // SITE_URL (https://loader.example.com, optional) makes canonical, Open Graph and sitemap URLs absolute;
 // without it there is no canonical link and no sitemap (they need absolute URLs).
@@ -59,13 +59,28 @@ function withMeta(html, { title, description, themeColor }) {
   return out;
 }
 
+/**
+ * The empty shell (dist/app.html) answers every address that is not a prerendered page: the sign-in and the
+ * registration, the app, the demo, /pricing, the documents, any unknown address. None of it is for search engines —
+ * with the landing page's title and `index` they took /login and /register for copies of it — so: noindex, a plain
+ * title, no keywords. `follow`: the links in it still lead to the pages that are indexed.
+ */
+function shellHtml(html) {
+  const out = html
+    .replace(/(<meta\s+name="robots"\s+content=")[^"]*(")/, '$1noindex, follow$2')
+    .replace(/<title>[\s\S]*?<\/title>/, '<title>Loader3D</title>')
+    .replace(/\s*<meta\s+name="keywords"[\s\S]*?\/>/, '');
+  if (!out.includes('content="noindex, follow"')) throw new Error('index.html has no <meta name="robots"> to turn into noindex');
+  return out;
+}
+
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 let code = 0;
 try {
   const { renderPage, prerenderedPages } = await server.ssrLoadModule('/src/prerender.tsx');
   const template = readFileSync('dist/index.html', 'utf8');
   if (!template.includes('<div id="root"></div>')) throw new Error('dist/index.html has no empty #root');
-  writeFileSync('dist/app.html', template);
+  writeFileSync('dist/app.html', shellHtml(template));
 
   const pages = prerenderedPages(SITE_URL);
   for (const page of pages) {
@@ -93,10 +108,8 @@ try {
   if (SITE_URL) robots.push('', `Sitemap: ${SITE_URL}/sitemap.xml`);
   writeFileSync('dist/robots.txt', `${robots.join('\n')}\n`);
   if (SITE_URL) {
-    const entries = [
-      ...pages.map((p) => ({ path: p.path, updated: p.updated })),
-      ...['/register', '/terms', '/privacy'].map((path) => ({ path })),
-    ];
+    // Only the prerendered pages: everything else is the noindex shell (see shellHtml).
+    const entries = pages.map((p) => ({ path: p.path, updated: p.updated }));
     const urls = entries.map(
       ({ path, updated }) => `  <url><loc>${SITE_URL}${path}</loc>${updated ? `<lastmod>${updated}</lastmod>` : ''}</url>`,
     );

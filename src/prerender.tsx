@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StaticRouter } from 'react-router';
 import { Shell } from './Shell';
+import { SUPPORT } from './lib/legal';
 import { TIERS, TIERS_ENABLED } from './lib/tiers';
 import { TOOL_PAGES, TOOLS_HUB, documentTitle, type ToolPageInfo } from './lib/toolPages';
 import { FAQ } from './pages/LandingPage';
@@ -28,10 +29,41 @@ export function renderLanding(): string {
   return renderPage('/');
 }
 
-/** schema.org data for search engines: the product with its prices and the FAQ shown on the page. */
+/** The last change of the landing page's text, for sitemap.xml: change it with the text. */
+const LANDING_UPDATED = '2026-11-24';
+
+/**
+ * The site and who runs it: the name search engines show for the site («Loader3D», not «loader3d.pro») and its logo.
+ * «loader3d» is also a 3D model of a loader and a Qt type, so the brand has to be spelled out. Absolute URLs only.
+ */
+function brandData(siteUrl: string): object[] {
+  if (!siteUrl) return [];
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Loader3D',
+      alternateName: 'Loader 3D',
+      url: `${siteUrl}/`,
+      inLanguage: 'ru',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'Loader3D',
+      url: `${siteUrl}/`,
+      logo: `${siteUrl}/apple-touch-icon.png`,
+      email: SUPPORT.email,
+      contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: SUPPORT.email, availableLanguage: 'ru' },
+    },
+  ];
+}
+
+/** schema.org data for search engines: the site, the product with its prices and the FAQ shown on the page. */
 export function structuredData(siteUrl: string): object[] {
   const prices = TIERS.flatMap((t) => (t.price ? [t.price.monthly] : []));
   return [
+    ...brandData(siteUrl),
     {
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
@@ -122,7 +154,7 @@ const TOOL_THEME_COLOR = '#ffffff';
 /** Every page scripts/prerender.mjs writes, the landing page first. */
 export function prerenderedPages(siteUrl: string): PrerenderedPage[] {
   return [
-    { path: '/', file: 'index.html', title: null, description: null, structuredData: structuredData(siteUrl) },
+    { path: '/', file: 'index.html', title: null, description: null, updated: LANDING_UPDATED, structuredData: structuredData(siteUrl) },
     {
       path: TOOLS_HUB.path,
       file: `${TOOLS_HUB.path.slice(1)}.html`,
