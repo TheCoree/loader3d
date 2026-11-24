@@ -3,7 +3,8 @@ import type { BodyKind, CargoItem, Dims, Plan, Vehicle } from '../types';
 import { itemBox, itemSize, sanitizeItemDims, uid } from '../item';
 import { computeLayout } from '../layout';
 import { settle } from '../physics';
-import { defaultVehicleName } from '../plan';
+import { defaultVehicleName, relayout } from '../plan';
+import { classify } from '../stats';
 import { dockSpot } from '../spawn';
 import { bestFit, tiersUnder } from './floorFit';
 
@@ -179,4 +180,35 @@ export function buildStartPlan(spec: StartSpec, maxItems = START_MAX_ITEMS): Sta
     plan: { vehicles: [vehicle], dockMode: 'shared', items: settle(items), nextSeq: seq },
     dropped: wanted - items.length,
   };
+}
+
+/**
+ * A whole plan carried into a new account (the demo of the landing page, pages/DemoPage), brought within the
+ * limits of its tier: vehicles over the limit are taken away (their cargo goes to the dock of the first one),
+ * then pieces over the limit are left out — what is on the docks first, what stands in a body last. Ends with
+ * settle(). `limits` null — no limits, the plan as it is.
+ */
+export function fitPlan(plan: Plan, limits: { vehicles: number; items: number } | null | undefined): StartPlan {
+  if (!limits) return { plan, dropped: 0 };
+  let { vehicles, items } = plan;
+  const vehicleLimit = Math.max(1, limits.vehicles);
+  if (vehicles.length > vehicleLimit) {
+    const kept = vehicles.slice(0, vehicleLimit);
+    items = relayout(items, computeLayout(vehicles, plan.dockMode), computeLayout(kept, plan.dockMode), kept[0].id);
+    vehicles = kept;
+  }
+  let dropped = 0;
+  const room = Math.max(0, limits.items);
+  if (items.length > room) {
+    const layout = computeLayout(vehicles, plan.dockMode);
+    const inside = new Set(items.filter((i) => classify(itemBox(i), layout).status === 'inside').map((i) => i.id));
+    // Stable: the cargo in the bodies keeps its order, then the rest as it was listed.
+    const order = [...items].sort((a, b) => Number(inside.has(b.id)) - Number(inside.has(a.id)));
+    const keep = new Set(order.slice(0, room).map((i) => i.id));
+    dropped = items.length - keep.size;
+    items = items.filter((i) => keep.has(i.id));
+  }
+  if (vehicles === plan.vehicles && dropped === 0) return { plan, dropped: 0 };
+  const nextSeq = Math.max(plan.nextSeq, ...items.map((i) => i.seq + 1));
+  return { plan: { ...plan, vehicles, items: settle(items), nextSeq }, dropped };
 }

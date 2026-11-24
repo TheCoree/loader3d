@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { FullScreenLoader, PublicOnly, RequireAdmin, RequireAuth } from './components/RouteGuards';
+import { DemoFallback, FullScreenLoader, PublicOnly, RequireAdmin, RequireAuth } from './components/RouteGuards';
 import { AccountPage } from './pages/AccountPage';
 import { AuthPage } from './pages/AuthPage';
 import { BillingPage } from './pages/BillingPage';
@@ -17,6 +17,8 @@ import { TOOL_PAGES, TOOLS_HUB } from './lib/toolPages';
 
 // The editor brings three.js and the scene: loaded only when a plan is opened.
 const EditorPage = lazy(() => import('./pages/EditorPage').then((m) => ({ default: m.EditorPage })));
+// The demo of the landing page: the same editor with the plan in memory, for visitors.
+const DemoPage = lazy(() => import('./pages/DemoPage').then((m) => ({ default: m.DemoPage })));
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 export function App() {
@@ -32,6 +34,16 @@ export function App() {
       {TOOL_PAGES.map((p) => (
         <Route key={p.id} path={p.path} element={<ToolPage id={p.id} />} />
       ))}
+      <Route
+        path="/demo"
+        element={
+          <PublicOnly>
+            <Suspense fallback={<DemoFallback />}>
+              <DemoPage />
+            </Suspense>
+          </PublicOnly>
+        }
+      />
       <Route path="/login" element={<PublicOnly><AuthPage mode="login" /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><AuthPage mode="register" /></PublicOnly>} />
       <Route path="/reset-password" element={<PublicOnly><ResetPasswordPage /></PublicOnly>} />
