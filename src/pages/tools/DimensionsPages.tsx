@@ -6,7 +6,7 @@ import { bestFit } from '@/core/tools/floorFit';
 import { PALLETS } from '@/core/tools/pallets';
 import type { BodyKind } from '@/core/types';
 import { toolPage } from '@/lib/toolPages';
-import { ownBody } from './start';
+import { ownBody, presetChassis } from './start';
 import { BigResult, CalcFrame, Chips, DataTable, FieldGroup, FloorPlan, Note, NumberField, Stats, TryIn3D, num, tonnes, useNumber, type ToolContent } from './kit';
 
 /** Reference pages of the bodies' sizes, with a calculator of the volume and floor places of any body. */
@@ -19,6 +19,8 @@ interface DimsChoice {
   kind?: BodyKind;
   /** Name of the body in the plan of «Попробовать в 3D» (missing — the label). */
   name?: string;
+  /** The axles of the editor's template of this vehicle (core/chassis.ts CHASSIS_MODELS); missing — typical ones. */
+  chassisModel?: string;
 }
 
 function BodyCalculator({ choices, initial }: { choices: readonly DimsChoice[]; initial: string }) {
@@ -73,7 +75,13 @@ function BodyCalculator({ choices, initial }: { choices: readonly DimsChoice[]; 
           title="Свой кузов — в 3D"
           start={{
             name: chosen?.name ?? chosen?.label ?? 'Свой кузов',
-            body: ownBody(chosen?.name ?? chosen?.label ?? 'Кузов', { l: floor.l, w: floor.w, h: h.value! * 100 }, chosen?.maxLoad, chosen?.kind),
+            body: ownBody(
+              chosen?.name ?? chosen?.label ?? 'Кузов',
+              { l: floor.l, w: floor.w, h: h.value! * 100 },
+              chosen?.maxLoad,
+              chosen?.kind,
+              chosen?.chassisModel,
+            ),
             cargo: [],
           }}
         >
@@ -93,10 +101,14 @@ const path = (id: Parameters<typeof toolPage>[0]) => toolPage(id).path;
 
 const TRUCK_IDS = ['tent', 'mega', 'reefer', 'truck10', 'van'];
 const truckPresets = TRUCK_IDS.map((id) => VEHICLE_PRESETS.find((p) => p.id === id)!);
+const truckChoice = (index: number, label: string, name: string): DimsChoice => {
+  const b = truckPresets[index].bodies[0];
+  return { id: TRUCK_IDS[index], label, name, dims: b.dims, maxLoad: b.maxLoad, kind: 'semi', chassisModel: b.chassisModel };
+};
 const TRUCK_CHOICES: DimsChoice[] = [
-  { id: 'tent', label: 'Тент', name: 'Тент 13,6 м', dims: truckPresets[0].bodies[0].dims, maxLoad: truckPresets[0].bodies[0].maxLoad, kind: 'semi' },
-  { id: 'mega', label: 'Мега', name: 'Мега-трейлер 13,6 м', dims: truckPresets[1].bodies[0].dims, maxLoad: truckPresets[1].bodies[0].maxLoad, kind: 'semi' },
-  { id: 'reefer', label: 'Реф', name: 'Рефрижератор 13,4 м', dims: truckPresets[2].bodies[0].dims, maxLoad: truckPresets[2].bodies[0].maxLoad, kind: 'semi' },
+  truckChoice(0, 'Тент', 'Тент 13,6 м'),
+  truckChoice(1, 'Мега', 'Мега-трейлер 13,6 м'),
+  truckChoice(2, 'Реф', 'Рефрижератор 13,4 м'),
 ];
 const tent = truckPresets[0].bodies[0];
 const mega = truckPresets[1].bodies[0];
@@ -205,6 +217,7 @@ const CONTAINERS: ContainerSpec[] = [
     kind: 'semi',
     maxLoad: 28200,
     dims: VEHICLE_PRESETS.find((p) => p.id === 'c20')!.bodies[0].dims,
+    chassisModel: presetChassis('c20'),
     outside: '6,06 × 2,44 × 2,59',
     door: '2,34 × 2,28',
     tare: '≈ 2,2 т',
@@ -217,6 +230,7 @@ const CONTAINERS: ContainerSpec[] = [
     kind: 'semi',
     maxLoad: 26700,
     dims: { l: 1203, w: 235, h: 239 },
+    chassisModel: presetChassis('c40'),
     outside: '12,19 × 2,44 × 2,59',
     door: '2,34 × 2,28',
     tare: '≈ 3,7 т',
@@ -229,6 +243,7 @@ const CONTAINERS: ContainerSpec[] = [
     kind: 'semi',
     maxLoad: 26500,
     dims: VEHICLE_PRESETS.find((p) => p.id === 'c40')!.bodies[0].dims,
+    chassisModel: presetChassis('c40'),
     outside: '12,19 × 2,44 × 2,90',
     door: '2,34 × 2,58',
     tare: '≈ 3,9 т',

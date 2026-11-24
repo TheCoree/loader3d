@@ -29,6 +29,8 @@ export interface BodyChoice {
   /** For the plan of «Попробовать в 3D»: the body's kind (missing — by the length) and name (missing — the label). */
   kind?: BodyKind;
   name?: string;
+  /** The axles of the editor's template of this vehicle (core/chassis.ts CHASSIS_MODELS); missing — typical ones. */
+  chassisModel?: string;
 }
 
 /** The pallets of the calculator: the standard ones with a typical height and weight (as the editor's presets). */
@@ -158,7 +160,7 @@ export function PalletCalculator({
     const palletName = palletKind ? PALLETS[palletKind].name : 'Паллета';
     const start: StartSpec = {
       name: `${chosen?.name ?? chosen?.label ?? 'Свой кузов'} — ${result.total} ${word(result.total, forms)}`,
-      body: ownBody(chosen?.name ?? chosen?.label ?? 'Кузов', { l: body.l, w: body.w, h: body.h }, body.maxLoad, chosen?.kind),
+      body: ownBody(chosen?.name ?? chosen?.label ?? 'Кузов', { l: body.l, w: body.w, h: body.h }, body.maxLoad, chosen?.kind, chosen?.chassisModel),
       cargo: [
         {
           name: palletName,

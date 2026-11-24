@@ -6,6 +6,7 @@ import { PALLETS } from '@/core/tools/pallets';
 import { toolPage } from '@/lib/toolPages';
 import { DataTable, num, tonnes, type ToolContent } from './kit';
 import { PalletCalculator, type BodyChoice } from './PalletCalculator';
+import { presetChassis } from './start';
 
 /** The three «how many pallets fit» pages: a semi-trailer, a container, a Gazelle. Numbers come from core/tools. */
 
@@ -15,7 +16,7 @@ function preset(id: string) {
 
 function body(id: string, label: string): BodyChoice {
   const b = preset(id).bodies[0];
-  return { id, label, dims: b.dims, maxLoad: b.maxLoad ?? 0, kind: b.kind };
+  return { id, label, dims: b.dims, maxLoad: b.maxLoad ?? 0, kind: b.kind, chassisModel: b.chassisModel };
 }
 
 const m = (cm: number) => num(cm / 100, 2);
@@ -159,9 +160,17 @@ export const PALLETS_TRUCK: ToolContent = {
 
 /** Containers by their typical inside sizes; the payload of a 20′ depends on its rating (21,7–28,2 т). */
 const CONTAINERS: BodyChoice[] = [
-  { id: 'c20', label: '20′', name: 'Контейнер 20′', dims: preset('c20').bodies[0].dims, maxLoad: 28200, kind: 'semi' },
-  { id: 'c40', label: '40′', name: 'Контейнер 40′', dims: { l: 1203, w: 235, h: 239 }, maxLoad: 26700, kind: 'semi' },
-  { id: 'c40hc', label: '40′ HC', name: 'Контейнер 40′ HC', dims: preset('c40').bodies[0].dims, maxLoad: 26500, kind: 'semi' },
+  { id: 'c20', label: '20′', name: 'Контейнер 20′', dims: preset('c20').bodies[0].dims, maxLoad: 28200, kind: 'semi', chassisModel: presetChassis('c20') },
+  { id: 'c40', label: '40′', name: 'Контейнер 40′', dims: { l: 1203, w: 235, h: 239 }, maxLoad: 26700, kind: 'semi', chassisModel: presetChassis('c40') },
+  {
+    id: 'c40hc',
+    label: '40′ HC',
+    name: 'Контейнер 40′ HC',
+    dims: preset('c40').bodies[0].dims,
+    maxLoad: 26500,
+    kind: 'semi',
+    chassisModel: presetChassis('c40'),
+  },
 ];
 
 const c20 = deck(CONTAINERS[0].dims);

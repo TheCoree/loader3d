@@ -294,7 +294,7 @@ function VolumeCalculator() {
           title="Проверьте раскладкой, а не кубометрами"
           start={{
             name: `${bodyFor.name} — ${totals.places} ${word(totals.places, ['место', 'места', 'мест'])}`,
-            body: ownBody(bodyFor.name, bodyFor.body.dims, bodyFor.body.maxLoad, bodyFor.body.kind),
+            body: ownBody(bodyFor.name, bodyFor.body.dims, bodyFor.body.maxLoad, bodyFor.body.kind, bodyFor.body.chassisModel),
             cargo: values!
               .filter((v) => v.count > 0)
               .map((v, i) => ({
