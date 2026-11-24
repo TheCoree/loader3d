@@ -104,7 +104,12 @@ export interface CargoBody {
   dims: Dims;
   /** Payload capacity, kg. Missing: no limit is checked. */
   maxLoad?: number;
-  /** Axle positions, empty weights and permissible loads the user entered. Missing: all typical. */
+  /**
+   * The vehicle template whose running gear the body has (core/chassis.ts CHASSIS_MODELS, e.g. «euro-tent»): its axle
+   * positions, empty weights and limits are the starting figures. Missing or unknown: typical ones for the kind and size.
+   */
+  chassisModel?: string;
+  /** Axle positions, empty weights and permissible loads the user entered over those. Missing: none. */
   chassis?: ChassisPatch;
 }
 

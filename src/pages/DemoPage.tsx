@@ -133,8 +133,8 @@ function useDemoSession(setReady: (ready: boolean) => void): void {
       const demo = useDemo.getState();
       const activeMs = demo.activeMs + delta;
       useDemo.setState({ activeMs });
-      const ui = useUi.getState();
-      const busy = ui.autoloadOpen || ui.pdfOpen || ui.displayOpen || ui.helpOpen || demo.gate !== null;
+      // Not over another window (autoload, PDF, axle loads, any dialog or menu open).
+      const busy = demo.gate !== null || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]') !== null;
       if (!demo.nudged && activeMs >= DEMO_NUDGE_AFTER && !busy) {
         useDemo.setState({ nudged: true });
         openDemoGate('time');

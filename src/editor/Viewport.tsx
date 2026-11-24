@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Hand, Lock, LockOpen, Scale, Scan, SlidersHorizontal, TriangleAlert, X } from 'lucide-react';
-import type { VehicleAxles } from '../core/chassis';
+import { groupLabel, type VehicleAxles } from '../core/chassis';
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE, type BodyStats } from '../core/stats';
 import { formatMeters, formatPercent, formatVolume, formatWeight } from '../core/units';
 import type { ViewPreset } from '../scene/CameraRig';
@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useActiveVehicle, useStats } from './hooks';
 import { VehiclePanel } from './VehiclePanel';
 import { XrayControl } from './XrayControl';
-import { AxlesDialog, axleSummary, useAxlesDialog } from './AxlesDialog';
+import { AxlesDialog, axleTone, useAxlesDialog } from './AxlesDialog';
 import { activePreset } from './displayPresets';
 
 const HINT_KEY = 'loader3d:hint-dismissed';
@@ -237,8 +237,8 @@ function StatsBar() {
       {bodies.map((b) => (
         <BodyStat key={b.id} b={b} vehicleName={many && b === bodies[0] ? vehicle.name : undefined} />
       ))}
+      {vehicleStats && vehicleStats.axles.cargo !== 0 && <AxleStat axles={vehicleStats.axles} />}
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        {vehicleStats && vehicleStats.axles.cargo !== 0 && <AxleStat axles={vehicleStats.axles} />}
         <Stat tone="ok" label={many ? 'В машине' : 'В кузове'} value={String(counts.inside)} />
         <Stat
           label="На доке"
@@ -326,33 +326,91 @@ function CogBadge({ b }: { b: BodyStats }) {
   );
 }
 
-/** The loads on the wheels from the cab back; opens «Нагрузка на оси». */
+const tonnes = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const t = (kg: number) => tonnes.format(kg / 1000);
+
+/**
+ * The loads on the wheels against their limits, from the cab back — like the fill of a body: a meter per axle group,
+ * red over the limit or when an axle comes up, amber when the steering axle is too light. Opens «Нагрузка на оси».
+ */
 function AxleStat({ axles }: { axles: VehicleAxles }) {
   const open = useAxlesDialog((s) => s.open);
+  const wheels = axles.groups.filter((g) => g.axles > 0);
   const danger = axles.over || axles.lifted;
+  const verdict = axles.over ? 'перегруз' : axles.lifted ? 'ось отрывается' : axles.light ? 'рулевая недогружена' : 'в норме';
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
           onClick={() => open(axles.vehicleId)}
-          className={cn(
-            'inline-flex h-6 items-center gap-1 rounded-full px-2.5 font-medium tabular-nums outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-            danger
-              ? 'bg-destructive/10 text-destructive hover:bg-destructive/15'
-              : axles.light
-                ? 'bg-warning/10 text-warning hover:bg-warning/15'
-                : 'bg-success/10 text-success hover:bg-success/15',
-          )}
+          aria-label={`Нагрузка на оси: ${verdict}. ${wheels
+            .map((g) => `${groupLabel(g)} — ${formatWeight(g.load)}${g.max !== undefined ? ` из ${formatWeight(g.max)}` : ''}`)
+            .join('; ')}`}
+          className="group/axles min-w-[150px] flex-1 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:min-w-[200px]"
         >
-          {(danger || axles.light) && <TriangleAlert className="size-3.5" />}
-          Оси: {axleSummary(axles)}
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-xs font-medium text-muted-foreground transition-colors group-hover/axles:text-foreground">
+              Нагрузка на оси
+            </span>
+            <span
+              className={cn(
+                'flex items-center gap-1 text-xs font-medium',
+                danger ? 'text-destructive' : axles.light ? 'text-warning' : 'text-success',
+              )}
+            >
+              {(danger || axles.light) && <TriangleAlert className="size-3" />}
+              {verdict}
+            </span>
+          </div>
+          <div className="mt-1.5 flex gap-1" aria-hidden>
+            {wheels.map((g) => {
+              const tone = axleTone(g);
+              const share = g.max ? Math.min(1, Math.max(0, g.load / g.max)) : 0;
+              return (
+                <div key={g.key} className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-[width] duration-300',
+                      tone === 'danger' ? 'bg-destructive' : tone === 'warning' ? 'bg-warning' : 'bg-primary',
+                    )}
+                    style={{ width: `${share * 100}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-1 flex gap-1 text-[11px] tabular-nums" aria-hidden>
+            {wheels.map((g) => {
+              const tone = axleTone(g);
+              return (
+                <span
+                  key={g.key}
+                  className={cn(
+                    'min-w-0 flex-1 truncate',
+                    tone === 'danger' ? 'font-medium text-destructive' : tone === 'warning' ? 'font-medium text-warning' : 'text-muted-foreground',
+                  )}
+                >
+                  {t(g.load)}
+                  {g.max !== undefined && <span className="opacity-60">/{t(g.max)}</span>}
+                </span>
+              );
+            })}
+          </div>
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-64 text-pretty">
-        Нагрузка на оси от кабины к дверям
-        {axles.over ? ' — есть перегруз' : axles.lifted ? ' — ось отрывается' : axles.light ? ' — рулевая ось недогружена' : ''}. Нажмите,
-        чтобы посмотреть подробно и вписать данные своей машины.
+      <TooltipContent className="max-w-72 text-pretty">
+        <div className="mb-1 font-medium">Нагрузка на оси, т — от кабины к дверям</div>
+        {wheels.map((g) => (
+          <div key={g.key} className="flex justify-between gap-3 tabular-nums">
+            <span>{groupLabel(g)}</span>
+            <span>
+              {t(g.load)}
+              {g.max !== undefined && ` из ${t(g.max)}`}
+            </span>
+          </div>
+        ))}
+        <div className="mt-1 opacity-80">Нажмите, чтобы посмотреть подробно и вписать данные своей машины.</div>
       </TooltipContent>
     </Tooltip>
   );

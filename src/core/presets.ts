@@ -1,6 +1,7 @@
 import type { CargoBody, Dims } from './types';
 
-export type BodyTemplate = Omit<CargoBody, 'id'>;
+/** A body of a template: its running gear is `chassisModel` (core/chassis.ts CHASSIS_MODELS), nothing of the user's. */
+export type BodyTemplate = Omit<CargoBody, 'id' | 'chassis'>;
 
 export interface VehiclePreset {
   id: string;
@@ -12,45 +13,45 @@ export const VEHICLE_PRESETS: VehiclePreset[] = [
   {
     id: 'tent',
     name: 'Еврофура 13,6 м (тент)',
-    bodies: [{ kind: 'semi', name: 'Полуприцеп', dims: { l: 1360, w: 245, h: 270 }, maxLoad: 20000 }],
+    bodies: [{ kind: 'semi', name: 'Полуприцеп', dims: { l: 1360, w: 245, h: 270 }, maxLoad: 20000, chassisModel: 'euro-tent' }],
   },
   {
     id: 'mega',
     name: 'Мега-трейлер 13,6 м',
-    bodies: [{ kind: 'semi', name: 'Полуприцеп', dims: { l: 1360, w: 248, h: 300 }, maxLoad: 20000 }],
+    bodies: [{ kind: 'semi', name: 'Полуприцеп', dims: { l: 1360, w: 248, h: 300 }, maxLoad: 20000, chassisModel: 'euro-mega' }],
   },
   {
     id: 'reefer',
     name: 'Рефрижератор 13,4 м',
-    bodies: [{ kind: 'semi', name: 'Рефрижератор', dims: { l: 1340, w: 246, h: 260 }, maxLoad: 20000 }],
+    bodies: [{ kind: 'semi', name: 'Рефрижератор', dims: { l: 1340, w: 246, h: 260 }, maxLoad: 20000, chassisModel: 'euro-reefer' }],
   },
   {
     id: 'jumbo',
     name: 'Сцепка 7,7 + 8,2 м',
     bodies: [
-      { kind: 'truck', name: 'Грузовик', dims: { l: 770, w: 245, h: 300 }, maxLoad: 10000 },
-      { kind: 'trailer', name: 'Прицеп', dims: { l: 820, w: 245, h: 300 }, maxLoad: 10000 },
+      { kind: 'truck', name: 'Грузовик', dims: { l: 770, w: 245, h: 300 }, maxLoad: 10000, chassisModel: 'jumbo-truck' },
+      { kind: 'trailer', name: 'Прицеп', dims: { l: 820, w: 245, h: 300 }, maxLoad: 10000, chassisModel: 'jumbo-trailer' },
     ],
   },
   {
     id: 'c40',
     name: "Контейнер 40' HC",
-    bodies: [{ kind: 'semi', name: "Контейнер 40'", dims: { l: 1203, w: 235, h: 269 }, maxLoad: 26500 }],
+    bodies: [{ kind: 'semi', name: "Контейнер 40'", dims: { l: 1203, w: 235, h: 269 }, maxLoad: 26500, chassisModel: 'container-40' }],
   },
   {
     id: 'c20',
     name: "Контейнер 20'",
-    bodies: [{ kind: 'semi', name: "Контейнер 20'", dims: { l: 590, w: 235, h: 239 }, maxLoad: 21700 }],
+    bodies: [{ kind: 'semi', name: "Контейнер 20'", dims: { l: 590, w: 235, h: 239 }, maxLoad: 21700, chassisModel: 'container-20' }],
   },
   {
     id: 'truck10',
     name: 'Грузовик 10 т',
-    bodies: [{ kind: 'truck', name: 'Кузов', dims: { l: 800, w: 245, h: 260 }, maxLoad: 10000 }],
+    bodies: [{ kind: 'truck', name: 'Кузов', dims: { l: 800, w: 245, h: 260 }, maxLoad: 10000, chassisModel: 'truck-18t' }],
   },
   {
     id: 'van',
     name: 'Фургон 3 т',
-    bodies: [{ kind: 'truck', name: 'Фургон', dims: { l: 420, w: 205, h: 200 }, maxLoad: 3000 }],
+    bodies: [{ kind: 'truck', name: 'Фургон', dims: { l: 420, w: 205, h: 200 }, maxLoad: 3000, chassisModel: 'van-7t' }],
   },
 ];
 
@@ -59,6 +60,7 @@ export const DEFAULT_TRAILER: BodyTemplate = {
   name: 'Прицеп',
   dims: { l: 820, w: 245, h: 270 },
   maxLoad: 10000,
+  chassisModel: 'jumbo-trailer',
 };
 
 export const MAX_BODIES = 3;

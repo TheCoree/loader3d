@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import type { BodyKind, CargoBody, CargoItem, ChassisPatch } from './types';
-import { chassisOf, cleanChassis, groupLabel, typicalChassis, vehicleAxleLoads, withChassisValue, type AxleLoad, type VehicleAxles } from './chassis';
+import {
+  CHASSIS_MODELS,
+  EURO_RIG,
+  TRACTOR_STEER_X,
+  TRUCK_STEER_X,
+  axleRanges,
+  axleWeightRange,
+  chassisModelOf,
+  chassisOf,
+  cleanChassis,
+  groupLabel,
+  typicalChassis,
+  vehicleAxleLoads,
+  withChassisValue,
+  type AxleLoad,
+  type VehicleAxles,
+} from './chassis';
+import { VEHICLE_PRESETS } from './presets';
 import { computeLayout } from './layout';
 import { computeStats } from './stats';
 import { vehicle } from './testing';
+import { AXLE_SPACING, WHEEL_RADIUS } from './axles';
 import { TYPICAL_RIG, axleLoads } from './tools/axleLoads';
 
 function body(kind: BodyKind, l: number, id: string, extra: Partial<CargoBody> = {}): CargoBody {
@@ -153,13 +171,16 @@ describe('axle loads (core/chassis.ts)', () => {
     const typical = typicalChassis(semi, true);
     expect(typical.front).toEqual({ x: TYPICAL_RIG.kingpin, axles: 0, tare: TYPICAL_RIG.trailerTareKingpin });
     expect(typical.rear).toMatchObject({ x: TYPICAL_RIG.bogie, axles: 3, tare: TYPICAL_RIG.trailerTareAxles, max: 24000 });
-    expect(typical.tractorDrive).toMatchObject({ x: 170, axles: 1, max: 11500 });
+    expect(typical.tractorDrive).toMatchObject({ x: TYPICAL_RIG.kingpin + TYPICAL_RIG.fifthWheelAhead, axles: 1, max: 11500 });
+    // The calculator's tractor reaches the steering axle under the cab.
+    expect(EURO_RIG.kingpin + EURO_RIG.fifthWheelAhead - EURO_RIG.wheelbase).toBe(TRACTOR_STEER_X);
+    expect(typical.tractorFront!.x).toBe(TRACTOR_STEER_X);
 
     // The tractor follows the kingpin; two drive axles get the limit of a tandem.
-    const patch: ChassisPatch = { front: { x: 160 }, tractorDrive: { axles: 2 }, rear: { tare: 6000 } };
+    const patch: ChassisPatch = { front: { x: 200 }, tractorDrive: { axles: 2 }, rear: { tare: 6000 } };
     const own = chassisOf({ ...semi, chassis: patch }, true);
-    expect(own.tractorDrive).toMatchObject({ x: 210, axles: 2, max: 18000 });
-    expect(own.tractorFront!.x).toBe(210 - TYPICAL_RIG.wheelbase);
+    expect(own.tractorDrive).toMatchObject({ x: 200 + EURO_RIG.fifthWheelAhead, axles: 2, max: 18000 });
+    expect(own.tractorFront!.x).toBe(TRACTOR_STEER_X);
 
     // Resized: the typical positions follow the length, the user's empty weight stays.
     const short = chassisOf({ ...semi, dims: { ...semi.dims, l: 1000 }, chassis: patch }, true);
@@ -171,6 +192,69 @@ describe('axle loads (core/chassis.ts)', () => {
     expect(axlesOf([{ ...semi, chassis: { rear: { max: 0 } } }], [cargo(1360, 760, 600, 30000)]).over).toBe(false);
     // Only a semi-trailer right behind the cab has a tractor.
     expect(chassisOf(semi, false).tractorFront).toBeNull();
+  });
+
+  it('gives the templates the axles of their vehicles', () => {
+    for (const preset of VEHICLE_PRESETS) {
+      preset.bodies.forEach((t, i) => {
+        const b: CargoBody = { ...t, id: `b${i}` };
+        const model = chassisModelOf(b);
+        expect(model, preset.id).not.toBeNull();
+        const ch = chassisOf(b, i === 0);
+        // Exactly the template's figures: none had to be moved into the limits.
+        expect(ch.front.x, preset.id).toBe(model!.front.x);
+        expect(ch.rear, preset.id).toMatchObject({ x: model!.rear.x, axles: model!.rear.axles, tare: model!.rear.tare, max: model!.rear.max });
+        if (i === 0 && b.kind === 'semi') {
+          expect(ch.tractorDrive!.x, preset.id).toBe(model!.front.x + (model!.tractor?.lead ?? EURO_RIG.fifthWheelAhead));
+        }
+      });
+    }
+    // The euro template is the calculator's rig, the same as a typical semi-trailer of its size.
+    expect(chassisOf({ ...body('semi', 1360, 's'), chassisModel: 'euro-tent' }, true)).toEqual(typicalChassis(body('semi', 1360, 's'), true));
+    // A body resized far from its template, or of another kind, gets typical figures.
+    expect(chassisModelOf({ ...body('truck', 440, 't'), chassisModel: 'van-7t' })).not.toBeNull();
+    expect(chassisModelOf({ ...body('truck', 1200, 't'), chassisModel: 'van-7t' })).toBeNull();
+    expect(chassisModelOf({ ...body('semi', 420, 't'), chassisModel: 'van-7t' })).toBeNull();
+    expect(chassisModelOf({ ...body('truck', 420, 't'), chassisModel: 'unknown' })).toBeNull();
+  });
+
+  it('loads every template within its limits with its payload spread evenly, but a full 40-foot container', () => {
+    for (const preset of VEHICLE_PRESETS) {
+      const bodies = preset.bodies.map((t, i) => ({ ...t, id: `b${i}` }));
+      const layout = computeLayout([vehicle(bodies)]);
+      const items = layout.bodies.map((pb) => cargo(pb.box.max.x, 0, pb.body.dims.l, pb.body.maxLoad ?? 0));
+      const a = computeStats(items, layout).vehicles[0].axles;
+      const text = `${preset.id}: ${a.groups.map((g) => `${g.part} ${Math.round(g.load)}/${g.max ?? '-'}`).join(', ')}`;
+      // 26,5 t in a 40-foot box is over the road limits: the drive axle shows it.
+      if (preset.id === 'c40') expect(a.over, text).toBe(true);
+      else expect(a.over || a.lifted || a.light, text).toBe(false);
+    }
+  });
+
+  it('keeps the axles where a vehicle can have them', () => {
+    const semi: CargoBody = { ...body('semi', 1360, 's'), chassisModel: 'euro-tent' };
+    // A steering axle stays under the cab, whatever a plan says.
+    expect(chassisOf({ ...semi, chassis: { tractorFront: { x: -2000 } } }, true).tractorFront!.x).toBe(TRACTOR_STEER_X);
+    const truck: CargoBody = { ...body('truck', 800, 't'), chassisModel: 'truck-18t' };
+    expect(chassisOf({ ...truck, chassis: { front: { x: -2000 } } }, true).front.x).toBe(TRUCK_STEER_X);
+
+    // A kingpin, a rear group and a drive axle within reason.
+    const wildBody: CargoBody = { ...semi, chassis: { front: { x: 2000 }, rear: { x: 3000 }, tractorDrive: { x: -500 } } };
+    const wild = chassisOf(wildBody, true);
+    const ranges = axleRanges(wildBody, true);
+    expect(wild.front.x).toBe(300);
+    expect(wild.rear.x).toBe(ranges.rear[1]);
+    expect(wild.rear.x + AXLE_SPACING + WHEEL_RADIUS).toBeLessThan(1360);
+    expect(wild.tractorDrive!.x).toBe(ranges.tractorDrive[0]);
+    expect(ranges.tractorFront).toEqual([TRACTOR_STEER_X, TRACTOR_STEER_X]);
+
+    // Weights within reason for the number of axles.
+    const heavy = chassisOf({ ...truck, chassis: { rear: { tare: 60000, max: 60000 } } }, true);
+    expect(heavy.rear.tare).toBe(axleWeightRange(1).tare);
+    expect(heavy.rear.max).toBe(axleWeightRange(1).max);
+    // A tractor has at most two drive axles.
+    expect(chassisOf({ ...semi, chassis: { tractorDrive: { axles: 4 } } }, true).tractorDrive!.axles).toBe(1);
+    expect(Object.keys(CHASSIS_MODELS).length).toBeGreaterThan(0);
   });
 
   it('cleans what a plan brings and edits one figure at a time', () => {

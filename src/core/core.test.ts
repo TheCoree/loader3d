@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BodyKind, Box, CargoBody, CargoItem, Dims, DockMode, Orientation, Plan } from './types';
-import { LANDING_GEAR, MIN_HALF_TRACK, WHEEL_RADIUS, bodyAxles, bodyHalfTrack, cabAxles } from './axles';
+import { MIN_HALF_TRACK, WHEEL_RADIUS, bodyAxles, bodyHalfTrack } from './axles';
+import { bodyWheels, cabWheels } from './chassis';
 import { BODY_LIMITS } from './presets';
 import { boxAt, inRects, subtractBox, volume } from './geometry';
 import { itemBox } from './item';
@@ -607,29 +608,34 @@ describe('running gear', () => {
   /** Tyres of neighbouring axles at least 20 cm apart. */
   const clear = 2 * WHEEL_RADIUS + 20;
 
+  const body = (kind: BodyKind, l: number): CargoBody => ({ id: 'b', name: 'b', kind, dims: { l, w: 245, h: 270 } });
+
   it('never puts wheels into each other, whatever the length of the body', () => {
     for (const kind of kinds) {
-      for (const length of lengths) {
-        const axles = bodyAxles(kind, length);
-        // From the rear wall; the cab and the tractor are counted as if this body were the first one.
-        const all = [...axles.rear, ...(axles.front === null ? [] : [axles.front]), ...cabAxles(kind).map((x) => length + x)];
-        all.sort((a, b) => a - b);
+      // A semi-trailer shorter than a 20-foot container is not a thing.
+      for (const length of lengths.filter((l) => kind !== 'semi' || l >= 500)) {
+        const wheels = bodyWheels(body(kind, length), true);
+        const cab = cabWheels(body(kind, length));
+        // x from the front wall; the cab and the tractor are counted as if this body were the first one.
+        const all = [...wheels.rear, ...wheels.front, -cab.steer, ...cab.drive].sort((a, b) => a - b);
         for (let i = 1; i < all.length; i++) {
           expect(all[i] - all[i - 1], `${kind} ${length}: ${all.join(', ')}`).toBeGreaterThanOrEqual(clear);
         }
-        for (const x of [...axles.rear, ...(axles.front === null ? [] : [axles.front])]) {
+        for (const x of [...wheels.rear, ...wheels.front]) {
           expect(x, `${kind} ${length}`).toBeGreaterThan(0);
-          expect(x, `${kind} ${length}`).toBeLessThan(length);
+          expect(x + WHEEL_RADIUS, `${kind} ${length}`).toBeLessThan(length);
         }
       }
     }
   });
 
-  it('keeps the landing gear of a semi-trailer clear of its wheels', () => {
-    for (const length of lengths) {
-      const axles = bodyAxles('semi', length);
-      expect(axles.landingGear).toBe(axles.rear.length > 0);
-      for (const x of axles.rear) expect(length - LANDING_GEAR - 15 - (x + WHEEL_RADIUS)).toBeGreaterThanOrEqual(10);
+  it('keeps the landing gear of a semi-trailer clear of the wheels around it', () => {
+    for (const length of lengths.filter((l) => l >= 500)) {
+      const wheels = bodyWheels(body('semi', length), true);
+      const lg = wheels.landingGear!;
+      // The legs with their feet are 30 long.
+      for (const x of wheels.rear) expect(x - WHEEL_RADIUS - (lg + 15), `${length}`).toBeGreaterThanOrEqual(10);
+      for (const x of cabWheels(body('semi', length)).drive) expect(lg - 15 - (x + WHEEL_RADIUS), `${length}`).toBeGreaterThanOrEqual(10);
     }
   });
 

@@ -84,18 +84,30 @@ export function LandingDemo() {
   const frame = useRef<HTMLDivElement>(null);
   const shot = useRef<HTMLDivElement>(null);
 
-  // Sizes follow the scroll through style properties and data attributes (no React render per frame). Browsers send
-  // `scroll` once a frame at most, so the handler writes them straight away.
+  // Sizes follow the scroll through style properties and data attributes (no React render per frame): read and
+  // written once a frame (requestAnimationFrame), only while the block is near the screen, and only when they change.
   useEffect(() => {
+    const el = wrap.current;
+    const box = frame.current;
+    if (!el || !box) return;
     const media = window.matchMedia(WIDE);
-    let loading = false;
+    let raf = 0;
+    let last = '';
+    let preloaded = false;
+    // The demo's code (the editor, three.js) once the visitor scrolls in, when the browser is idle: not in the
+    // middle of a scrolled frame.
+    const preload = () => {
+      if (preloaded) return;
+      preloaded = true;
+      if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => void loadDemo(), { timeout: 2000 });
+      else window.setTimeout(() => void loadDemo(), 200);
+    };
     const update = () => {
-      const el = wrap.current;
-      const box = frame.current;
-      if (!el || !box) return;
+      raf = 0;
       if (!media.matches) {
         delete box.dataset.grow;
         delete box.dataset.offer;
+        last = '';
         return;
       }
       const vw = el.clientWidth;
@@ -112,26 +124,50 @@ export function LandingDemo() {
       const edges = endW >= vw;
       const endBar = edges ? 0 : BAR;
       const endH = Math.min(boxH, endW / 1.6 + endBar);
+      const w = Math.round(startW + (endW - startW) * p);
+      const h = Math.round(startH + (endH - startH) * p);
+      const r = Math.round((edges ? 12 * (1 - p) : 12) * 10) / 10;
+      const bar = Math.round(BAR + (endBar - BAR) * p);
+      const offer = p >= OFFER_AT;
+      if (p > 0.05) preload();
+      const key = `${w}|${h}|${r}|${bar}|${offer}`;
+      if (key === last) return;
+      last = key;
       box.dataset.grow = '';
-      box.style.setProperty('--w', `${startW + (endW - startW) * p}px`);
-      box.style.setProperty('--h', `${startH + (endH - startH) * p}px`);
-      box.style.setProperty('--r', `${edges ? 12 * (1 - p) : 12}px`);
-      box.style.setProperty('--bar', `${BAR + (endBar - BAR) * p}px`);
-      if (p >= OFFER_AT) box.dataset.offer = '';
+      box.style.setProperty('--w', `${w}px`);
+      box.style.setProperty('--h', `${h}px`);
+      box.style.setProperty('--r', `${r}px`);
+      box.style.setProperty('--bar', `${bar}px`);
+      if (offer) box.dataset.offer = '';
       else delete box.dataset.offer;
-      if (p > 0.2 && !loading) {
-        loading = true;
-        void loadDemo();
-      }
     };
+    const schedule = () => {
+      if (!raf) raf = window.requestAnimationFrame(update);
+    };
+    let following = false;
+    const follow = (on: boolean) => {
+      if (on === following) return;
+      following = on;
+      if (on) window.addEventListener('scroll', schedule, { passive: true });
+      else window.removeEventListener('scroll', schedule);
+    };
+    const near = new IntersectionObserver(
+      ([entry]) => {
+        follow(entry.isIntersecting);
+        schedule();
+      },
+      { rootMargin: '25% 0px' },
+    );
+    near.observe(el);
     update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-    media.addEventListener('change', update);
+    window.addEventListener('resize', schedule);
+    media.addEventListener('change', schedule);
     return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-      media.removeEventListener('change', update);
+      near.disconnect();
+      follow(false);
+      if (raf) window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', schedule);
+      media.removeEventListener('change', schedule);
     };
   }, []);
 
@@ -144,7 +180,7 @@ export function LandingDemo() {
             onPointerEnter={() => void loadDemo()}
             style={{ '--w': 'min(1152px, calc(100% - 48px), calc((100dvh - 4rem - 88px) * 1.6))' } as CSSProperties}
             className={cn(
-              'group/frame landing-rise relative flex flex-col overflow-hidden rounded-xl border border-white/[0.09] bg-[#0a0a0a] [animation-delay:260ms]',
+              'group/frame landing-rise relative flex flex-col overflow-hidden rounded-xl border border-white/[0.09] bg-[#0a0a0a] [contain:layout_paint] [animation-delay:260ms]',
               'lg:w-(--w) lg:shrink-0 lg:data-grow:h-(--h) lg:data-grow:rounded-(--r)',
             )}
           >
