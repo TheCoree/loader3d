@@ -18,15 +18,16 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   `npx shadcn@latest add <name>`), lucide icons, Tailwind classes. Theme tokens live in `src/index.css`;
   `--primary` must stay equal to `COLORS.accent` in `scene/theme.ts`. Light and dark themes for the app
   (`Settings.theme`, `lib/theme.ts`, `.dark` tokens): use tokens (`bg-background`, `text-foreground`,
-  `bg-muted`…), not fixed colours, in app UI. The public pages (landing, sign-in, documents) are dark only, in the
-  manner of vercel.com (`publicRoot` and the shared kit in `components/site.tsx`, Geist). The calculators
-  (`pages/tools/`) have the same look in two themes: light by default (search visitors land there), dark after the
-  dark pages of the site or by the switch in their header — for the visit only (`useToolTheme`, `lib/theme.ts`);
-  they use the `site-*` colours of `.tool-page` (`index.css`), never fixed ones. The 3D scene is always light,
+  `bg-muted`…), not fixed colours, in app UI; the app is light by default (`DEFAULT_SETTINGS.theme`). The public
+  pages (landing, sign-in, documents, the demo) and the calculators (`pages/tools/`) are in the manner of vercel.com
+  (`SitePage` and the shared kit in `components/site.tsx`, Geist): light by default, dark for the visit only by the
+  switch in their header (`useSiteTheme`, `lib/theme.ts`; nothing kept in the browser); they use the `site-*` colours
+  of `.site-page` (`index.css`), never fixed ones (only what is always light, like the printed PDF, or lies on a dark
+  screenshot keeps its own). The 3D scene is always light,
   whatever the app theme: the editor sets `LIGHT_COLORS` (`scene/theme.ts`) and the scene labels have no dark
   styles; only the interface around it is dark. The PDF report and plan previews are light too (`withScenePalette`).
   The landing pictures in `public/landing` are screenshots of the editor: dark interface, light 3D scene (side/top: the
-  printed PDF). No gradients on the public pages: monochrome hairlines, light pills, line art.
+  printed PDF). No gradients on the public pages: monochrome hairlines, solid pills, line art.
 - The user considers the 3D scene finished: do not change `src/scene/` or `src/scene.css` (the CSS2D
   labels) unless asked. The editor UI around it lives in `src/editor/`.
 

@@ -112,11 +112,11 @@ export interface PrerenderedPage {
   structuredData: object[];
   /** Date of the last change for sitemap.xml (none: not given). */
   updated?: string;
-  /** The browser's colour around the page (meta theme-color); none — the template's black. */
+  /** The browser's colour around the page (meta theme-color); none — the template's white. */
   themeColor?: string;
 }
 
-/** The calculators are rendered light (lib/theme.ts useToolTheme). */
+/** The calculators are rendered light, like every public page (lib/theme.ts useSiteTheme). */
 const TOOL_THEME_COLOR = '#ffffff';
 
 /** Every page scripts/prerender.mjs writes, the landing page first. */

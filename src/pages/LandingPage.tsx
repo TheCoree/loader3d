@@ -24,13 +24,14 @@ import { Logo, LogoMark } from '@/components/Logo';
 import { SessionLoader } from '@/components/RouteGuards';
 import { SiteFooter } from '@/components/SiteFooter';
 import {
+  SitePage,
+  SiteThemeSwitch,
   VehicleGlyph,
   displayTitle,
   headerPrimary,
   headerSecondary,
   mutedText,
   primaryPill,
-  publicRoot,
   secondaryPill,
   type VehicleKind,
 } from '@/components/site';
@@ -40,7 +41,6 @@ import { TIERS, TIERS_ENABLED, TRIAL_DAYS, formatPrice, type TierInfo } from '@/
 import { FEATURED_TOOLS, TOOLS_HUB, toolPage } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 import { useAuth, wasSignedIn } from '@/store/useAuth';
-import { HeroCubes } from './HeroCubes';
 import { LandingDemo } from './LandingDemo';
 
 /**
@@ -49,8 +49,9 @@ import { LandingDemo } from './LandingDemo';
  * goes on to their plans; `/pricing` shows the same page at the tariffs (a logged-in user — /billing).
  * With TIERS_ENABLED off the page says nothing about tariffs.
  *
- * In the manner of vercel.com: black, Geist, one-colour hairline art, no gradients. The hero is a line
- * drawing of a trailer that keeps loading itself (CSS only). The pictures in public/landing are
+ * In the manner of vercel.com: light by default (dark for the visit by the switch in the header, components/site.tsx),
+ * Geist, one-colour hairline art, no gradients; the hero is the headline in the middle with the editor's picture
+ * under it (LandingDemo). The pictures in public/landing are
  * screenshots of the real editor in its dark theme with the light 3D scene; the PDF views are light, as
  * the printed report. Sections carry `data-section` and buttons `data-track` for the visit statistics
  * of the admin panel (lib/analytics.ts).
@@ -183,7 +184,7 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
   useSectionTracking();
 
   return (
-    <div className={publicRoot}>
+    <SitePage>
       <LandingHeader />
       <main>
         <Hero />
@@ -201,7 +202,7 @@ export function LandingPage({ section }: { section?: 'pricing' }) {
         </div>
       </main>
       <SiteFooter />
-    </div>
+    </SitePage>
   );
 }
 
@@ -243,9 +244,9 @@ function Shot({
   );
 }
 
-/** A hairline frame on near-black, as Vercel frames its product pictures. */
+/** A hairline frame on the panel colour, as Vercel frames its product pictures. */
 function Frame({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('overflow-hidden rounded-xl border border-white/[0.09] bg-[#0a0a0a]', className)}>{children}</div>;
+  return <div className={cn('overflow-hidden rounded-xl border border-site-line bg-site-panel', className)}>{children}</div>;
 }
 
 function Heading({ children, className, as: Tag = 'h2' }: { children: ReactNode; className?: string; as?: 'h1' | 'h2' }) {
@@ -259,7 +260,7 @@ function Caption({ title, children, action }: { title: string; children: ReactNo
   return (
     <div className="mt-5 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
       <p className="max-w-xl text-[15px] leading-relaxed sm:text-base">
-        <span className="font-medium text-[#ededed]">{title}</span> <span className="text-[#a1a1a1]">{children}</span>
+        <span className="font-medium text-site-fg">{title}</span> <span className="text-site-muted">{children}</span>
       </p>
       {action}
     </div>
@@ -267,7 +268,7 @@ function Caption({ title, children, action }: { title: string; children: ReactNo
 }
 
 const smallOutline =
-  'h-8 rounded-full border border-[#2e2e2e] bg-[#0a0a0a] px-3.5 text-[13px] font-medium text-[#ededed] transition-colors hover:border-[#454545] hover:bg-[#1a1a1a]';
+  'h-8 rounded-full border border-site-strong bg-site-panel px-3.5 text-[13px] font-medium text-site-fg transition-colors hover:border-site-faint hover:bg-site-soft';
 
 const NAV = [
   { href: '#features', label: 'Возможности' },
@@ -280,17 +281,18 @@ const NAV = [
 function LandingHeader() {
   const user = useAuth((s) => s.user);
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-black/80 backdrop-blur-xl backdrop-saturate-150">
+    <header className="sticky top-0 z-40 border-b border-site-line bg-site-bg/80 backdrop-blur-xl backdrop-saturate-150">
       <Container className="flex h-16 items-center gap-8">
-        <Logo className="text-white" />
+        <Logo className="text-site-fg" />
         <nav aria-label="Разделы" className="hidden items-center gap-6 text-sm lg:flex">
           {NAV.map((n) => (
-            <a key={n.href} href={n.href} className={cn(mutedText, 'transition-colors hover:text-white')}>
+            <a key={n.href} href={n.href} className={cn(mutedText, 'transition-colors hover:text-site-fg')}>
               {n.label}
             </a>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <SiteThemeSwitch />
           {user ? (
             <Button asChild className={headerPrimary}>
               <Link to="/plans">Мои схемы</Link>
@@ -321,48 +323,42 @@ function LandingHeader() {
 function Hero() {
   return (
     <section data-section="hero" className="relative overflow-hidden">
-      <Container className="grid items-center gap-12 pt-16 pb-16 sm:pt-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-6 lg:pt-28 lg:pb-24">
-        <div className="relative z-10">
-          <a
-            href="#integration"
-            className="landing-rise group inline-flex items-center gap-2.5 rounded-full border border-white/[0.12] bg-[#0a0a0a] py-1 pr-3 pl-1 text-[13px] text-[#a1a1a1] transition-colors hover:border-white/25 hover:text-white"
-          >
-            <OneCLogo decorative className="size-6" />
-            Интеграция с 1С: товары сразу в схему загрузки
-            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-          </a>
-          <Heading
-            as="h1"
-            className="landing-rise mt-6 max-w-[13ch] text-[2.9rem] leading-[0.98] [animation-delay:60ms] sm:text-[3.6rem] lg:text-[4.25rem]"
-          >
-            Загрузите фуру до приезда машины
-          </Heading>
-          <p className={cn(mutedText, 'landing-rise mt-6 max-w-[34rem] text-lg leading-[1.6] [animation-delay:120ms]')}>
-            3D-планировщик загрузки фур и контейнеров: автозагрузка с развесовкой, нагрузка на каждую ось и центр тяжести,
-            PDF-схема для водителя. Прямо в браузере.
-          </p>
-          <div className="landing-rise mt-9 flex flex-wrap gap-3 [animation-delay:180ms]">
-            <Button asChild className={primaryPill}>
-              <Link to="/register" data-track="hero_register">
-                Начать бесплатно
-              </Link>
-            </Button>
-            {/* The demo is for wide screens (LandingDemo); phones get the steps. */}
-            <Button asChild variant="outline" className={cn(secondaryPill, 'hidden lg:inline-flex')}>
-              <Link to="/demo" data-track="hero_demo" onPointerEnter={() => void import('./DemoPage')}>
-                Открыть демо <ArrowRight />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className={cn(secondaryPill, 'lg:hidden')}>
-              <a href="#how" data-track="hero_how">
-                Как это работает
-              </a>
-            </Button>
-          </div>
-        </div>
-        {/* Wide screens only: on a phone the motion says little and costs the battery. */}
-        <div className="landing-rise hidden [animation-delay:200ms] lg:block">
-          <HeroCubes />
+      <Container className="flex flex-col items-center pt-16 pb-14 text-center sm:pt-24 lg:pt-28 lg:pb-20">
+        <a
+          href="#integration"
+          className="landing-rise group inline-flex items-center gap-2.5 rounded-full border border-site-line bg-site-panel py-1 pr-3 pl-1 text-[13px] text-site-muted transition-colors hover:border-site-strong hover:text-site-fg"
+        >
+          <OneCLogo decorative className="size-6" />
+          Интеграция с 1С: товары сразу в схему загрузки
+          <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+        </a>
+        <Heading
+          as="h1"
+          className="landing-rise mt-6 max-w-[16ch] text-[2.9rem] leading-[0.98] [animation-delay:60ms] sm:text-[3.8rem] lg:text-[4.75rem]"
+        >
+          Загрузите фуру до приезда машины
+        </Heading>
+        <p className={cn(mutedText, 'landing-rise mt-6 max-w-[38rem] text-lg leading-[1.6] [animation-delay:120ms]')}>
+          3D-планировщик загрузки фур и контейнеров: автозагрузка с развесовкой, нагрузка на каждую ось и центр тяжести,
+          PDF-схема для водителя. Прямо в браузере.
+        </p>
+        <div className="landing-rise mt-9 flex flex-wrap justify-center gap-3 [animation-delay:180ms]">
+          <Button asChild className={primaryPill}>
+            <Link to="/register" data-track="hero_register">
+              Начать бесплатно
+            </Link>
+          </Button>
+          {/* The demo is for wide screens (LandingDemo); phones get the steps. */}
+          <Button asChild variant="outline" className={cn(secondaryPill, 'hidden lg:inline-flex')}>
+            <Link to="/demo" data-track="hero_demo" onPointerEnter={() => void import('./DemoPage')}>
+              Открыть демо <ArrowRight />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className={cn(secondaryPill, 'lg:hidden')}>
+            <a href="#how" data-track="hero_how">
+              Как это работает
+            </a>
+          </Button>
         </div>
       </Container>
     </section>
@@ -378,11 +374,11 @@ function Showcase() {
         <ul className="mt-14 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:mt-16 lg:grid-cols-4">
           {HIGHLIGHTS.map((h) => (
             <li key={h.label}>
-              <p className="flex items-center gap-2 text-sm text-[#a1a1a1]">
+              <p className="flex items-center gap-2 text-sm text-site-muted">
                 <h.icon className="size-4" strokeWidth={1.75} />
                 {h.label}
               </p>
-              <p className="mt-3 text-base leading-relaxed text-[#ededed]">{h.text}</p>
+              <p className="mt-3 text-base leading-relaxed text-site-fg">{h.text}</p>
             </li>
           ))}
         </ul>
@@ -397,7 +393,7 @@ function TemplatesStrip() {
   const row = (hidden: boolean) => (
     <ul aria-hidden={hidden || undefined} className="flex shrink-0 items-center gap-14 pr-14">
       {TEMPLATES.map((t) => (
-        <li key={t.name} className="flex items-center gap-3 whitespace-nowrap text-white/70">
+        <li key={t.name} className="flex items-center gap-3 whitespace-nowrap text-site-muted">
           <VehicleGlyph kind={t.kind} className="h-[18px]" />
           <span className="text-[15px] font-medium tracking-[-0.01em]">{t.name}</span>
         </li>
@@ -405,7 +401,7 @@ function TemplatesStrip() {
     </ul>
   );
   return (
-    <div className="mt-20 min-w-0 border-y border-white/[0.08] py-8 sm:mt-24">
+    <div className="mt-20 min-w-0 border-y border-site-line py-8 sm:mt-24">
       <p className={cn(mutedText, 'mb-6 text-center text-[13px]')}>Готовые шаблоны машин и контейнеров — или свои размеры</p>
       <div className="relative flex overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_10%,#000_90%,transparent)]">
         <div className="lp-marquee flex">
@@ -445,7 +441,7 @@ function Features() {
                   width={1024}
                   height={954}
                   alt="Диалог автоматической загрузки: загрузим 51 из 51, центр тяжести — 50% длины, по оси"
-                  className="w-[62%] max-w-[480px] rounded-xl ring-1 ring-white/15"
+                  className="w-[62%] max-w-[480px] rounded-xl ring-1 ring-site-line"
                 />
               </div>
             </Frame>
@@ -495,14 +491,14 @@ function Features() {
       </Container>
 
       <Container className="mt-24 sm:mt-32">
-        <ul className="grid gap-x-10 gap-y-12 border-t border-white/[0.08] pt-14 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-x-10 gap-y-12 border-t border-site-line pt-14 sm:grid-cols-2 lg:grid-cols-3">
           {CAPABILITIES.map((c) => (
             <li key={c.label} className="group">
-              <p className="flex items-center gap-2 text-sm text-[#a1a1a1] transition-colors group-hover:text-[#ededed]">
+              <p className="flex items-center gap-2 text-sm text-site-muted transition-colors group-hover:text-site-fg">
                 <c.icon className="size-4" strokeWidth={1.75} />
                 {c.label}
               </p>
-              <p className="mt-3 max-w-[22rem] text-base leading-relaxed text-[#ededed]">{c.text}</p>
+              <p className="mt-3 max-w-[22rem] text-base leading-relaxed text-site-fg">{c.text}</p>
             </li>
           ))}
         </ul>
@@ -521,23 +517,23 @@ function MetricsArt() {
     <div className="w-[80%] max-w-[380px] space-y-5 font-geist-mono text-xs">
       {rows.map((r, i) => (
         <div key={r.label}>
-          <div className="flex justify-between text-[#8f8f8f]">
+          <div className="flex justify-between text-site-faint">
             <span>{r.label}</span>
-            <span className="text-[#ededed]">{r.value}</span>
+            <span className="text-site-fg">{r.value}</span>
           </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
-            <div className="lp-fill h-full rounded-full bg-[#ededed]" style={{ width: r.width, animationDelay: `${i * 0.25}s` }} />
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-site-line">
+            <div className="lp-fill h-full rounded-full bg-site-solid" style={{ width: r.width, animationDelay: `${i * 0.25}s` }} />
           </div>
         </div>
       ))}
       <div>
-        <div className="flex justify-between text-[#8f8f8f]">
+        <div className="flex justify-between text-site-faint">
           <span>Центр тяжести</span>
-          <span className="text-[#ededed]">50% длины</span>
+          <span className="text-site-fg">50% длины</span>
         </div>
-        <div className="relative mt-3 h-px bg-white/20">
-          <span className="absolute top-1/2 left-1/2 h-3 w-px -translate-y-1/2 bg-white/30" />
-          <span className="lp-cog absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
+        <div className="relative mt-3 h-px bg-site-strong">
+          <span className="absolute top-1/2 left-1/2 h-3 w-px -translate-y-1/2 bg-site-strong" />
+          <span className="lp-cog absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-site-solid" />
         </div>
       </div>
     </div>
@@ -568,8 +564,8 @@ function AxleArt() {
   const { width, height, ground, wheel, deck, roof, front, doors } = AXLE_ART;
   const at = (cm: number) => front - cm * AXLE_PX;
   const cy = ground - wheel;
-  const line = 'rgba(255,255,255,0.5)';
-  const faint = 'rgba(255,255,255,0.32)';
+  const line = 'color-mix(in srgb, var(--site-fg) 50%, transparent)';
+  const faint = 'color-mix(in srgb, var(--site-fg) 32%, transparent)';
   return (
     <figure>
       <svg
@@ -578,7 +574,7 @@ function AxleArt() {
         role="img"
         aria-label="Вид сбоку на загруженную фуру: нагрузка на каждую ось и перегруз ведущей оси"
       >
-        <line x1={0} y1={ground} x2={width} y2={ground} stroke="rgba(255,255,255,0.14)" vectorEffect="non-scaling-stroke" />
+        <line x1={0} y1={ground} x2={width} y2={ground} stroke="color-mix(in srgb, var(--site-fg) 14%, transparent)" vectorEffect="non-scaling-stroke" />
         {AXLE_CARGO.map((c) => (
           <rect
             key={c.from}
@@ -587,8 +583,8 @@ function AxleArt() {
             width={(c.to - c.from) * AXLE_PX - 3}
             height={c.h * AXLE_PX * 1.15}
             rx={2}
-            fill="rgba(255,255,255,0.07)"
-            stroke="rgba(255,255,255,0.28)"
+            fill="color-mix(in srgb, var(--site-fg) 7%, transparent)"
+            stroke="color-mix(in srgb, var(--site-fg) 28%, transparent)"
             vectorEffect="non-scaling-stroke"
           />
         ))}
@@ -604,7 +600,7 @@ function AxleArt() {
           vectorEffect="non-scaling-stroke"
         />
         <line x1={at(300)} y1={deck + 20} x2={front + 76} y2={deck + 20} stroke={faint} vectorEffect="non-scaling-stroke" />
-        <path d={`M${at(160) - 6} ${deck + 7} h12 l-6 7 Z`} fill="rgba(255,255,255,0.6)" />
+        <path d={`M${at(160) - 6} ${deck + 7} h12 l-6 7 Z`} fill="color-mix(in srgb, var(--site-fg) 60%, transparent)" />
         {AXLE_LOADS.flatMap((g) =>
           Array.from({ length: g.axles }, (_, i) => {
             const x = at(g.x + (i - (g.axles - 1) / 2) * 130);
@@ -614,8 +610,8 @@ function AxleArt() {
                   cx={x}
                   cy={cy}
                   r={wheel}
-                  fill="#0a0a0a"
-                  stroke={g.over ? '#ededed' : 'rgba(255,255,255,0.45)'}
+                  fill="var(--site-bg)"
+                  stroke={g.over ? 'var(--site-fg)' : 'color-mix(in srgb, var(--site-fg) 45%, transparent)'}
                   strokeWidth={g.over ? 1.6 : 1}
                   vectorEffect="non-scaling-stroke"
                 />
@@ -636,12 +632,12 @@ function AxleArt() {
             <span
               className={cn(
                 'rounded-full px-2.5 py-0.5 text-xs tabular-nums',
-                g.over ? 'bg-[#ededed] text-[#0a0a0a]' : 'border border-white/15 text-[#ededed]',
+                g.over ? 'bg-site-solid text-site-solid-fg' : 'border border-site-line text-site-fg',
               )}
             >
               {g.load} из {g.max} т
             </span>
-            <span className={cn('text-[11px]', g.over ? 'text-[#ededed]' : 'text-[#8f8f8f]')}>
+            <span className={cn('text-[11px]', g.over ? 'text-site-fg' : 'text-site-faint')}>
               {g.over ? 'перегруз ведущей' : g.label}
             </span>
           </span>
@@ -758,7 +754,7 @@ function Workflow() {
   };
 
   return (
-    <section id="how" data-section="workflow" className="scroll-mt-16 border-t border-white/[0.08] pt-24 pb-12 sm:pt-32 lg:pt-0 lg:pb-0">
+    <section id="how" data-section="workflow" className="scroll-mt-16 border-t border-site-line pt-24 pb-12 sm:pt-32 lg:pt-0 lg:pb-0">
       <Container>
         {/* Wide screens: the heading, the steps and their pictures hold still while the page scrolls through the steps. */}
         <div ref={track} className="relative lg:h-[300vh]">
@@ -780,15 +776,15 @@ function Workflow() {
                       type="button"
                       onClick={() => goTo(i)}
                       aria-current={active === i ? 'step' : undefined}
-                      className="group relative block w-full py-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                      className="group relative block w-full py-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-site-ring"
                     >
-                      <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-white/[0.1]" />
-                      <span aria-hidden data-fill="" className="absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-[#ededed]" />
+                      <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-site-line" />
+                      <span aria-hidden data-fill="" className="absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-site-solid" />
                       <span className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
                         <span
                           className={cn(
                             'font-geist-mono text-[13px] tabular-nums transition-colors duration-300',
-                            active === i ? 'text-[#ededed]' : 'text-[#5f5f5f] group-hover:text-[#8f8f8f]',
+                            active === i ? 'text-site-fg' : 'text-site-faint group-hover:text-site-faint',
                           )}
                         >
                           {stepNumber(i)}
@@ -797,7 +793,7 @@ function Workflow() {
                           <span
                             className={cn(
                               'block text-lg font-medium tracking-[-0.01em] transition-colors duration-300',
-                              active === i ? 'text-[#ededed]' : 'text-[#8f8f8f] group-hover:text-[#a1a1a1]',
+                              active === i ? 'text-site-fg' : 'text-site-faint group-hover:text-site-muted',
                             )}
                           >
                             {s.title}
@@ -805,7 +801,7 @@ function Workflow() {
                           <span
                             className={cn(
                               'mt-1.5 block text-[15px] leading-relaxed transition-colors duration-300',
-                              active === i ? 'text-[#a1a1a1]' : 'text-[#5f5f5f]',
+                              active === i ? 'text-site-muted' : 'text-site-faint',
                             )}
                           >
                             {s.text}
@@ -840,12 +836,12 @@ function Workflow() {
             {/* Phones and narrow windows: one under another. */}
             <ol className="mt-12 grid gap-12 lg:hidden">
               {STEPS.map((s, i) => (
-                <li key={s.title} className="border-t border-white/[0.1] pt-6">
+                <li key={s.title} className="border-t border-site-line pt-6">
                   <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-baseline">
-                    <span className="font-geist-mono text-[13px] text-[#8f8f8f] tabular-nums">{stepNumber(i)}</span>
+                    <span className="font-geist-mono text-[13px] text-site-faint tabular-nums">{stepNumber(i)}</span>
                     <div>
-                      <p className="text-lg font-medium tracking-[-0.01em] text-[#ededed]">{s.title}</p>
-                      <p className="mt-1.5 text-[15px] leading-relaxed text-[#a1a1a1]">{s.text}</p>
+                      <p className="text-lg font-medium tracking-[-0.01em] text-site-fg">{s.title}</p>
+                      <p className="mt-1.5 text-[15px] leading-relaxed text-site-muted">{s.text}</p>
                     </div>
                   </div>
                   <Shot {...s.image} className="mx-auto mt-6 w-full rounded-2xl" style={{ maxWidth: s.image.width / 2 }} />
@@ -869,7 +865,7 @@ const ONE_C_ROWS = [
 
 function Integration() {
   return (
-    <section id="integration" data-section="integration" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
+    <section id="integration" data-section="integration" className="scroll-mt-16 border-t border-site-line py-24 sm:py-32">
       <Container className="grid items-center gap-14 lg:grid-cols-2 lg:gap-16">
         <div>
           <Heading className="max-w-xl">
@@ -884,11 +880,11 @@ function Integration() {
             Номенклатура с габаритами и весом приходит из вашей учётной системы. Никакого ручного ввода и ошибок в
             размерах — открыли рейс и загрузили.
           </p>
-          <ul className="mt-8 space-y-3 text-[15px] text-[#ededed]">
+          <ul className="mt-8 space-y-3 text-[15px] text-site-fg">
             {['Габариты и вес — из карточек товаров', 'Список грузов для рейса — без ручного ввода', 'Подключаем под вашу конфигурацию 1С'].map(
               (x) => (
                 <li key={x} className="flex items-center gap-3">
-                  <Check className="size-4 text-[#a1a1a1]" strokeWidth={2} />
+                  <Check className="size-4 text-site-muted" strokeWidth={2} />
                   {x}
                 </li>
               ),
@@ -900,7 +896,7 @@ function Integration() {
                 Обсудить подключение
               </a>
             </Button>
-            <span className="text-sm text-[#8f8f8f]">
+            <span className="text-sm text-site-faint">
               {TIERS_ENABLED ? 'На тарифе «Индивидуальный»' : 'Подключаем по договору'}
             </span>
           </div>
@@ -909,30 +905,30 @@ function Integration() {
         <Frame className="p-6 sm:p-8">
           <div className="flex items-center gap-3">
             <OneCLogo className="size-11" />
-            <div className="relative h-px flex-1 bg-white/15">
+            <div className="relative h-px flex-1 bg-site-strong">
               {[0, 0.9, 1.8].map((d) => (
                 <span
                   key={d}
-                  className="lp-flow absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ededed]"
+                  className="lp-flow absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-site-solid"
                   style={{ '--d': `${d}s` } as CSSProperties}
                 />
               ))}
             </div>
             <span className="grid size-11 place-items-center" role="img" aria-label="Loader3D">
-              <LogoMark className="size-10 text-white" />
+              <LogoMark className="size-10 text-site-fg" />
             </span>
           </div>
-          <p className="mt-8 font-geist-mono text-[11px] tracking-wide text-[#8f8f8f] uppercase">Номенклатура из 1С</p>
-          <ul className="mt-3 divide-y divide-white/[0.08] rounded-lg border border-white/[0.08] font-geist-mono text-xs">
+          <p className="mt-8 font-geist-mono text-[11px] tracking-wide text-site-faint uppercase">Номенклатура из 1С</p>
+          <ul className="mt-3 divide-y divide-site-line rounded-lg border border-site-line font-geist-mono text-xs">
             {ONE_C_ROWS.map((r) => (
               <li key={r.name} className="flex items-center gap-4 px-4 py-3">
-                <span className="min-w-0 flex-1 truncate text-[#ededed]">{r.name}</span>
-                <span className="hidden text-[#8f8f8f] sm:inline">{r.size}</span>
-                <span className="w-16 text-right text-[#ededed]">{r.weight}</span>
+                <span className="min-w-0 flex-1 truncate text-site-fg">{r.name}</span>
+                <span className="hidden text-site-faint sm:inline">{r.size}</span>
+                <span className="w-16 text-right text-site-fg">{r.weight}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-5 flex items-center gap-2 text-sm text-[#a1a1a1]">
+          <p className="mt-5 flex items-center gap-2 text-sm text-site-muted">
             <ArrowUpRight className="size-4" />
             Попадает в рейс с размерами и весом — осталось нажать «Автозагрузка»
           </p>
@@ -947,7 +943,7 @@ function Integration() {
 function Pricing() {
   const [yearly, setYearly] = useState(false);
   return (
-    <section id="pricing" data-section="pricing" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
+    <section id="pricing" data-section="pricing" className="scroll-mt-16 border-t border-site-line py-24 sm:py-32">
       <Container>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -956,7 +952,7 @@ function Pricing() {
               Начните бесплатно. «Pro» — первые {TRIAL_DAYS} дней без оплаты, без карты и без автоматических списаний.
             </p>
           </div>
-          <div role="radiogroup" aria-label="Период оплаты" className="inline-flex rounded-full border border-[#2e2e2e] p-1 text-sm">
+          <div role="radiogroup" aria-label="Период оплаты" className="inline-flex rounded-full border border-site-strong p-1 text-sm">
             {[
               { value: false, label: 'Помесячно' },
               { value: true, label: 'За год −20%' },
@@ -968,8 +964,8 @@ function Pricing() {
                 aria-checked={yearly === o.value}
                 onClick={() => setYearly(o.value)}
                 className={cn(
-                  'rounded-full px-4 py-1.5 font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-white/30',
-                  yearly === o.value ? 'bg-[#ededed] text-black' : 'text-[#a1a1a1] hover:text-white',
+                  'rounded-full px-4 py-1.5 font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-site-ring',
+                  yearly === o.value ? 'bg-site-solid text-site-solid-fg' : 'text-site-muted hover:text-site-fg',
                 )}
               >
                 {o.label}
@@ -1000,7 +996,7 @@ function PriceCard({ tier, yearly }: { tier: TierInfo; yearly: boolean }) {
       asChild
       className={cn(
         'h-11 w-full rounded-full text-[15px] font-medium shadow-none transition-colors',
-        pro ? 'bg-black text-white hover:bg-[#1f1f1f]' : 'border border-[#2e2e2e] bg-[#0a0a0a] text-[#ededed] hover:border-[#454545] hover:bg-[#1a1a1a]',
+        pro ? 'bg-site-bg text-site-fg hover:bg-site-soft' : 'border border-site-strong bg-site-panel text-site-fg hover:border-site-faint hover:bg-site-soft',
       )}
     >
       {href.startsWith('#') ? (
@@ -1019,38 +1015,38 @@ function PriceCard({ tier, yearly }: { tier: TierInfo; yearly: boolean }) {
       className={cn(
         'flex flex-col rounded-2xl p-7 sm:p-8',
         pro
-          ? 'order-first bg-[#ededed] text-[#0a0a0a] lg:order-none lg:-my-4 lg:py-12'
-          : 'border border-white/[0.09] bg-[#0a0a0a] text-[#ededed]',
+          ? 'order-first bg-site-solid text-site-solid-fg lg:order-none lg:-my-4 lg:py-12'
+          : 'border border-site-line bg-site-panel text-site-fg',
       )}
     >
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-xl font-semibold tracking-[-0.03em]">{tier.name}</h3>
-        {pro && <span className="rounded-full bg-black px-2.5 py-1 text-xs font-medium text-white">Выбор логистов</span>}
+        {pro && <span className="rounded-full bg-site-bg px-2.5 py-1 text-xs font-medium text-site-fg">Выбор логистов</span>}
       </div>
-      <p className={cn('mt-2 min-h-10 text-sm leading-relaxed', pro ? 'text-black/60' : 'text-[#a1a1a1]')}>{tier.tagline}</p>
+      <p className={cn('mt-2 min-h-10 text-sm leading-relaxed', pro ? 'text-site-solid-fg/60' : 'text-site-muted')}>{tier.tagline}</p>
       <div className="mt-8 flex items-baseline gap-2">
         {price === null ? (
           <span className="text-[2rem] font-semibold tracking-[-0.045em]">По договору</span>
         ) : price === 0 ? (
-          <span className="text-[2rem] font-semibold tracking-[-0.045em] text-[#a1a1a1]">Бесплатно</span>
+          <span className="text-[2rem] font-semibold tracking-[-0.045em] text-site-muted">Бесплатно</span>
         ) : (
           <>
             <span className="text-[3rem] leading-none font-semibold tracking-[-0.055em] tabular-nums">{formatPrice(price)}</span>
-            <span className="text-sm text-black/55">в месяц</span>
+            <span className={cn('text-sm', pro ? 'text-site-solid-fg/55' : 'text-site-faint')}>в месяц</span>
           </>
         )}
       </div>
-      <p className={cn('mt-3 min-h-5 text-[13px]', pro ? 'text-black/55' : 'text-[#8f8f8f]')}>
+      <p className={cn('mt-3 min-h-5 text-[13px]', pro ? 'text-site-solid-fg/55' : 'text-site-faint')}>
         {tier.price && tier.price.monthly > 0 && (yearly ? `${formatPrice(tier.price.yearly * 12)} при оплате за год` : 'при оплате помесячно')}
         {tier.price?.monthly === 0 && 'навсегда, без карты'}
         {tier.price === null && 'Лимиты, срок и цена — под ваши объёмы'}
       </p>
       <div className="mt-8">{action}</div>
-      <ul className={cn('mt-8 space-y-3 border-t pt-8 text-[15px]', pro ? 'border-black/10' : 'border-white/[0.08]')}>
+      <ul className={cn('mt-8 space-y-3 border-t pt-8 text-[15px]', pro ? 'border-site-solid-fg/15' : 'border-site-line')}>
         {tier.features.map((f) => (
           <li key={f} className="flex items-start gap-3">
-            <Check className={cn('mt-0.5 size-4 shrink-0', pro ? 'text-black' : 'text-[#8f8f8f]')} strokeWidth={2.25} />
-            <span className={pro ? 'text-black/80' : 'text-[#ededed]/85'}>{f}</span>
+            <Check className={cn('mt-0.5 size-4 shrink-0', pro ? 'text-site-solid-fg' : 'text-site-faint')} strokeWidth={2.25} />
+            <span className={pro ? 'text-site-solid-fg/85' : 'text-site-fg/85'}>{f}</span>
           </li>
         ))}
       </ul>
@@ -1062,7 +1058,7 @@ function PriceCard({ tier, yearly }: { tier: TierInfo; yearly: boolean }) {
 
 function Faq() {
   return (
-    <section id="faq" data-section="faq" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
+    <section id="faq" data-section="faq" className="scroll-mt-16 border-t border-site-line py-24 sm:py-32">
       <Container className="grid gap-12 lg:grid-cols-12">
         <div className="lg:col-span-5">
           <Heading>Вопросы</Heading>
@@ -1070,12 +1066,12 @@ function Faq() {
             Не нашли ответ — напишите через форму ниже, ответим в течение рабочего дня.
           </p>
         </div>
-        <div className="border-b border-white/[0.08] lg:col-span-7">
+        <div className="border-b border-site-line lg:col-span-7">
           {FAQ.map((item) => (
-            <details key={item.q} className="group border-t border-white/[0.08]">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-6 text-[17px] font-medium tracking-[-0.015em] text-[#ededed] outline-none transition-colors hover:text-white focus-visible:text-white [&::-webkit-details-marker]:hidden">
+            <details key={item.q} className="group border-t border-site-line">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-6 text-[17px] font-medium tracking-[-0.015em] text-site-fg outline-none transition-colors hover:text-site-fg focus-visible:text-site-fg [&::-webkit-details-marker]:hidden">
                 {item.q}
-                <Plus className="size-4 shrink-0 text-white/50 transition-transform duration-200 group-open:rotate-45" />
+                <Plus className="size-4 shrink-0 text-site-faint transition-transform duration-200 group-open:rotate-45" />
               </summary>
               <p className={cn(mutedText, 'max-w-2xl pr-10 pb-7 leading-relaxed')}>{item.a}</p>
             </details>
@@ -1089,7 +1085,7 @@ function Faq() {
 /** Links to the free calculators (pages/tools): for visitors and for search engines. */
 function Tools() {
   return (
-    <section id="tools" data-section="tools" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
+    <section id="tools" data-section="tools" className="scroll-mt-16 border-t border-site-line py-24 sm:py-32">
       <Container>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -1104,21 +1100,21 @@ function Tools() {
             </Link>
           </Button>
         </div>
-        <ul className="mt-14 grid gap-px overflow-hidden rounded-xl border border-white/[0.09] bg-white/[0.09] sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-14 grid gap-px overflow-hidden rounded-xl border border-site-line bg-site-line sm:grid-cols-2 lg:grid-cols-4">
           {FEATURED_TOOLS.map((id) => {
             const page = toolPage(id);
             return (
-              <li key={id} className="bg-black">
+              <li key={id} className="bg-site-bg">
                 <Link
                   to={page.path}
                   data-track="tools_card"
-                  className="group flex h-full flex-col justify-between gap-8 p-6 transition-colors hover:bg-[#0a0a0a]"
+                  className="group flex h-full flex-col justify-between gap-8 p-6 transition-colors hover:bg-site-panel"
                 >
                   <span>
-                    <span className="block text-[16px] font-medium tracking-[-0.01em] text-[#ededed]">{page.name}</span>
-                    <span className="mt-1.5 block text-[14px] leading-relaxed text-[#a1a1a1]">{page.blurb}</span>
+                    <span className="block text-[16px] font-medium tracking-[-0.01em] text-site-fg">{page.name}</span>
+                    <span className="mt-1.5 block text-[14px] leading-relaxed text-site-muted">{page.blurb}</span>
                   </span>
-                  <ArrowRight className="size-4 text-white/40 transition-all group-hover:translate-x-0.5 group-hover:text-white" />
+                  <ArrowRight className="size-4 text-site-faint transition-all group-hover:translate-x-0.5 group-hover:text-site-fg" />
                 </Link>
               </li>
             );
@@ -1145,15 +1141,15 @@ const CONTACT = TIERS_ENABLED
 
 function Contact() {
   return (
-    <section id="contact" className="scroll-mt-16 border-t border-white/[0.08] py-24 sm:py-32">
+    <section id="contact" className="scroll-mt-16 border-t border-site-line py-24 sm:py-32">
       <Container className="grid gap-12 lg:grid-cols-2 lg:gap-16">
         <div>
           <Heading className="max-w-xl text-[2.2rem] sm:text-[2.6rem] lg:text-[3rem]">{CONTACT.title}</Heading>
           <p className={cn(mutedText, 'mt-6 max-w-lg text-lg leading-relaxed text-pretty')}>{CONTACT.text}</p>
           <ul className="mt-8 space-y-3">
             {CONTACT.points.map((x) => (
-              <li key={x} className="flex items-center gap-3 text-[15px] text-[#ededed]">
-                <Check className="size-4 text-[#a1a1a1]" strokeWidth={2.25} />
+              <li key={x} className="flex items-center gap-3 text-[15px] text-site-fg">
+                <Check className="size-4 text-site-muted" strokeWidth={2.25} />
                 {x}
               </li>
             ))}
@@ -1174,7 +1170,7 @@ function Contact() {
 
 function FinalCta() {
   return (
-    <section className="border-t border-white/[0.08] py-28 sm:py-36">
+    <section className="border-t border-site-line py-28 sm:py-36">
       <Container className="flex flex-wrap items-end justify-between gap-8">
         <Heading className="max-w-2xl">Следующую машину — загрузите в Loader3D</Heading>
         <div className="flex flex-wrap gap-3">

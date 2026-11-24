@@ -180,16 +180,16 @@ export function LandingDemo() {
             onPointerEnter={() => void loadDemo()}
             style={{ '--w': 'min(1152px, calc(100% - 48px), calc((100dvh - 4rem - 88px) * 1.6))' } as CSSProperties}
             className={cn(
-              'group/frame landing-rise relative flex flex-col overflow-hidden rounded-xl border border-white/[0.09] bg-[#0a0a0a] [contain:layout_paint] [animation-delay:260ms]',
+              'group/frame landing-rise relative flex flex-col overflow-hidden rounded-xl border border-site-line bg-site-panel [contain:layout_paint] [animation-delay:260ms]',
               'lg:w-(--w) lg:shrink-0 lg:data-grow:h-(--h) lg:data-grow:rounded-(--r)',
             )}
           >
-            <div className="relative h-10 shrink-0 overflow-hidden border-b border-white/[0.08] lg:group-data-grow/frame:h-(--bar)">
+            <div className="relative h-10 shrink-0 overflow-hidden border-b border-site-line lg:group-data-grow/frame:h-(--bar)">
               <div className="flex h-10 items-center gap-1.5 px-4">
-                <span className="size-2.5 rounded-full bg-white/15" />
-                <span className="size-2.5 rounded-full bg-white/15" />
-                <span className="size-2.5 rounded-full bg-white/15" />
-                <span className="absolute inset-x-0 text-center text-xs text-white/40">loader3d.pro — Рейс Москва — Казань</span>
+                <span className="size-2.5 rounded-full bg-site-strong" />
+                <span className="size-2.5 rounded-full bg-site-strong" />
+                <span className="size-2.5 rounded-full bg-site-strong" />
+                <span className="absolute inset-x-0 text-center text-xs text-site-faint">loader3d.pro — Рейс Москва — Казань</span>
               </div>
             </div>
             <div

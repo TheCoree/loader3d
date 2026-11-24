@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { SiteFooter } from '@/components/SiteFooter';
-import { displayTitle, publicRoot } from '@/components/site';
+import { SitePage, SiteThemeSwitch, displayTitle } from '@/components/site';
 import { DATA_LOCATION, DOCS_DATE, SUPPORT, telegramUrl } from '@/lib/legal';
 import { TIERS_ENABLED, TRIAL_DAYS, tierInfo } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
@@ -27,22 +27,25 @@ export function LegalPage({ doc }: { doc: LegalDoc }) {
   }, [title]);
 
   return (
-    <div className={publicRoot}>
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 text-white backdrop-blur-xl backdrop-saturate-150">
+    <SitePage>
+      <header className="sticky top-0 z-40 border-b border-site-line bg-site-bg/80 text-site-fg backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between px-5 sm:px-8">
-          <Logo className="text-white" />
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-white/65 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="size-3.5" /> На главную
-          </Link>
+          <Logo className="text-site-fg" />
+          <div className="flex items-center gap-1">
+            <SiteThemeSwitch />
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-site-muted transition-colors hover:bg-site-soft hover:text-site-fg"
+            >
+              <ArrowLeft className="size-3.5" /> На главную
+            </Link>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-[760px] px-5 pt-16 pb-24 sm:px-8 sm:pt-24 sm:pb-32">
         <h1 className={cn(displayTitle, 'text-[1.8rem] leading-[1.1] sm:text-[2.2rem]')}>{title}</h1>
-        <p className="mt-4 text-[15px] text-white/50">Редакция от {DOCS_DATE}</p>
+        <p className="mt-4 text-[15px] text-site-faint">Редакция от {DOCS_DATE}</p>
         <nav aria-label="Документы" className="mt-8 flex flex-wrap gap-2">
           {(Object.keys(DOCS) as LegalDoc[]).map((d) => (
             <Link
@@ -51,7 +54,7 @@ export function LegalPage({ doc }: { doc: LegalDoc }) {
               aria-current={d === doc ? 'page' : undefined}
               className={cn(
                 'rounded-full px-4 py-2 text-sm transition-colors',
-                d === doc ? 'bg-white text-black' : 'border border-white/10 text-white/65 hover:bg-white/[0.06] hover:text-white',
+                d === doc ? 'bg-site-solid text-site-solid-fg' : 'border border-site-line text-site-muted hover:bg-site-soft hover:text-site-fg',
               )}
             >
               {DOCS[d].title}
@@ -62,7 +65,7 @@ export function LegalPage({ doc }: { doc: LegalDoc }) {
       </main>
 
       <SiteFooter />
-    </div>
+    </SitePage>
   );
 }
 
@@ -72,10 +75,10 @@ function Section({ n, title, children }: { n: number; title: string; children: R
   return (
     <section>
       <h2 className="font-geist text-[1.375rem] font-medium tracking-[-0.02em]">
-        <span className="mr-3 text-white/30 tabular-nums">{n}.</span>
+        <span className="mr-3 text-site-faint tabular-nums">{n}.</span>
         {title}
       </h2>
-      <div className="mt-5 space-y-4 text-[15px] leading-[1.75] text-white/70 [&_a]:text-white [&_a]:underline [&_a]:decoration-white/30 [&_a]:underline-offset-4 hover:[&_a]:decoration-white [&_strong]:font-medium [&_strong]:text-white">
+      <div className="mt-5 space-y-4 text-[15px] leading-[1.75] text-site-muted [&_a]:text-site-fg [&_a]:underline [&_a]:decoration-site-strong [&_a]:underline-offset-4 hover:[&_a]:decoration-site-fg [&_strong]:font-medium [&_strong]:text-site-fg">
         {children}
       </div>
     </section>
@@ -87,7 +90,7 @@ function List({ items }: { items: ReactNode[] }) {
     <ul className="space-y-2.5">
       {items.map((item, i) => (
         <li key={i} className="flex gap-3">
-          <span className="mt-[0.7em] size-1 shrink-0 rounded-full bg-white/35" />
+          <span className="mt-[0.7em] size-1 shrink-0 rounded-full bg-site-strong" />
           <span>{item}</span>
         </li>
       ))}

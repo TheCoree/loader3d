@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { LogoLoader } from '@/components/Logo';
+import { useSiteTheme } from '@/lib/theme';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
 
 export function FullScreenLoader({ label = 'Загрузка…' }: { label?: string }) {
@@ -17,12 +19,13 @@ export function FullScreenLoader({ label = 'Загрузка…' }: { label?: st
 }
 
 /**
- * While the demo of the landing page loads (pages/DemoPage): the dark interface on the editor's picture the landing
+ * While the demo of the landing page loads (pages/DemoPage): the site's theme over the editor's picture the landing
  * page grew to the whole screen (pages/LandingDemo), so the demo opens where the picture was.
  */
 export function DemoFallback() {
+  const [siteTheme] = useSiteTheme();
   return (
-    <div className="dark relative grid min-h-dvh place-items-center overflow-hidden bg-background">
+    <div className={cn('relative grid min-h-dvh place-items-center overflow-hidden bg-background', siteTheme === 'dark' && 'dark')}>
       <img src="/landing/editor.webp" alt="" className="absolute inset-0 size-full object-cover object-left-top opacity-25" />
       <div className="relative flex flex-col items-center gap-4 text-sm text-muted-foreground">
         <LogoLoader className="size-11 text-foreground" label="Открываем демо…" />
