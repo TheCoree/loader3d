@@ -134,6 +134,9 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   user for accountSync), nothing kept in the browser, no tariff word with tiers off (what it gates opens `DemoGate`;
   `ProBadge` reads `DemoMode`), and its code loads only once the visitor scrolls to the landing picture or points at
   it. Its plan reaches a new account through `/start?plan=…` (`lib/demoPlan.ts`, `fitPlan` in `core/tools/startPlan.ts`).
+  It is a showcase, not a free tool: the store holds it to the example (`PlanLimits.exampleOnly` — every action that
+  adds cargo, changes its size, weight or name, or changes a vehicle is refused as `setup`, which opens `DemoGate`), and
+  no PDF or file leaves it. A new edit action that makes the plan one's own must check `exampleOnly` too.
 - Visit statistics (`src/lib/analytics.ts`, `backend/app/analytics.py`, admin «Посещаемость»): only visitors who are
   not signed in, only on `PUBLIC_PATHS`; nothing is written to the browser (no cookies, no storage) and the server
   keeps no IP or user agent (a daily salted hash). Landing sections carry `data-section` and tracked buttons

@@ -6,8 +6,8 @@ import { DemoGate } from '@/editor/DemoGate';
 import { DemoGuide } from '@/editor/DemoGuide';
 import { DemoHeader } from '@/editor/DemoHeader';
 import { EditorLayout, useNoPageZoom } from '@/editor/EditorLayout';
+import { useAxlesDialog } from '@/editor/AxlesDialog';
 import {
-  DEMO_FREE_PDFS,
   DEMO_IDLE_AFTER,
   DEMO_LIMITS,
   DEMO_NUDGE_AFTER,
@@ -55,9 +55,9 @@ export function DemoPage() {
 }
 
 /**
- * Puts the demo plan into the store (the one the visitor left, or the example), with the demo's limits, and
- * follows what the visitor does: the steps to try, the free PDF, the time in the demo. Leaving, it keeps the
- * plan for a return in this visit and gives the store back without limits.
+ * Puts the demo plan into the store (the one the visitor left, or the example), with the demo's limits (the example
+ * only), and follows what the visitor does: the steps to try, the PDF (an account's), the time in the demo. Leaving,
+ * it keeps the plan for a return in this visit and gives the store back without limits.
  */
 function useDemoSession(setReady: (ready: boolean) => void): void {
   const navigate = useNavigate();
@@ -70,7 +70,6 @@ function useDemoSession(setReady: (ready: boolean) => void): void {
     useUi.setState({ drawerOpen: false, autoloadOpen: false, pdfOpen: false, displayOpen: false, helpOpen: false });
     setReady(true);
 
-    let pdfBase = useUi.getState().pdfExports;
     let thanked = false;
 
     const offStore = useStore.subscribe((s, prev) => {
@@ -106,17 +105,15 @@ function useDemoSession(setReady: (ready: boolean) => void): void {
       }
     });
 
+    // The PDF is what is taken to the warehouse and the driver: an account's, whichever way it is asked for.
     const offUi = useUi.subscribe((s, prev) => {
-      if (s.pdfExports > pdfBase) {
-        pdfBase = s.pdfExports;
-        useDemo.setState((d) => ({ pdfs: d.pdfs + 1 }));
-        markDemoStep('pdf');
-      }
-      // The free PDF is made: the next one is the account's.
-      if (s.pdfOpen && !prev.pdfOpen && useDemo.getState().pdfs >= DEMO_FREE_PDFS) {
+      if (s.pdfOpen && !prev.pdfOpen) {
         useUi.setState({ pdfOpen: false });
         openDemoGate('pdf');
       }
+    });
+    const offAxles = useAxlesDialog.subscribe((s) => {
+      if (s.vehicleId) markDemoStep('axles');
     });
 
     // Active time: the tab visible and the visitor did something within DEMO_IDLE_AFTER.
@@ -144,6 +141,7 @@ function useDemoSession(setReady: (ready: boolean) => void): void {
     return () => {
       offStore();
       offUi();
+      offAxles();
       window.clearInterval(timer);
       for (const e of events) window.removeEventListener(e, input, { capture: true });
       useDemo.setState({ plan: exportPlan(useStore.getState()) });

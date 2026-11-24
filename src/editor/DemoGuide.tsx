@@ -20,11 +20,11 @@ const STEPS: Array<{ id: DemoStep; label: string; hint: { mouse: string; touch: 
     },
   },
   {
-    id: 'pdf',
-    label: 'PDF для водителя',
+    id: 'axles',
+    label: 'Нагрузка на оси',
     hint: {
-      mouse: '«Файл» → «Экспорт в PDF»: виды сбоку и сверху, номера мест и порядок погрузки.',
-      touch: '«⋯» → «Экспорт в PDF»: виды сбоку и сверху, номера мест и порядок погрузки.',
+      mouse: 'Под сценой нажмите «Нагрузка на оси» — сколько тонн на каждой оси тягача и полуприцепа и где перегруз.',
+      touch: 'Под сценой нажмите «Нагрузка на оси» — сколько тонн на каждой оси и где перегруз.',
     },
   },
 ];
@@ -67,7 +67,7 @@ export function DemoGuide({ coarse }: { coarse: boolean }) {
         {next ? (
           coarse ? next.hint.touch : next.hint.mouse
         ) : (
-          <span className="text-foreground">Всё получилось. Сохраните схему, чтобы не потерять её, — регистрация бесплатная.</span>
+          <span className="text-foreground">Всё получилось. Свои машины, грузы и PDF для водителя — после бесплатной регистрации.</span>
         )}
       </p>
     </div>

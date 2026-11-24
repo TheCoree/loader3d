@@ -117,14 +117,14 @@ export function DemoHeader() {
   );
 }
 
-/** «Файл» of the demo: the PDF (counted, editor/demo.ts), the example again; files need an account. */
+/** «Файл» of the demo: the example again; the PDF and files need an account (editor/demo.ts). */
 function DemoFileItems() {
   const loadPlan = useStore((s) => s.loadPlan);
-  const setPdfOpen = useUi((s) => s.setPdfOpen);
   return (
     <>
-      <DropdownMenuItem onSelect={() => setPdfOpen(true)}>
+      <DropdownMenuItem onSelect={() => openDemoGate('pdf')}>
         <FileText /> Экспорт в PDF…
+        <ProBadge />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={() => openDemoGate('file')}>

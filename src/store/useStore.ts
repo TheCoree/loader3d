@@ -73,11 +73,17 @@ export interface PlanLimits {
   items: number;
   /** Shown in messages: «Старт», «Pro»… */
   tierName: string;
+  /**
+   * The demo of the landing page (editor/demo.ts): the example only, a showcase and not a tool. No cargo of one's own
+   * (new, copied, other sizes, weights or names) and no other vehicle, its sizes, payload or axles; moving, turning,
+   * removing, autoload and the views stay. Refused as `setup`.
+   */
+  exampleOnly?: boolean;
 }
 
-/** An edit refused because of the tier: the editor shows an offer to upgrade. */
+/** An edit refused because of the tier (or `setup`: the demo's example only): the editor shows an offer. */
 export interface LimitHit {
-  kind: 'vehicles' | 'items';
+  kind: 'vehicles' | 'items' | 'setup';
   limit: number;
   tierName: string;
   at: number;
@@ -350,7 +356,14 @@ export const useStore = create<AppState>()(
     });
 
     const refuse = (kind: LimitHit['kind'], limits: PlanLimits) =>
-      set({ limitHit: { kind, limit: limits[kind], tierName: limits.tierName, at: Date.now() } });
+      set({ limitHit: { kind, limit: kind === 'setup' ? 0 : limits[kind], tierName: limits.tierName, at: Date.now() } });
+
+    /** True (and refused) when the plan may only be the demo's example (PlanLimits.exampleOnly). */
+    const exampleOnly = (s: AppState): boolean => {
+      if (!s.limits?.exampleOnly) return false;
+      refuse('setup', s.limits);
+      return true;
+    };
 
     const setBodies = (s: AppState, vehicleId: string, change: (bodies: CargoBody[]) => CargoBody[]) =>
       withVehicles(
@@ -370,6 +383,7 @@ export const useStore = create<AppState>()(
 
       addItems({ dims, name, count = 1, weight }) {
         const s = get();
+        if (exampleOnly(s)) return;
         let wanted = Math.max(1, Math.min(200, Math.round(count)));
         if (s.limits) {
           const room = s.limits.items - s.items.length;
@@ -410,6 +424,8 @@ export const useStore = create<AppState>()(
 
       updateItem(id, patch) {
         const s = get();
+        // The demo's example keeps its cargo (a colour is only a look).
+        if ((patch.name !== undefined || patch.dims || patch.weight !== undefined) && exampleOnly(s)) return;
         // A fixed item keeps its size (name, colour and weight may change).
         if (patch.dims && pinnedIds(s.items).has(id)) patch = { ...patch, dims: undefined };
         const items = s.items.map((i) => {
@@ -431,6 +447,15 @@ export const useStore = create<AppState>()(
 
       applyItems(items, key) {
         const s = get();
+        // The demo's example: cargo moves and turns, but is not resized or added (a resize handle, a paste).
+        if (s.limits?.exampleOnly) {
+          const before = new Map(s.items.map((i) => [i.id, i]));
+          const changed = items.some((i) => {
+            const b = before.get(i.id);
+            return !b || b.dims.l !== i.dims.l || b.dims.w !== i.dims.w || b.dims.h !== i.dims.h || b.weight !== i.weight;
+          });
+          if (changed && exampleOnly(s)) return;
+        }
         const settled = settle(items);
         const selectedId = keepSelection(settled, s.selectedId);
         // A dragged item takes the active vehicle along to wherever it was dropped.
@@ -447,7 +472,7 @@ export const useStore = create<AppState>()(
       duplicateItem(id) {
         const s = get();
         const source = s.items.find((i) => i.id === id);
-        if (!source) return;
+        if (!source || exampleOnly(s)) return;
         if (s.limits && s.items.length >= s.limits.items) {
           refuse('items', s.limits);
           return;
@@ -531,12 +556,14 @@ export const useStore = create<AppState>()(
 
       updateBody(id, dims) {
         const s = get();
+        if (exampleOnly(s)) return;
         const vehicles = mapBody(s.vehicles, id, (b) => ({ ...b, dims: clampBodyDims(dims) }));
         commit(withVehicles(s, vehicles), {}, `body:${id}`);
       },
 
       setBodyMaxLoad(id, maxLoad) {
         const s = get();
+        if (exampleOnly(s)) return;
         const vehicles = mapBody(s.vehicles, id, (b) => {
           const { maxLoad: _, ...rest } = b;
           return maxLoad === undefined
@@ -548,6 +575,7 @@ export const useStore = create<AppState>()(
 
       setBodyChassis(id, chassis) {
         const s = get();
+        if (exampleOnly(s)) return;
         const clean = cleanChassis(chassis);
         const vehicles = mapBody(s.vehicles, id, (b) => {
           const { chassis: _, ...rest } = b;
@@ -559,7 +587,7 @@ export const useStore = create<AppState>()(
       addTrailer(vehicleId) {
         const s = get();
         const target = s.vehicles.find((v) => v.id === (vehicleId ?? s.activeVehicleId));
-        if (!target || target.bodies.length >= MAX_BODIES) return;
+        if (!target || target.bodies.length >= MAX_BODIES || exampleOnly(s)) return;
         const last = target.bodies[target.bodies.length - 1];
         const trailer = makeBody({
           ...DEFAULT_TRAILER,
@@ -571,7 +599,7 @@ export const useStore = create<AppState>()(
       removeBody(id) {
         const s = get();
         const owner = s.vehicles.find((v) => v.bodies.some((b) => b.id === id));
-        if (!owner || owner.bodies.length <= 1) return;
+        if (!owner || owner.bodies.length <= 1 || exampleOnly(s)) return;
         commit(withVehicles(s, mapBody(s.vehicles, id, () => null), s.dockMode, owner.id));
       },
 
@@ -579,7 +607,7 @@ export const useStore = create<AppState>()(
         const s = get();
         const preset = VEHICLE_PRESETS.find((p) => p.id === presetId);
         const target = s.vehicles.find((v) => v.id === (vehicleId ?? s.activeVehicleId));
-        if (!preset || !target) return;
+        if (!preset || !target || exampleOnly(s)) return;
         // Reuse body ids by position so cargo stays in "the first body", "the second body"...
         commit(
           setBodies(s, target.id, (bodies) => preset.bodies.map((t, i) => makeBody(t, bodies[i]?.id))),
@@ -589,7 +617,7 @@ export const useStore = create<AppState>()(
 
       addVehicle(presetId) {
         const s = get();
-        if (s.vehicles.length >= MAX_VEHICLES) return null;
+        if (s.vehicles.length >= MAX_VEHICLES || exampleOnly(s)) return null;
         if (s.limits && s.vehicles.length >= s.limits.vehicles) {
           refuse('vehicles', s.limits);
           return null;

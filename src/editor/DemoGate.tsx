@@ -8,15 +8,20 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Spinner } from '@/components/ui/spinner';
 import { TIERS_ENABLED, TRIAL_DAYS, tierInfo } from '@/lib/tiers';
 import { useStore } from '@/store/useStore';
-import { DEMO_FREE_PDFS, DEMO_LIMITS, closeDemoGate, demoAccountLink, openDemoGate, useDemo, type DemoGateReason } from './demo';
+import { DEMO_LIMITS, closeDemoGate, demoAccountLink, openDemoGate, useDemo, type DemoGateReason } from './demo';
 
 const PRO = tierInfo('pro').limits;
 const fmt = (n: number) => n.toLocaleString('ru-RU');
 
+/** «…зарегистрируйтесь — это бесплатно» / with tiers: the «Pro» trial. */
+const SIGN_UP = TIERS_ENABLED
+  ? `зарегистрируйтесь — первые ${TRIAL_DAYS} дней «Pro» бесплатно, без карты`
+  : 'зарегистрируйтесь — это бесплатно';
+
 const COPY: Record<DemoGateReason, { title: string; lead: string }> = {
   time: {
-    title: 'Сохраните схему — это бесплатно',
-    lead: 'Вы уже несколько минут в демо, а схема пока живёт только в этой вкладке. Зарегистрируйтесь — она перенесётся в аккаунт, и вы продолжите с того же места.',
+    title: 'Загрузите свою машину',
+    lead: `Вы уже несколько минут в демо. Чтобы разложить свой груз в своей машине и отдать водителю PDF, ${SIGN_UP}. Схема из демо перенесётся в аккаунт.`,
   },
   limits: {
     title: `В демо — до ${DEMO_LIMITS.vehicles} машин и ${DEMO_LIMITS.items} грузов`,
@@ -24,9 +29,13 @@ const COPY: Record<DemoGateReason, { title: string; lead: string }> = {
       ? `В аккаунте с «Pro» — до ${PRO.vehicles} машин и ${fmt(PRO.items)} грузов в схеме, первые ${TRIAL_DAYS} дней бесплатно. Схема из демо перенесётся в аккаунт.`
       : `В аккаунте — до ${PRO.vehicles} машин и ${fmt(PRO.items)} грузов в схеме. Регистрация бесплатная, схема из демо перенесётся в аккаунт.`,
   },
+  own: {
+    title: 'Свои грузы и машины — в аккаунте',
+    lead: `Демо — пример рейса: двигайте груз, включите автозагрузку, посмотрите нагрузку на оси. Чтобы добавить свои грузы, выбрать машину и задать размеры, ${SIGN_UP}.`,
+  },
   pdf: {
-    title: 'Следующий PDF — в аккаунте',
-    lead: `В демо можно сделать ${DEMO_FREE_PDFS === 1 ? 'один PDF' : `${DEMO_FREE_PDFS} PDF`}. Зарегистрируйтесь бесплатно — PDF без ограничений, а схема сохранится и откроется на любом устройстве.`,
+    title: 'PDF для водителя — в аккаунте',
+    lead: `Схема погрузки в PDF — виды сбоку и сверху, номера мест и порядок погрузки — делается в аккаунте. Чтобы получить её, ${SIGN_UP}. Схема из демо перенесётся в аккаунт.`,
   },
   save: {
     title: 'Сохраните схему в аккаунте',
@@ -52,7 +61,8 @@ const BENEFITS = [
  * The registration window of the demo (editor/demo.ts): why it opened, what the account gives and the way
  * into it with the plan on screen. Closing it (the cross, Esc, «Продолжить демо») goes back to the demo.
  * Also takes over the tier offers the editor makes (useUpgrade: a limit, a closed feature) and the store's
- * refusals over DEMO_LIMITS — in the demo they are this window, with nothing about tariffs.
+ * refusals over DEMO_LIMITS (`setup`: the visitor's own cargo or vehicle — «own») — in the demo they are this
+ * window, with nothing about tariffs.
  */
 export function DemoGate() {
   const reason = useDemo((s) => s.gate);
@@ -70,7 +80,7 @@ export function DemoGate() {
       }
     });
     const offLimits = useStore.subscribe((s, prev) => {
-      if (s.limitHit && s.limitHit !== prev.limitHit) openDemoGate('limits');
+      if (s.limitHit && s.limitHit !== prev.limitHit) openDemoGate(s.limitHit.kind === 'setup' ? 'own' : 'limits');
     });
     return () => {
       offUpgrade();
@@ -92,7 +102,17 @@ export function DemoGate() {
   const copy = COPY[shown];
   return (
     <Dialog open={reason !== null} onOpenChange={(open) => !open && closeDemoGate()}>
-      <DialogContent className="gap-5 sm:max-w-md">
+      {/*
+        Focus on the window itself, not its first button: it often opens from Enter in a field (a refused size, an
+        axle figure), and that same Enter must not press «Зарегистрироваться» at once.
+      */}
+      <DialogContent
+        className="gap-5 sm:max-w-md"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement | null)?.focus();
+        }}
+      >
         <DialogHeader>
           <LogoMark className="mb-1 size-9 text-foreground" />
           <DialogTitle className="text-xl tracking-[-0.02em] text-balance">{copy.title}</DialogTitle>
