@@ -105,6 +105,9 @@ try {
   }
 
   const robots = ['User-agent: *', 'Allow: /', 'Disallow: /plans', 'Disallow: /start', 'Disallow: /verify-email', 'Disallow: /account', 'Disallow: /admin', 'Disallow: /api/'];
+  // Yandex only (Google ignores it and relies on canonical): ad and click tags in the query are the same page,
+  // so links from Direct with utm_* do not become duplicates. The public pages keep nothing else in the query.
+  robots.push('', 'Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&ysclid');
   if (SITE_URL) robots.push('', `Sitemap: ${SITE_URL}/sitemap.xml`);
   writeFileSync('dist/robots.txt', `${robots.join('\n')}\n`);
   if (SITE_URL) {
