@@ -30,7 +30,7 @@ export interface StartCargo {
 export interface StartSpec {
   /** Name of the new plan. */
   name: string;
-  body: { name: string; kind: BodyKind; dims: Dims; maxLoad?: number };
+  body: { name: string; kind: BodyKind; dims: Dims; maxLoad?: number; chassisModel?: string };
   cargo: StartCargo[];
 }
 
@@ -46,7 +46,16 @@ export function encodeStart(spec: StartSpec): string {
   return JSON.stringify({
     v: 1,
     n: spec.name,
-    b: [spec.body.name, spec.body.kind, round(spec.body.dims.l), round(spec.body.dims.w), round(spec.body.dims.h), spec.body.maxLoad ?? 0],
+    b: [
+      spec.body.name,
+      spec.body.kind,
+      round(spec.body.dims.l),
+      round(spec.body.dims.w),
+      round(spec.body.dims.h),
+      spec.body.maxLoad ?? 0,
+      // The template's axles (core/chassis.ts); older links end before it.
+      ...(spec.body.chassisModel ? [spec.body.chassisModel] : []),
+    ],
     c: spec.cargo.map((c) => [
       c.name,
       round(c.dims.l),
@@ -80,7 +89,7 @@ export function decodeStart(raw: string | null | undefined): StartSpec | null {
   }
   const d = data as { v?: unknown; n?: unknown; b?: unknown; c?: unknown };
   if (!d || d.v !== 1 || !Array.isArray(d.b) || !Array.isArray(d.c)) return null;
-  const [bName, bKind, l, w, h, maxLoad] = d.b as unknown[];
+  const [bName, bKind, l, w, h, maxLoad, chassisModel] = d.b as unknown[];
   const dims = [l, w, h].map(finite);
   if (dims.some((x) => x === null || x <= 0)) return null;
   const load = finite(maxLoad) ?? 0;
@@ -93,6 +102,8 @@ export function decodeStart(raw: string | null | undefined): StartSpec | null {
       h: round(clamp(dims[2]!, ...BODY_LIMITS.h)),
     },
     ...(load > 0 ? { maxLoad: round(Math.min(load, BODY_MAX_LOAD_LIMIT)) } : {}),
+    // Only the name of a template's running gear (an unknown one is ignored by core/chassis.ts).
+    ...(typeof chassisModel === 'string' && /^[a-z0-9-]{1,40}$/.test(chassisModel) ? { chassisModel } : {}),
   };
   const cargo: StartCargo[] = [];
   let total = 0;
@@ -136,6 +147,7 @@ export function buildStartPlan(spec: StartSpec, maxItems = START_MAX_ITEMS): Sta
         name: spec.body.name,
         dims: { ...spec.body.dims },
         ...(spec.body.maxLoad ? { maxLoad: spec.body.maxLoad } : {}),
+        ...(spec.body.chassisModel ? { chassisModel: spec.body.chassisModel } : {}),
       },
     ],
   };

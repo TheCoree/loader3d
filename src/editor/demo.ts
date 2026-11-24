@@ -9,7 +9,7 @@ import type { CargoItem, Dims, Plan } from '../core/types';
 import { TIERS_ENABLED } from '../lib/tiers';
 import { trackAction } from '../lib/analytics';
 import { encodePlanParam } from '../lib/demoPlan';
-import { exportPlan, useStore } from '../store/useStore';
+import { exportPlan, makeBody, useStore } from '../store/useStore';
 
 /**
  * The demo of the editor on the landing page (pages/DemoPage, `/demo`, opened from pages/LandingDemo): the real
@@ -77,7 +77,7 @@ export function createLandingDemoPlan(): Plan {
   const vehicle = {
     id: uid('veh'),
     name: defaultVehicleName(0),
-    bodies: preset.bodies.map((b) => ({ id: uid('body'), kind: b.kind, name: b.name, dims: { ...b.dims }, maxLoad: b.maxLoad })),
+    bodies: preset.bodies.map((b) => makeBody(b)),
   };
   const layout = computeLayout([vehicle], 'shared');
   const deck = layout.bodies[0].box;

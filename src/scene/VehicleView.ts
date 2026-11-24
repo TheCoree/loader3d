@@ -10,16 +10,8 @@ import {
   type PlacedVehicle,
   type VehicleLayout,
 } from '../core/layout';
-import {
-  CAB_FRONT_AXLE,
-  LANDING_GEAR,
-  TRACTOR_AXLES,
-  TRUCK_CAB_GAP,
-  WHEEL_RADIUS,
-  bodyAxles,
-  bodyHalfTrack,
-  cabAxles,
-} from '../core/axles';
+import { CAB_FRONT_AXLE, LANDING_GEAR, TRUCK_CAB_GAP, WHEEL_RADIUS, bodyHalfTrack } from '../core/axles';
+import { bodyWheels, cabWheels } from '../core/chassis';
 import { formatLength, type Units } from '../core/units';
 import { DimensionLine } from './DimensionLine';
 import { boxEdges, disposeTree, fatMaterial, fatSegments } from './lines';
@@ -446,34 +438,34 @@ export class VehicleView {
     // Chassis, axles and wheels.
     this.part = 'chassis';
     this.add(this.box([L - 60, 26, W - 90], this.mats.chassis, [cx, -23, 0]), { cast: true });
-    // The axles follow the body's length (core/axles.ts), so that the wheels of short bodies never overlap.
+    // The wheels are where the axles of the plan are (core/chassis.ts): the template's, typical or the user's.
     const halfTrack = bodyHalfTrack(W);
-    const axles = bodyAxles(body.kind, L);
-    for (const offset of axles.rear) this.wheelPair(min.x + offset, halfTrack);
-    if (axles.front !== null) this.wheelPair(min.x + axles.front, halfTrack);
+    const wheels = bodyWheels(body, pb.index === 0);
+    for (const x of [...wheels.rear, ...wheels.front]) this.wheelPair(max.x - x, halfTrack);
     const chassisZ = (W - 90) / 2;
     const chassisBottom = -36;
     // Mud flaps behind the rear wheels, where they clear the rear crossmember.
-    const flapX = min.x + (axles.rear[0] ?? 0) - WHEEL_RADIUS - 12;
-    if (axles.rear.length > 0 && flapX > min.x + 34) this.mudFlaps(flapX, halfTrack, chassisZ, chassisBottom);
-    if (axles.landingGear) {
+    const rearmost = Math.max(...wheels.rear);
+    const flapX = max.x - rearmost - WHEEL_RADIUS - 12;
+    if (wheels.rear.length > 0 && flapX > min.x + 34) this.mudFlaps(flapX, halfTrack, chassisZ, chassisBottom);
+    const landingGear = wheels.landingGear ?? LANDING_GEAR;
+    if (wheels.landingGear !== null) {
       // Landing gear legs with their feet.
       for (const side of [-1, 1]) {
         const z = side * (W / 2 - 50);
-        this.add(this.box([14, DECK_HEIGHT - 36, 14], this.mats.chassis, [max.x - LANDING_GEAR, -DECK_HEIGHT / 2 - 18, z]), {
+        this.add(this.box([14, DECK_HEIGHT - 36, 14], this.mats.chassis, [max.x - landingGear, -DECK_HEIGHT / 2 - 18, z]), {
           cast: true,
         });
-        this.add(this.box([30, 6, 24], this.mats.chassis, [max.x - LANDING_GEAR, -DECK_HEIGHT + 3, z]), { cast: true });
+        this.add(this.box([30, 6, 24], this.mats.chassis, [max.x - landingGear, -DECK_HEIGHT + 3, z]), { cast: true });
       }
     }
     // Side underrun guards between the axles.
-    const lastRear = axles.rear.at(-1);
-    const guardFrom = lastRear === undefined ? min.x + 40 : min.x + lastRear + WHEEL_RADIUS + 20;
+    const guardFrom = wheels.rear.length === 0 ? min.x + 40 : max.x - Math.min(...wheels.rear) + WHEEL_RADIUS + 20;
     const guardTo =
       body.kind === 'semi'
-        ? max.x - LANDING_GEAR - 20
-        : axles.front !== null
-          ? min.x + axles.front - WHEEL_RADIUS - 20
+        ? max.x - landingGear - 20
+        : wheels.front.length > 0
+          ? max.x - Math.max(...wheels.front) - WHEEL_RADIUS - 20
           : max.x - 40;
     if (guardTo - guardFrom > 80) {
       const guardZ = W / 2 - 6;
@@ -623,9 +615,11 @@ export class VehicleView {
       const mirrorY = h * 0.66;
       for (const dy of [14, -14]) box([4, 4, 30], this.mats.trim, [L - 18, mirrorY + dy, side * (halfW + 15)]);
       box([10, 40, 16], this.mats.trim, [L - 18, mirrorY, side * (halfW + 32)]);
-      const stepX = L - 2 * CAB_FRONT_AXLE - 22;
-      box([40, 46, 4], this.mats.trim, [stepX, -21, side * (halfW - 22)]);
-      for (const y of [-38, -12]) box([34, 4, 22], this.mats.trim, [stepX, y, side * (halfW - 10)]);
+      // The steps between the back of the cab and the wheel.
+      const stepW = Math.min(40, L - CAB_FRONT_AXLE - WHEEL_RADIUS - 6);
+      const stepX = stepW / 2 + 2;
+      box([stepW, 46, 4], this.mats.trim, [stepX, -21, side * (halfW - 22)]);
+      for (const y of [-38, -12]) box([stepW - 6, 4, 22], this.mats.trim, [stepX, y, side * (halfW - 10)]);
     }
 
     // Roof deflector on tractors, sloping up to the trailer height.
@@ -644,14 +638,18 @@ export class VehicleView {
     this.add(cab, { cast: true, receive: true });
 
     // Two chassis rails; under a semi-trailer they run back to the rear axles of the tractor.
-    const chassisStart = semi ? pv.front - 330 : x0 - 10;
+    // The cab's wheels (core/chassis.ts): the steering axle under the cab, a tractor's drive axles under the trailer.
+    const wheels = cabWheels(first.body);
+    const lastDrive = wheels.drive.length > 0 ? Math.max(...wheels.drive) : 0;
+    const chassisStart = semi ? pv.front - Math.max(330, lastDrive + WHEEL_RADIUS + 60) : x0 - 10;
     for (const side of [-1, 1]) {
       this.add(this.box([x1 - chassisStart, 26, 14], this.mats.chassis, [(x1 + chassisStart) / 2, -62, side * 45]), {
         cast: true,
       });
     }
     const halfTrack = halfW - 30;
-    for (const x of cabAxles(first.body.kind)) this.wheelPair(pv.front + x, halfTrack);
+    this.wheelPair(pv.front + wheels.steer, halfTrack);
+    for (const x of wheels.drive) this.wheelPair(pv.front - x, halfTrack);
     if (semi) {
       // Fuel tank and battery box between the axles, mud flaps behind the rear wheels.
       const between = x0 - 70;
@@ -660,9 +658,9 @@ export class VehicleView {
       tank.position.set(between, -70, halfW - 48);
       this.add(tank, { cast: true });
       this.add(this.box([60, 44, 40], this.mats.chassis, [between, -70, -(halfW - 50)]), { cast: true });
-      this.mudFlaps(pv.front - TRACTOR_AXLES[TRACTOR_AXLES.length - 1] - WHEEL_RADIUS - 12, halfTrack, 52, -75);
-      // Fifth wheel: the plate on the rails the semi-trailer rests on.
-      this.add(this.box([80, 13, 100], this.mats.chassis, [pv.front - 160, -42.5, 0]), { cast: true });
+      this.mudFlaps(pv.front - lastDrive - WHEEL_RADIUS - 12, halfTrack, 52, -75);
+      // Fifth wheel: the plate on the rails the semi-trailer rests on, round the kingpin.
+      this.add(this.box([80, 13, 100], this.mats.chassis, [pv.front - (wheels.kingpin ?? 160), -42.5, 0]), { cast: true });
     }
   }
 

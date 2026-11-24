@@ -94,7 +94,13 @@ class CargoBody(PlanModel):
     dims: BodyDims
     # Payload capacity, kg. Optional (older plans); omitted from the JSON when not set.
     maxLoad: Annotated[float | None, Field(ge=0, le=BODY_MAX_LOAD_LIMIT, exclude_if=_omit_none)] = None  # noqa: N815
-    # The user's own figures for the axles; omitted when everything is typical.
+    # The template whose running gear the body has (src/core/chassis.ts CHASSIS_MODELS); omitted: typical.
+    chassisModel: Annotated[  # noqa: N815
+        str | None,
+        StringConstraints(pattern=r"^[a-z0-9-]{1,40}$"),
+        Field(exclude_if=_omit_none),
+    ] = None
+    # The user's own figures for the axles over the template's or typical ones; omitted when there are none.
     chassis: Annotated[ChassisPatch | None, Field(exclude_if=_omit_none)] = None
 
 
@@ -167,6 +173,7 @@ def default_plan_data() -> PlanData:
                         kind="semi",
                         dims=BodyDims(l=1360, w=245, h=270),
                         maxLoad=20000,
+                        chassisModel="euro-tent",
                     )
                 ],
             )

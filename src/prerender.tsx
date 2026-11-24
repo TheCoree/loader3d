@@ -41,7 +41,7 @@ export function structuredData(siteUrl: string): object[] {
       inLanguage: 'ru',
       ...(siteUrl ? { url: `${siteUrl}/`, image: `${siteUrl}/landing/og.jpg` } : {}),
       description:
-        '3D-планировщик загрузки фуры и контейнера: раскладка паллет с физикой, LDM, вес и центр тяжести, автозагрузка и PDF-схема погрузки.',
+        '3D-планировщик загрузки фуры и контейнера: раскладка паллет с физикой, LDM, нагрузка на оси и центр тяжести, автозагрузка и PDF-схема погрузки.',
       ...(TIERS_ENABLED && {
         offers: {
           '@type': 'AggregateOffer',

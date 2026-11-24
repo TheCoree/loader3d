@@ -64,9 +64,12 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   thresholds (centre of gravity) live in `core/stats.ts` and are shared with the stats bar.
 - Axle loads (`core/chassis.ts`, shown by `editor/AxlesDialog.tsx`, the stats bar and the PDF): every body is a beam on
   two supports; a kingpin's load goes to the tractor, a centre-axle trailer's drawbar to the rear of the body in front.
-  The running gear is typical for the body's kind and size; `CargoBody.chassis` keeps only the figures the user changed
-  (`plan_data.py` knows it), the rest follow resizes. The euro semi-trailer uses the calculator's figures (`EURO_RIG` =
-  `TYPICAL_RIG`), so both give the same loads. The axles drawn by the scene (`core/axles.ts`) are a picture only.
+  The starting figures are the template's (`CargoBody.chassisModel` → `CHASSIS_MODELS`, set by `makeBody` from
+  `presets.ts`; only while the body stays within 10% of the model's length) or typical for the kind and size;
+  `CargoBody.chassis` keeps only the figures the user changed (`plan_data.py` knows both). `resolve()` keeps every
+  support within reason (`axleRanges`: a steering axle is fixed under the cab, the rest under the body, clear of each
+  other and the landing gear; weights per axle count). The euro semi-trailer is the calculator's rig (`EURO_RIG` =
+  `TYPICAL_RIG`), so both give the same loads. The scene draws the wheels from it (`bodyWheels`, `cabWheels`).
 - World axes: X along the vehicle (towards the cab), Y up, Z across. A plan has several vehicles side by side
   along Z (lanes `LANE_SPACING`, the first on Z = 0); the rear doors of each vehicle's last body are at X = 0,
   the docks (one shared or one per vehicle, `dockMode`) are X < 0. Item `pos` is the min corner of its box;

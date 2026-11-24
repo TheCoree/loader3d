@@ -1,10 +1,10 @@
-import { CAB_GAP, CAB_LENGTH } from './layout';
 import type { BodyKind } from './types';
 
 /*
- * Running gear of the vehicles in the scene: where the axles of the bodies, the cab and the tractor go.
- * The axles follow the length of the body, so that the wheels of a short van, trailer or semi-trailer never
- * run into each other or into the cab's. Lengths in cm; positions along X.
+ * Wheel geometry, and where the axles of a body of a given kind and length typically go: the starting point of
+ * core/chassis.ts for bodies without a template (the scene draws what chassis.ts resolves). The axles follow the
+ * length of the body, so that the wheels of a short van, trailer or semi-trailer never run into each other.
+ * Lengths in cm; positions along X.
  */
 
 export const WHEEL_RADIUS = 52;
@@ -12,12 +12,10 @@ export const WHEEL_RADIUS = 52;
 export const AXLE_SPACING = 130;
 /** Least distance between a drawbar trailer's front axle and its rear group. */
 export const AXLE_GAP = 2 * WHEEL_RADIUS + 40;
-/** Front axle of the cab, from the cab's front face. */
-export const CAB_FRONT_AXLE = 75;
+/** Front axle of the cab, from the cab's front face: a European cab-over's front overhang, the wheel under the door. */
+export const CAB_FRONT_AXLE = 140;
 /** Gap between a rigid truck's first body and its cab (a tractor stands CAB_GAP ahead of its semi-trailer). */
 export const TRUCK_CAB_GAP = 14;
-/** The tractor's drive axles under the front of its semi-trailer, from the trailer's front wall backwards. */
-export const TRACTOR_AXLES = [90, 225];
 /** The semi-trailer's landing gear, from its front wall backwards; its feet are 30 long. */
 export const LANDING_GEAR = 280;
 /** The narrowest half-track of a body: the wheels of a narrow body do not crowd under its middle. */
@@ -68,15 +66,6 @@ export function bodyAxles(kind: BodyKind, length: number): BodyAxles {
     front: null,
     landingGear: false,
   };
-}
-
-/**
- * The axles of the cab (and the tractor's under a semi-trailer), as X from the front wall of the vehicle's first
- * body: positive ahead of it, negative under it.
- */
-export function cabAxles(firstKind: BodyKind): number[] {
-  if (firstKind === 'semi') return [CAB_GAP + CAB_LENGTH - CAB_FRONT_AXLE, ...TRACTOR_AXLES.map((x) => -x)];
-  return [TRUCK_CAB_GAP + CAB_LENGTH - CAB_FRONT_AXLE];
 }
 
 /** Half of a body's track (wheel centres from its centreline): under its sides, never narrower than MIN_HALF_TRACK. */

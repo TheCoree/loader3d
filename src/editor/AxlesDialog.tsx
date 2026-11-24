@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { CircleCheck, RotateCcw, TriangleAlert } from 'lucide-react';
 import { create } from 'zustand';
-import type { AxleGroup, CargoBody, ChassisPart } from '../core/types';
+import type { AxleGroup, CargoBody } from '../core/types';
 import {
-  AXLE_WEIGHT_LIMIT,
-  AXLE_X_LIMIT,
+  axleRanges,
+  axleWeightRange,
+  chassisModelOf,
   MIN_STEER_SHARE,
   axlesEditable,
   chassisOf,
@@ -18,7 +19,7 @@ import {
 import { AXLE_SPACING, TRUCK_CAB_GAP, WHEEL_RADIUS } from '../core/axles';
 import { itemBox } from '../core/item';
 import { CAB_GAP, CAB_LENGTH, DECK_HEIGHT, bodyAt, findVehicle, type PlacedVehicle } from '../core/layout';
-import { formatPercent, formatWeight, type Units } from '../core/units';
+import { formatLength, formatPercent, formatWeight, type Units } from '../core/units';
 import { useStore } from '../store/useStore';
 import { Button } from '@/components/ui/button';
 import {
@@ -102,6 +103,7 @@ function AxlesView({ vehicleId }: { vehicleId: string }) {
   const pv = findVehicle(layout, vehicleId)!;
   const axles = stats.vehicles.find((v) => v.id === vehicleId)!.axles;
   const edited = pv.bodies.some((pb) => pb.body.chassis);
+  const models = pv.bodies.flatMap((pb) => chassisModelOf(pb.body)?.label ?? []);
 
   const problems = axles.groups.filter((g) => axleTone(g));
   return (
@@ -138,9 +140,9 @@ function AxlesView({ vehicleId }: { vehicleId: string }) {
       <AxleTable pv={pv} axles={axles} />
 
       <p className="text-xs text-pretty text-muted-foreground">
-        Расчёт статический: вес каждого груза — в центре его места, нагрузка группы делится между осями поровну.
-        Порожняя масса и допустимые нагрузки сначала типичные — впишите свои из документов машины; допустимое зависит
-        и от дорог маршрута.
+        Расчёт статический: вес каждого груза — в центре его места, нагрузка группы делится между осями поровну.{' '}
+        {models.length > 0 ? `Значения по умолчанию — ${models.join('; ')}.` : 'Значения по умолчанию — типичные для такого кузова.'}{' '}
+        Впишите свои из документов машины: допустимое зависит и от дорог маршрута. Рулевая ось стоит под кабиной.
       </p>
 
       <DialogFooter>
@@ -292,11 +294,6 @@ function SideView({ pv, axles }: { pv: PlacedVehicle; axles: VehicleAxles }) {
   );
 }
 
-/** Steering axles are ahead of the front wall; every other support behind it. */
-function isAhead(part: ChassisPart, kind: CargoBody['kind']): boolean {
-  return part === 'tractorFront' || (part === 'front' && kind === 'truck');
-}
-
 function AxleTable({ pv, axles }: { pv: PlacedVehicle; axles: VehicleAxles }) {
   const units = useUnits();
   const several = pv.bodies.length > 1;
@@ -317,6 +314,7 @@ function AxleTable({ pv, axles }: { pv: PlacedVehicle; axles: VehicleAxles }) {
         {pv.bodies.flatMap((pb, i) => {
           const rows = axles.groups.filter((g) => g.bodyId === pb.body.id);
           const chassis = chassisOf(pb.body, i === 0);
+          const ranges = axleRanges(pb.body, i === 0);
           return [
             several && (
               <TableRow key={`${pb.body.id}:head`} className="hover:bg-transparent">
@@ -325,7 +323,9 @@ function AxleTable({ pv, axles }: { pv: PlacedVehicle; axles: VehicleAxles }) {
                 </TableCell>
               </TableRow>
             ),
-            ...rows.map((g) => <AxleRow key={g.key} body={pb.body} g={g} group={chassis[g.part]!} units={units} />),
+            ...rows.map((g) => (
+              <AxleRow key={g.key} body={pb.body} g={g} group={chassis[g.part]!} range={ranges[g.part]} units={units} />
+            )),
           ];
         })}
       </TableBody>
@@ -333,17 +333,29 @@ function AxleTable({ pv, axles }: { pv: PlacedVehicle; axles: VehicleAxles }) {
   );
 }
 
-function AxleRow({ body, g, group, units }: { body: CargoBody; g: AxleLoad; group: AxleGroup; units: Units }) {
+function AxleRow({
+  body,
+  g,
+  group,
+  range,
+  units,
+}: {
+  body: CargoBody;
+  g: AxleLoad;
+  group: AxleGroup;
+  /** Where the support may be (core/chassis.ts axleRanges). */
+  range: readonly [number, number];
+  units: Units;
+}) {
   const setBodyChassis = useStore((s) => s.setBodyChassis);
   const set = (field: 'x' | 'axles' | 'tare' | 'max', value: number | undefined) =>
     setBodyChassis(body.id, withChassisValue(body.chassis, g.part, field, value));
-  const ahead = isAhead(g.part, body.kind);
   const label = groupLabel(g);
   const tone = axleTone(g);
   const problem = axleProblem(g);
   const changed = (['x', 'axles', 'tare', 'max'] as const).some((f) => isOverridden(body, g.part, f));
   const coupling = g.axles === 0;
-  const [xMin, xMax] = AXLE_X_LIMIT;
+  const weights = axleWeightRange(group.axles);
 
   return (
     <TableRow className="hover:bg-transparent">
@@ -401,28 +413,41 @@ function AxleRow({ body, g, group, units }: { body: CargoBody; g: AxleLoad; grou
       </TableCell>
       <TableCell className="py-1.5">
         {positionEditable(group, g.part, body.kind) ? (
-          <NumberField
-            label={`${label}: ${ahead ? 'перед кузовом' : 'от передней стенки'}`}
-            hideLabel
-            value={Math.abs(group.x)}
-            units={units}
-            min={1}
-            max={ahead ? -xMin : xMax}
-            suffix={ahead ? 'впереди' : undefined}
-            onCommit={(cm) => set('x', ahead ? -cm : cm)}
-          />
+          // Only where a vehicle can have it: the field brings a figure outside into the range.
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <NumberField
+                  label={`${label}: от передней стенки`}
+                  hideLabel
+                  value={group.x}
+                  units={units}
+                  min={Math.max(1, range[0])}
+                  max={Math.max(1, range[1])}
+                  onCommit={(cm) => set('x', cm)}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              От {formatLength(Math.max(1, range[0]), units)} до {formatLength(Math.max(1, range[1]), units)} от передней стенки
+            </TooltipContent>
+          </Tooltip>
+        ) : group.x < 0 ? (
+          <span className="pl-1 text-muted-foreground tabular-nums">
+            {formatLength(-group.x, units)} впереди, под кабиной
+          </span>
         ) : (
           <span className="pl-1 text-muted-foreground">на сцепке</span>
         )}
       </TableCell>
       <TableCell className="py-1.5">
-        <WeightField label={`${label}: порожняя`} hideLabel kg={group.tare} unit="t" max={AXLE_WEIGHT_LIMIT} placeholder="0" onCommit={(kg) => set('tare', kg)} />
+        <WeightField label={`${label}: порожняя`} hideLabel kg={group.tare} unit="t" max={weights.tare} placeholder="0" onCommit={(kg) => set('tare', kg)} />
       </TableCell>
       <TableCell className="py-1.5 pr-0">
         {coupling ? (
           <span className="pl-1 text-muted-foreground">—</span>
         ) : (
-          <WeightField label={`${label}: допустимо`} hideLabel kg={group.max} unit="t" max={AXLE_WEIGHT_LIMIT} placeholder="нет" onCommit={(kg) => set('max', kg)} />
+          <WeightField label={`${label}: допустимо`} hideLabel kg={group.max} unit="t" max={weights.max} placeholder="нет" onCommit={(kg) => set('max', kg)} />
         )}
       </TableCell>
     </TableRow>

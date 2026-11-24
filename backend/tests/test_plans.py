@@ -264,6 +264,10 @@ def _broken(change) -> dict[str, Any]:
             _broken(lambda d: d["vehicles"][0]["bodies"][0].update(chassis={"cab": {"tare": 1}})),
             id="unknown-axle-group",
         ),
+        pytest.param(
+            _broken(lambda d: d["vehicles"][0]["bodies"][0].update(chassisModel="<script>")),
+            id="chassis-model-name",
+        ),
     ],
 )
 async def test_invalid_plan_data_is_rejected(anna, data):
@@ -284,9 +288,12 @@ async def test_axle_figures_round_trip(anna):
         "tractorDrive": {"tare": 3000},
     }
     data["vehicles"][0]["bodies"][0]["chassis"] = chassis
+    data["vehicles"][0]["bodies"][0]["chassisModel"] = "euro-tent"
     created = (await anna.post("/api/plans", json={"name": "Оси", "data": data})).json()
     assert created["data"]["vehicles"][0]["bodies"][0]["chassis"] == chassis
+    assert created["data"]["vehicles"][0]["bodies"][0]["chassisModel"] == "euro-tent"
     data["vehicles"][0]["bodies"][0].pop("chassis")
+    data["vehicles"][0]["bodies"][0].pop("chassisModel")
     plain = (await anna.post("/api/plans", json={"name": "Без осей", "data": data})).json()
     assert "chassis" not in plain["data"]["vehicles"][0]["bodies"][0]
 

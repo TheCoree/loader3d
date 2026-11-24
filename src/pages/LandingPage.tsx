@@ -90,7 +90,11 @@ const ALL_FAQ: Array<{ q: string; a: string; tiers?: boolean }> = [
   },
   {
     q: 'Учитывается ли вес и перегруз?',
-    a: 'Да. У каждого груза есть вес, у кузова — грузоподъёмность. Масса, LDM, заполнение и центр тяжести пересчитываются при каждом движении, а автозагрузка не превышает грузоподъёмность и ставит лёгкое на тяжёлое только с полной опорой.',
+    a: 'Да. У каждого груза есть вес, у кузова — грузоподъёмность, у осей машины — допустимые нагрузки. Масса, LDM, центр тяжести и нагрузка на каждую ось пересчитываются при каждом движении, так что перегруз видно до весовой рамки, а не на ней. Автозагрузка не превышает грузоподъёмность и ставит лёгкое на тяжёлое только с полной опорой.',
+  },
+  {
+    q: 'Считает ли Loader3D нагрузку на оси?',
+    a: 'Да, для каждой машины в схеме: передняя и ведущая ось тягача, седло, оси полуприцепа, оси грузовика и прицепа. У шаблонов — оси и массы типичных машин (еврофура с тягачом 4×2, сцепка, контейнеровозы, грузовики), их можно заменить данными из документов своей машины. Нагрузки видны под 3D-сценой, в окне с видом сбоку и в PDF для водителя.',
   },
   {
     q: 'Как водитель получит схему?',
@@ -130,7 +134,7 @@ const TEMPLATES: Array<{ kind: VehicleKind; name: string }> = [
 const HIGHLIGHTS = [
   { icon: WandSparkles, label: 'Автозагрузка', text: 'Кузов раскладывается за одно нажатие — с развесовкой и без перегруза.' },
   { icon: Boxes, label: '5000 грузов', text: 'В одной схеме — хоть сборный груз на десять машин.' },
-  { icon: Weight, label: 'Вес под контролем', text: 'Масса, LDM и центр тяжести — при каждом движении груза.' },
+  { icon: Weight, label: 'Нагрузка на оси', text: 'Масса, нагрузка на каждую ось и центр тяжести — при каждом движении груза.' },
   { icon: FileText, label: '1 клик до PDF', text: 'Схема для водителя и склада: виды, номера мест, порядок погрузки.' },
 ];
 
@@ -333,8 +337,8 @@ function Hero() {
             Загрузите фуру до приезда машины
           </Heading>
           <p className={cn(mutedText, 'landing-rise mt-6 max-w-[34rem] text-lg leading-[1.6] [animation-delay:120ms]')}>
-            3D-планировщик загрузки фур и контейнеров: автозагрузка с развесовкой, контроль веса и центра тяжести, PDF-схема
-            для водителя. Прямо в браузере.
+            3D-планировщик загрузки фур и контейнеров: автозагрузка с развесовкой, нагрузка на каждую ось и центр тяжести,
+            PDF-схема для водителя. Прямо в браузере.
           </p>
           <div className="landing-rise mt-9 flex flex-wrap gap-3 [animation-delay:180ms]">
             <Button asChild className={primaryPill}>
@@ -678,12 +682,28 @@ function Features() {
               закреплённый груз остаётся на месте.
             </Caption>
           </div>
+          <div className="lp-reveal">
+            <Frame className="px-4 pt-8 pb-5 sm:px-10 sm:pt-12 sm:pb-8">
+              <AxleArt />
+            </Frame>
+            <Caption
+              title="Нагрузка на каждую ось."
+              action={
+                <Button asChild variant="outline" className={smallOutline}>
+                  <Link to="/register">Попробовать</Link>
+                </Button>
+              }
+            >
+              Передняя и ведущая ось тягача, седло, оси полуприцепа, грузовика и прицепа: сколько на каждой и сколько можно.
+              Перегруз видно на схеме — до весовой рамки, а не на ней.
+            </Caption>
+          </div>
           <div className="grid gap-16 xl:grid-cols-2 xl:gap-8">
             <div className="lp-reveal">
               <Frame className="grid aspect-[4/3] place-items-center">
                 <MetricsArt />
               </Frame>
-              <Caption title="Вес и центр тяжести.">LDM, масса, заполнение и центр тяжести — при каждом движении груза.</Caption>
+              <Caption title="Вес, оси и центр тяжести.">LDM, масса, нагрузка на оси и центр тяжести — при каждом движении груза.</Caption>
             </div>
             <div className="lp-reveal">
               <Frame className="grid aspect-[4/3] place-items-center p-5">
@@ -716,7 +736,7 @@ function MetricsArt() {
   const rows = [
     { label: 'LDM', value: '13,4 м', width: '98%' },
     { label: 'Масса', value: '18 из 20 т', width: '90%' },
-    { label: 'Заполнение', value: '53%', width: '53%' },
+    { label: 'Ведущая ось', value: '10,4 из 11,5 т', width: '90%' },
   ];
   return (
     <div className="w-[80%] max-w-[380px] space-y-5 font-geist-mono text-xs">
@@ -742,6 +762,113 @@ function MetricsArt() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The axle loads of a loaded euro truck, side view in line art like the editor's «Нагрузка на оси» window: the cab
+ * on the right, the loads under the wheels against their limits — the drive axle over it, as a front-heavy load does.
+ */
+const AXLE_ART = { width: 640, height: 210, ground: 196, wheel: 15, deck: 150, roof: 58, front: 486, doors: 40 };
+/** cm of the truck to px: the 13,6 m trailer from the doors to the front wall. */
+const AXLE_PX = (AXLE_ART.front - AXLE_ART.doors) / 1360;
+const AXLE_LOADS: Array<{ x: number; axles: number; load: string; max: string; over?: boolean; label: string }> = [
+  { x: 935, axles: 3, load: '15,9', max: '24', label: 'оси полуприцепа' },
+  { x: 220, axles: 1, load: '11,9', max: '11,5', over: true, label: 'ведущая' },
+  { x: -130, axles: 1, load: '6,4', max: '8', label: 'передняя' },
+];
+/** Cargo in the trailer, cm from the front wall and high: the heavy rows at the front. */
+const AXLE_CARGO = [
+  { from: 0, to: 360, h: 150 },
+  { from: 360, to: 600, h: 120 },
+  { from: 600, to: 840, h: 140 },
+  { from: 840, to: 960, h: 100 },
+];
+
+function AxleArt() {
+  const { width, height, ground, wheel, deck, roof, front, doors } = AXLE_ART;
+  const at = (cm: number) => front - cm * AXLE_PX;
+  const cy = ground - wheel;
+  const line = 'rgba(255,255,255,0.5)';
+  const faint = 'rgba(255,255,255,0.32)';
+  return (
+    <figure>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="block h-auto w-full"
+        role="img"
+        aria-label="Вид сбоку на загруженную фуру: нагрузка на каждую ось и перегруз ведущей оси"
+      >
+        <line x1={0} y1={ground} x2={width} y2={ground} stroke="rgba(255,255,255,0.14)" vectorEffect="non-scaling-stroke" />
+        {AXLE_CARGO.map((c) => (
+          <rect
+            key={c.from}
+            x={at(c.to)}
+            y={deck - c.h * AXLE_PX * 1.15}
+            width={(c.to - c.from) * AXLE_PX - 3}
+            height={c.h * AXLE_PX * 1.15}
+            rx={2}
+            fill="rgba(255,255,255,0.07)"
+            stroke="rgba(255,255,255,0.28)"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {/* The semi-trailer, its frame and the landing gear. */}
+        <rect x={doors} y={roof} width={front - doors} height={deck - roof} fill="none" stroke={line} vectorEffect="non-scaling-stroke" />
+        <line x1={doors} y1={deck + 7} x2={front} y2={deck + 7} stroke={faint} vectorEffect="non-scaling-stroke" />
+        <line x1={at(302)} y1={deck + 7} x2={at(302)} y2={ground - 4} stroke={faint} vectorEffect="non-scaling-stroke" />
+        {/* The tractor: the cab, and the chassis under the front of the trailer with the kingpin. */}
+        <path
+          d={`M${front + 8} ${deck + 20} V${roof + 26} H${front + 62} L${front + 76} ${roof + 58} V${deck + 20} Z`}
+          fill="none"
+          stroke={line}
+          vectorEffect="non-scaling-stroke"
+        />
+        <line x1={at(300)} y1={deck + 20} x2={front + 76} y2={deck + 20} stroke={faint} vectorEffect="non-scaling-stroke" />
+        <path d={`M${at(160) - 6} ${deck + 7} h12 l-6 7 Z`} fill="rgba(255,255,255,0.6)" />
+        {AXLE_LOADS.flatMap((g) =>
+          Array.from({ length: g.axles }, (_, i) => {
+            const x = at(g.x + (i - (g.axles - 1) / 2) * 130);
+            return (
+              <g key={`${g.x}-${i}`}>
+                <circle
+                  cx={x}
+                  cy={cy}
+                  r={wheel}
+                  fill="#0a0a0a"
+                  stroke={g.over ? '#ededed' : 'rgba(255,255,255,0.45)'}
+                  strokeWidth={g.over ? 1.6 : 1}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle cx={x} cy={cy} r={wheel * 0.4} fill="none" stroke={faint} vectorEffect="non-scaling-stroke" />
+              </g>
+            );
+          }),
+        )}
+      </svg>
+      {/* The loads under the wheels (HTML, crisp at any size). */}
+      <div className="relative mt-3 h-14 font-geist-mono" aria-hidden>
+        {AXLE_LOADS.map((g) => (
+          <span
+            key={g.x}
+            className="absolute top-0 flex -translate-x-1/2 flex-col items-center gap-1 whitespace-nowrap"
+            style={{ left: `${(at(g.x) / width) * 100}%` }}
+          >
+            <span
+              className={cn(
+                'rounded-full px-2.5 py-0.5 text-xs tabular-nums',
+                g.over ? 'bg-[#ededed] text-[#0a0a0a]' : 'border border-white/15 text-[#ededed]',
+              )}
+            >
+              {g.load} из {g.max} т
+            </span>
+            <span className={cn('text-[11px]', g.over ? 'text-[#ededed]' : 'text-[#8f8f8f]')}>
+              {g.over ? 'перегруз ведущей' : g.label}
+            </span>
+          </span>
+        ))}
+      </div>
+    </figure>
   );
 }
 

@@ -230,9 +230,11 @@ function pickPlan(s: PlanState): PlanState {
   return { vehicles: s.vehicles, dockMode: s.dockMode, items: s.items, nextSeq: s.nextSeq, paletteIndex: s.paletteIndex };
 }
 
-function makeBody(t: BodyTemplate, id = uid('body')): CargoBody {
+/** A new body of a template (also the demo's, editor/demo.ts): its own id, the template's size, payload and running gear. */
+export function makeBody(t: BodyTemplate, id = uid('body')): CargoBody {
   const body: CargoBody = { id, kind: t.kind, name: t.name, dims: { ...t.dims } };
   if (t.maxLoad !== undefined) body.maxLoad = t.maxLoad;
+  if (t.chassisModel !== undefined) body.chassisModel = t.chassisModel;
   return body;
 }
 

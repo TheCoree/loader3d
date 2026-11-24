@@ -12,7 +12,13 @@ export function kindFor(length: number): BodyKind {
 /** The body of a vehicle template of the editor (core/presets.ts). */
 export function presetBody(id: string): StartSpec['body'] {
   const b = VEHICLE_PRESETS.find((p) => p.id === id)!.bodies[0];
-  return { name: b.name, kind: b.kind, dims: { ...b.dims }, ...(b.maxLoad ? { maxLoad: b.maxLoad } : {}) };
+  return {
+    name: b.name,
+    kind: b.kind,
+    dims: { ...b.dims },
+    ...(b.maxLoad ? { maxLoad: b.maxLoad } : {}),
+    ...(b.chassisModel ? { chassisModel: b.chassisModel } : {}),
+  };
 }
 
 /** A body the visitor typed in or chose by a label. */
