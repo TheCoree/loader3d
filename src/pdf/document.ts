@@ -3,6 +3,7 @@ import type { CargoBody, CargoItem } from '../core/types';
 import type { LoadDirection } from '../core/loadingOrder';
 import { formatSeqList, type BodySummary, type CargoRow, type LoadSummary } from '../core/report';
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE } from '../core/stats';
+import { MIN_STEER_SHARE, groupLabel, type VehicleAxles } from '../core/chassis';
 import { formatDims, formatLength, formatMeters, formatPercent, formatVolume, formatWeight, type Units } from '../core/units';
 import { plural } from '../lib/format';
 import { LIGHT_COLORS as COLORS } from '../scene/theme';
@@ -130,6 +131,16 @@ export function reportDocument(data: ReportData): TDocumentDefinitions {
         stack: [heading('Развесовка'), weightTable(s.summary.bodies), { text: cogNote(), fontSize: 8, color: MUTED, margin: [0, 6, 0, 0] }],
         unbreakable: true,
       },
+      ...s.summary.axles.map(
+        (axles): Content => ({
+          stack: [
+            heading('Нагрузка на оси'),
+            axleTable(axles, s.bodies),
+            { text: axleNote(axles), fontSize: 8, color: MUTED, margin: [0, 6, 0, 0] },
+          ],
+          unbreakable: true,
+        }),
+      ),
     );
     if (s.steps) out.push(...steps(s.steps, s.bodies.length > 1, s.orientation, s.units));
     return out;
@@ -206,6 +217,10 @@ function loadNotes(summary: LoadSummary): Array<{ text: string; color: string }>
   if (summary.dock > 0) {
     const weight = summary.dockWeight > 0 ? ` (${formatWeight(summary.dockWeight)})` : '';
     notes.push({ text: `На доке осталось ${plural(summary.dock, ITEMS)}${weight} — в план загрузки они не входят.`, color: WARNING });
+  }
+  const bad = summary.axles.flatMap((a) => a.groups.filter((g) => g.over || g.lifted));
+  if (bad.length > 0) {
+    notes.push({ text: `Нагрузка на оси вне нормы: ${bad.map((g) => groupLabel(g).toLowerCase()).join(', ')} — см. «Нагрузка на оси».`, color: DANGER });
   }
   return notes;
 }
@@ -344,6 +359,51 @@ function weightTable(bodies: BodySummary[]): Content {
     },
     layout: { ...gridLayout, paddingTop: () => 5, paddingBottom: () => 5 },
   };
+}
+
+/** Every support from the cab back: the load on it, per axle, the limit and a verdict (core/chassis.ts). */
+function axleTable(axles: VehicleAxles, bodies: readonly CargoBody[]): Content {
+  const trailers = bodies.filter((b) => b.kind === 'trailer').length;
+  const rows = axles.groups.map((g): TableCell[] => {
+    const name = bodies.find((b) => b.id === g.bodyId)?.name;
+    const label = groupLabel(g) + (trailers > 1 && g.kind === 'trailer' && name ? ` (${name})` : '');
+    const status: TableCell = g.lifted
+      ? cell(g.axles === 0 ? 'Тянет вверх' : 'Отрывается', { color: DANGER })
+      : g.over
+        ? cell(`Перегруз ${formatWeight(g.load - g.max!)}`, { color: DANGER })
+        : g.light
+          ? cell('Мало для рулевой', { color: WARNING })
+          : g.axles === 0
+            ? cell('—', { color: MUTED })
+            : cell('В норме', { color: SUCCESS });
+    return [
+      { text: label },
+      cell(g.axles > 0 ? String(g.axles) : '—'),
+      cell(formatWeight(g.load)),
+      cell(g.axles > 1 ? formatWeight(g.perAxle) : '—'),
+      cell(formatWeight(g.cargo)),
+      cell(g.max !== undefined ? formatWeight(g.max) : '—'),
+      status,
+    ];
+  });
+  return {
+    table: {
+      headerRows: 1,
+      widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
+      body: [
+        [head('Опора', 'left'), head('Осей'), head('Нагрузка'), head('На ось'), head('Из неё груз'), head('Допустимо'), head('Оценка')],
+        ...rows,
+        [{ text: 'Полная масса', bold: true }, cell(''), cell(formatWeight(axles.gross), { bold: true }), cell(''), cell(formatWeight(axles.cargo)), cell(''), cell('')],
+      ],
+    },
+    layout: { ...gridLayout, paddingTop: () => 5, paddingBottom: () => 5 },
+  };
+}
+
+function axleNote(axles: VehicleAxles): string {
+  const typical = 'Порожняя масса и допустимые нагрузки — данные машины, указанные в схеме, или типичные.';
+  const steer = axles.light ? ` Рулевой оси нужно не меньше ${formatPercent(MIN_STEER_SHARE)} массы машины.` : '';
+  return `Статический расчёт: вес каждого груза — в центре его места, нагрузка группы делится между осями поровну. ${typical}${steer}`;
 }
 
 function cogNote(): string {

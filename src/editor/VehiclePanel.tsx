@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, Plus, Trash2, Truck, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Trash2, Truck, Weight, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DockMode, Vehicle } from '../core/types';
 import { BODY_LIMITS, BODY_MAX_LOAD_LIMIT, MAX_BODIES, MAX_VEHICLES, VEHICLE_PRESETS } from '../core/presets';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { NumberField, WeightField } from './fields';
 import { ProBadge, useUpgrade } from '@/components/UpgradeDialog';
 import { useActiveVehicle, useStats, useUnits } from './hooks';
+import { axleSummary, useAxlesDialog } from './AxlesDialog';
 
 /**
  * Floating card over the scene: the vehicles of the plan (switcher, add, remove, shared or own
@@ -101,6 +102,7 @@ export function VehiclePanel({ className }: { className?: string }) {
         <div className="min-h-0 space-y-2.5 overflow-y-auto overscroll-contain border-t px-3 pt-3 pb-3">
           {many && <VehicleName key={vehicle.id} vehicle={vehicle} />}
           <BodyList vehicle={vehicle} />
+          <AxlesRow vehicle={vehicle} />
           <div className="grid grid-cols-2 gap-2">
             <AddTrailer vehicle={vehicle} />
             <AddVehicle />
@@ -262,6 +264,39 @@ function BodyList({ vehicle }: { vehicle: Vehicle }) {
       </div>
     );
   });
+}
+
+/** Opens «Нагрузка на оси» of the vehicle; the loads in a row, red when something is wrong. */
+function AxlesRow({ vehicle }: { vehicle: Vehicle }) {
+  const stats = useStats();
+  const open = useAxlesDialog((s) => s.open);
+  const axles = stats.vehicles.find((v) => v.id === vehicle.id)?.axles;
+  if (!axles) return null;
+  const danger = axles.over || axles.lifted;
+  return (
+    <button
+      type="button"
+      onClick={() => open(vehicle.id)}
+      className="flex w-full items-center gap-2.5 rounded-lg bg-muted/60 px-2.5 py-2 text-left transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-background text-muted-foreground">
+        <Weight className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium">Нагрузка на оси</span>
+        <span
+          className={cn(
+            'block truncate text-[11px] text-muted-foreground tabular-nums',
+            danger ? 'font-medium text-destructive' : axles.light && 'font-medium text-warning',
+          )}
+        >
+          {axleSummary(axles)}
+          {axles.over ? ' · перегруз' : axles.lifted ? ' · ось отрывается' : axles.light ? ' · рулевая недогружена' : ''}
+        </span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
 }
 
 function AddTrailer({ vehicle }: { vehicle: Vehicle }) {

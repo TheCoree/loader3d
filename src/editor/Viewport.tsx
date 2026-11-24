@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Hand, Lock, LockOpen, Scale, Scan, SlidersHorizontal, TriangleAlert, X } from 'lucide-react';
+import type { VehicleAxles } from '../core/chassis';
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE, type BodyStats } from '../core/stats';
 import { formatMeters, formatPercent, formatVolume, formatWeight } from '../core/units';
 import type { ViewPreset } from '../scene/CameraRig';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useActiveVehicle, useStats } from './hooks';
 import { VehiclePanel } from './VehiclePanel';
 import { XrayControl } from './XrayControl';
+import { AxlesDialog, axleSummary, useAxlesDialog } from './AxlesDialog';
 import { activePreset } from './displayPresets';
 
 const HINT_KEY = 'loader3d:hint-dismissed';
@@ -70,6 +72,7 @@ export function Viewport({ rightInset = 0 }: { rightInset?: number }) {
           <StatsBar />
         </div>
       </div>
+      <AxlesDialog />
     </div>
   );
 }
@@ -220,7 +223,8 @@ function StatsBar() {
   const total = useStore((s) => s.items.length);
   const many = useStore((s) => s.vehicles.length > 1);
   const vehicle = useActiveVehicle();
-  const counts = stats.vehicles.find((v) => v.id === vehicle.id) ?? stats;
+  const vehicleStats = stats.vehicles.find((v) => v.id === vehicle.id);
+  const counts = vehicleStats ?? stats;
   const bodies = stats.bodies.filter((b) => b.vehicleId === vehicle.id);
 
   return (
@@ -234,6 +238,7 @@ function StatsBar() {
         <BodyStat key={b.id} b={b} vehicleName={many && b === bodies[0] ? vehicle.name : undefined} />
       ))}
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        {vehicleStats && vehicleStats.axles.cargo !== 0 && <AxleStat axles={vehicleStats.axles} />}
         <Stat tone="ok" label={many ? 'В машине' : 'В кузове'} value={String(counts.inside)} />
         <Stat
           label="На доке"
@@ -316,6 +321,38 @@ function CogBadge({ b }: { b: BodyStats }) {
         Центр тяжести груза — {formatPercent(b.cogFromFront!)} длины от передней стенки, {side}. Безопасно:{' '}
         {formatPercent(0.5 - COG_LONG_TOLERANCE)}–{formatPercent(0.5 + COG_LONG_TOLERANCE)} длины и не дальше{' '}
         {formatPercent(COG_LAT_TOLERANCE)} ширины от оси.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** The loads on the wheels from the cab back; opens «Нагрузка на оси». */
+function AxleStat({ axles }: { axles: VehicleAxles }) {
+  const open = useAxlesDialog((s) => s.open);
+  const danger = axles.over || axles.lifted;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={() => open(axles.vehicleId)}
+          className={cn(
+            'inline-flex h-6 items-center gap-1 rounded-full px-2.5 font-medium tabular-nums outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+            danger
+              ? 'bg-destructive/10 text-destructive hover:bg-destructive/15'
+              : axles.light
+                ? 'bg-warning/10 text-warning hover:bg-warning/15'
+                : 'bg-success/10 text-success hover:bg-success/15',
+          )}
+        >
+          {(danger || axles.light) && <TriangleAlert className="size-3.5" />}
+          Оси: {axleSummary(axles)}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64 text-pretty">
+        Нагрузка на оси от кабины к дверям
+        {axles.over ? ' — есть перегруз' : axles.lifted ? ' — ось отрывается' : axles.light ? ' — рулевая ось недогружена' : ''}. Нажмите,
+        чтобы посмотреть подробно и вписать данные своей машины.
       </TooltipContent>
     </Tooltip>
   );

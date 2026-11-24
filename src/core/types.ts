@@ -68,6 +68,33 @@ export interface CargoItem {
 
 export type BodyKind = 'semi' | 'truck' | 'trailer';
 
+/**
+ * One axle or a group of axles side by side (a tandem, a tridem) under a body, or the coupling the body rests on
+ * with its front (see core/chassis.ts).
+ */
+export interface AxleGroup {
+  /** Centre along the body, cm from its front wall towards the doors (negative: ahead of the wall, under the cab). */
+  x: number;
+  /** Axles in the group; 0 — not wheels but a coupling: a semi-trailer's kingpin, a centre-axle trailer's drawbar. */
+  axles: number;
+  /** What the empty vehicle puts on it, kg. */
+  tare: number;
+  /** Permissible load, kg; missing or 0 — not checked. */
+  max?: number;
+}
+
+/**
+ * The supports of a body: its front and rear, and under a semi-trailer behind the cab also the tractor's
+ * steering and drive axles (x from the semi-trailer's front wall too).
+ */
+export type ChassisPart = 'front' | 'rear' | 'tractorFront' | 'tractorDrive';
+
+/**
+ * The user's own figures for the running gear of a body. Every field left out is the typical one for the body's
+ * kind and size (`chassisOf`), so it follows the body when it is resized.
+ */
+export type ChassisPatch = Partial<Record<ChassisPart, Partial<AxleGroup>>>;
+
 /** A cargo space: a semi-trailer, a rigid truck body or a drawbar trailer. */
 export interface CargoBody {
   id: string;
@@ -77,6 +104,8 @@ export interface CargoBody {
   dims: Dims;
   /** Payload capacity, kg. Missing: no limit is checked. */
   maxLoad?: number;
+  /** Axle positions, empty weights and permissible loads the user entered. Missing: all typical. */
+  chassis?: ChassisPatch;
 }
 
 /** A truck or a road train: up to MAX_BODIES cargo bodies, index 0 right behind the cab. */
