@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CargoBody, CargoItem, Dims, DockMode, Plan, Vehicle } from '../core/types';
+import type { CargoBody, CargoItem, ChassisPatch, Dims, DockMode, Plan, Vehicle } from '../core/types';
 import { computeLayout, ownerVehicle, type VehicleLayout } from '../core/layout';
 import { itemBox, itemSize, sanitizeItemDims, uid } from '../core/item';
 import { pinnedIds, settle } from '../core/physics';
@@ -7,6 +7,7 @@ import { dockSpot } from '../core/spawn';
 import { effectiveDims, rotate90, type RotationAxis } from '../core/orientation';
 import { adjacentLevel, beginMove, evaluateMove, finishMove, moveLevels } from '../core/move';
 import { nextVehicleName, parsePlan, relayout } from '../core/plan';
+import { cleanChassis } from '../core/chassis';
 import {
   BODY_LIMITS,
   BODY_MAX_LOAD_LIMIT,
@@ -132,6 +133,8 @@ export interface AppState extends PlanState {
   updateBody(id: string, dims: Dims): void;
   /** Payload capacity in kg; undefined removes the limit. */
   setBodyMaxLoad(id: string, maxLoad: number | undefined): void;
+  /** The user's axle figures of a body (core/chassis.ts); undefined — all typical again. */
+  setBodyChassis(id: string, chassis: ChassisPatch | undefined): void;
   addTrailer(vehicleId?: string): void;
   removeBody(id: string): void;
   /** Replaces the bodies of a vehicle (default: the active one). */
@@ -539,6 +542,16 @@ export const useStore = create<AppState>()(
             : { ...rest, maxLoad: Math.min(BODY_MAX_LOAD_LIMIT, Math.max(0, Math.round(maxLoad))) };
         });
         commit({ vehicles }, {}, `body-load:${id}`);
+      },
+
+      setBodyChassis(id, chassis) {
+        const s = get();
+        const clean = cleanChassis(chassis);
+        const vehicles = mapBody(s.vehicles, id, (b) => {
+          const { chassis: _, ...rest } = b;
+          return clean ? { ...rest, chassis: clean } : rest;
+        });
+        commit({ vehicles }, {}, `body-chassis:${id}`);
       },
 
       addTrailer(vehicleId) {

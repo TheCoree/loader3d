@@ -1,3 +1,4 @@
+import { EURO_RIG } from '../chassis';
 import { COG_LONG_TOLERANCE } from '../stats';
 
 /**
@@ -38,19 +39,9 @@ export interface Rig {
 
 /**
  * Typical figures of a 4×2 tractor with a 13,6 m tilt semi-trailer on three axles: a starting point for the
- * calculator, to be replaced with the vehicle's own papers.
+ * calculator, to be replaced with the vehicle's own papers. The editor starts from the same ones (core/chassis.ts).
  */
-export const TYPICAL_RIG: Rig = {
-  deckLength: 1360,
-  kingpin: 120,
-  bogie: 980,
-  trailerTareKingpin: 2000,
-  trailerTareAxles: 4800,
-  tractorFront: 5000,
-  tractorDrive: 2600,
-  wheelbase: 370,
-  fifthWheelAhead: 50,
-};
+export const TYPICAL_RIG: Rig = { ...EURO_RIG };
 
 export interface AxleLoads {
   cargoWeight: number;

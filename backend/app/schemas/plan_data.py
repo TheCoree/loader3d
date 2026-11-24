@@ -22,6 +22,10 @@ MAX_COORD = 100_000
 # src/core/presets.ts: ITEM_WEIGHT_LIMIT, BODY_MAX_LOAD_LIMIT (kg).
 ITEM_WEIGHT_LIMIT = 30_000
 BODY_MAX_LOAD_LIMIT = 60_000
+# src/core/chassis.ts: AXLE_X_LIMIT (cm from the front wall), AXLE_WEIGHT_LIMIT (kg), MAX_GROUP_AXLES.
+AXLE_X_MIN, AXLE_X_MAX = -1000, 3000
+AXLE_WEIGHT_LIMIT = 60_000
+MAX_GROUP_AXLES = 4
 # src/core/plan.ts: LEGACY_VEHICLE_ID, defaultVehicleName(0).
 LEGACY_VEHICLE_ID = "veh-1"
 LEGACY_VEHICLE_NAME = "Машина 1"
@@ -64,6 +68,25 @@ class Orientation(PlanModel):
     up: Annotated[Literal["h", "l", "w"] | None, Field(exclude_if=_omit_none)] = None
 
 
+class AxleGroupPatch(PlanModel):
+    """The figures of one support the user changed (src/core/types.ts AxleGroup); the rest are typical."""
+
+    x: Annotated[float | None, Field(ge=AXLE_X_MIN, le=AXLE_X_MAX, exclude_if=_omit_none)] = None
+    axles: Annotated[int | None, Field(ge=1, le=MAX_GROUP_AXLES, exclude_if=_omit_none)] = None
+    tare: Annotated[float | None, Field(ge=0, le=AXLE_WEIGHT_LIMIT, exclude_if=_omit_none)] = None
+    # Permissible load, kg; 0 — not checked.
+    max: Annotated[float | None, Field(ge=0, le=AXLE_WEIGHT_LIMIT, exclude_if=_omit_none)] = None
+
+
+class ChassisPatch(PlanModel):
+    """Axle positions, empty weights and permissible loads of a body (src/core/chassis.ts)."""
+
+    front: Annotated[AxleGroupPatch | None, Field(exclude_if=_omit_none)] = None
+    rear: Annotated[AxleGroupPatch | None, Field(exclude_if=_omit_none)] = None
+    tractorFront: Annotated[AxleGroupPatch | None, Field(exclude_if=_omit_none)] = None  # noqa: N815
+    tractorDrive: Annotated[AxleGroupPatch | None, Field(exclude_if=_omit_none)] = None  # noqa: N815
+
+
 class CargoBody(PlanModel):
     id: Id
     name: Annotated[str, StringConstraints(max_length=100)]
@@ -71,6 +94,8 @@ class CargoBody(PlanModel):
     dims: BodyDims
     # Payload capacity, kg. Optional (older plans); omitted from the JSON when not set.
     maxLoad: Annotated[float | None, Field(ge=0, le=BODY_MAX_LOAD_LIMIT, exclude_if=_omit_none)] = None  # noqa: N815
+    # The user's own figures for the axles; omitted when everything is typical.
+    chassis: Annotated[ChassisPatch | None, Field(exclude_if=_omit_none)] = None
 
 
 class Vehicle(PlanModel):

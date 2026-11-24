@@ -252,6 +252,18 @@ def _broken(change) -> dict[str, Any]:
         pytest.param(
             _broken(lambda d: d["vehicles"][0]["bodies"][0].update(maxLoad=70_000)), id="payload-too-big"
         ),
+        pytest.param(
+            _broken(lambda d: d["vehicles"][0]["bodies"][0].update(chassis={"rear": {"tare": -1}})),
+            id="negative-axle-tare",
+        ),
+        pytest.param(
+            _broken(lambda d: d["vehicles"][0]["bodies"][0].update(chassis={"rear": {"axles": 9}})),
+            id="too-many-axles",
+        ),
+        pytest.param(
+            _broken(lambda d: d["vehicles"][0]["bodies"][0].update(chassis={"cab": {"tare": 1}})),
+            id="unknown-axle-group",
+        ),
     ],
 )
 async def test_invalid_plan_data_is_rejected(anna, data):
@@ -262,6 +274,21 @@ async def test_invalid_plan_data_is_rejected(anna, data):
 @pytest.mark.parametrize("name", ["", "   ", "x" * 201])
 async def test_plan_name_is_validated(anna, name):
     assert (await anna.post("/api/plans", json={"name": name})).status_code == 422
+
+
+async def test_axle_figures_round_trip(anna):
+    data = plan_data(1)
+    chassis = {
+        "front": {"x": 160, "tare": 2100},
+        "rear": {"axles": 2, "max": 0},
+        "tractorDrive": {"tare": 3000},
+    }
+    data["vehicles"][0]["bodies"][0]["chassis"] = chassis
+    created = (await anna.post("/api/plans", json={"name": "Оси", "data": data})).json()
+    assert created["data"]["vehicles"][0]["bodies"][0]["chassis"] == chassis
+    data["vehicles"][0]["bodies"][0].pop("chassis")
+    plain = (await anna.post("/api/plans", json={"name": "Без осей", "data": data})).json()
+    assert "chassis" not in plain["data"]["vehicles"][0]["bodies"][0]
 
 
 async def test_fixed_cargo_round_trips(anna):

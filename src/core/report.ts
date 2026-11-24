@@ -3,6 +3,7 @@ import { intersection } from './geometry';
 import { itemBox } from './item';
 import type { VehicleLayout } from './layout';
 import { classify, computeStats, type BodyStats, type PlacementStatus } from './stats';
+import type { VehicleAxles } from './chassis';
 
 /** What a printed report says about one cargo body: used vs. available, per parameter. */
 export interface BodySummary extends BodyStats {
@@ -24,6 +25,8 @@ export interface LoadSummary {
   dockWeight: number;
   /** Items sticking out of their body. */
   overflow: number;
+  /** Axle loads of every vehicle of the layout (a report section has one). */
+  axles: VehicleAxles[];
 }
 
 /**
@@ -62,7 +65,13 @@ export function summarizeLoad(items: readonly CargoItem[], layout: VehicleLayout
       height: e.top,
     };
   });
-  return { bodies, dock: stats.dock, dockWeight: stats.dockWeight, overflow: stats.overflow };
+  return {
+    bodies,
+    dock: stats.dock,
+    dockWeight: stats.dockWeight,
+    overflow: stats.overflow,
+    axles: stats.vehicles.map((v) => v.axles),
+  };
 }
 
 /** One line of the cargo list: identical items in the same place are counted together. */

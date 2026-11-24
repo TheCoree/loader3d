@@ -2,6 +2,7 @@ import type { Box, CargoItem } from './types';
 import { boxCenter, contains, intersection, subtractBox, volume } from './geometry';
 import { itemBox, itemWeight } from './item';
 import { bodyAt, dockIndexAt, type PlacedBody, type VehicleLayout } from './layout';
+import { vehicleAxleLoads, type VehicleAxles } from './chassis';
 
 /**
  * Weight distribution limits (simplified safety model, also used by autoload):
@@ -62,6 +63,8 @@ export interface VehicleStats {
   /** Cargo on the dock the vehicle is loaded from (a shared dock counts for every vehicle). */
   dock: number;
   dockWeight: number;
+  /** Loads on the axles from the cargo in its bodies and the empty vehicle (core/chassis.ts). */
+  axles: VehicleAxles;
 }
 
 export interface PlanStats {
@@ -205,7 +208,13 @@ export function computeStats(items: readonly CargoItem[], layout: VehicleLayout)
   }
   const vehicles = layout.vehicles.map((pv): VehicleStats => {
     const d = perDock[layout.dockMode === 'own' ? pv.index : 0] ?? { count: 0, weight: 0 };
-    return { id: pv.vehicle.id, ...perVehicle.get(pv.vehicle.id)!, dock: d.count, dockWeight: d.weight };
+    return {
+      id: pv.vehicle.id,
+      ...perVehicle.get(pv.vehicle.id)!,
+      dock: d.count,
+      dockWeight: d.weight,
+      axles: vehicleAxleLoads(pv, weighted),
+    };
   });
   return { bodies: [...perBody.values()], vehicles, inside, overflow, dock, cargoVolume, cargoWeight, dockWeight };
 }

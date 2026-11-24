@@ -19,6 +19,8 @@ interface ScalarFieldProps {
   /** Report every valid keystroke instead of committing on blur / Enter. */
   live?: boolean;
   placeholder?: string;
+  /** The label only for screen readers (inputs in a table under a column heading). */
+  hideLabel?: boolean;
   className?: string;
 }
 
@@ -35,6 +37,7 @@ function ScalarField({
   onCommit,
   live,
   placeholder,
+  hideLabel,
   className,
 }: ScalarFieldProps) {
   const id = useId();
@@ -79,7 +82,7 @@ function ScalarField({
 
   return (
     <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'text-xs font-medium text-muted-foreground'}>
         {label}
       </label>
       <div className="flex h-8 items-center gap-1 rounded-lg border border-input bg-background px-2.5 transition-[color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
@@ -122,16 +125,20 @@ interface NumberFieldProps {
   live?: boolean;
   min?: number;
   max?: number;
+  /** Words after the unit: «м перед кузовом». */
+  suffix?: string;
+  hideLabel?: boolean;
   className?: string;
 }
 
 /** Length in the current display units (мм / см / м); stored in centimetres. */
-export function NumberField({ label, value, units, onCommit, live, min = 1, max = 5000, className }: NumberFieldProps) {
+export function NumberField({ label, value, units, onCommit, live, min = 1, max = 5000, suffix, hideLabel, className }: NumberFieldProps) {
   return (
     <ScalarField
       label={label}
       value={value}
-      unit={UNIT_LABEL[units]}
+      unit={suffix ? `${UNIT_LABEL[units]} ${suffix}` : UNIT_LABEL[units]}
+      hideLabel={hideLabel}
       format={(cm) => formatPlain(cm, units)}
       parse={(text) => {
         const n = parseNumber(text);
@@ -159,10 +166,13 @@ interface WeightFieldProps {
   onCommit(kg: number): void;
   live?: boolean;
   max: number;
+  /** Shown while empty (default «не указан»). */
+  placeholder?: string;
+  hideLabel?: boolean;
   className?: string;
 }
 
-export function WeightField({ label, kg, unit = 'kg', onCommit, live, max, className }: WeightFieldProps) {
+export function WeightField({ label, kg, unit = 'kg', onCommit, live, max, placeholder = 'не указан', hideLabel, className }: WeightFieldProps) {
   const factor = unit === 't' ? 1000 : 1;
   return (
     <ScalarField
@@ -180,7 +190,8 @@ export function WeightField({ label, kg, unit = 'kg', onCommit, live, max, class
       max={max}
       onCommit={onCommit}
       live={live}
-      placeholder="не указан"
+      placeholder={placeholder}
+      hideLabel={hideLabel}
       className={className}
     />
   );
