@@ -136,7 +136,8 @@ Caddy получает для `MAIL_HOSTNAME`; продления подхват
 (`scripts/prerender.mjs` → `src/prerender.tsx`, браузер его гидрирует): заголовки, тексты, тарифы и FAQ
 видны поисковикам без JavaScript; там же мета-теги, Open Graph (`public/landing/og.jpg`), JSON-LD
 (`WebSite` и `Organization` — имя сайта «Loader3D» и логотип, `SoftwareApplication` с ценами и `FAQPage`),
-`robots.txt`, а с `SITE_URL` — canonical и `sitemap.xml` (в нём только отрендеренные страницы).
+`robots.txt` (с `Clean-param` для Яндекса: адрес с `utm_*`, `yclid` и т. п. — та же страница, а не дубль),
+а с `SITE_URL` — canonical и `sitemap.xml` (в нём только отрендеренные страницы).
 Так же рендерятся **калькуляторы** (`/kalkulyator` и `/kalkulyator/…`, см. «Что умеет»): каждый — в свой файл
 `dist/kalkulyator/<имя>.html` со своими title, description, canonical и JSON-LD (`WebApplication`, `FAQPage`,
 `BreadcrumbList`); Caddy отдаёт `{path}.html`, адреса со слешем на конце переадресует без него.
