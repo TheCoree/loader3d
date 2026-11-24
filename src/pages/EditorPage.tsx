@@ -118,7 +118,8 @@ function useLimitOffers(): void {
     () =>
       useStore.subscribe((s, prev) => {
         const hit = s.limitHit;
-        if (!hit || hit === prev.limitHit) return;
+        // `setup` is the demo's (editor/DemoGate.tsx), never a tier's.
+        if (!hit || hit === prev.limitHit || hit.kind === 'setup') return;
         useUpgrade
           .getState()
           .show(

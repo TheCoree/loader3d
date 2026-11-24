@@ -14,22 +14,23 @@ import { exportPlan, makeBody, useStore } from '../store/useStore';
 /**
  * The demo of the editor on the landing page (pages/DemoPage, `/demo`, opened from pages/LandingDemo): the real
  * editor with the plan only in memory — no account, nothing goes to the server (no planSync, no accountSync: there is no user), nothing is
- * kept in the browser. It lets a visitor try everything, «Pro» features too, and asks for a free registration
- * (DemoGate) after DEMO_NUDGE_AFTER of use, over DEMO_LIMITS, for a second PDF and for what needs an account
- * (saving, files). The window can always be closed and the demo goes on. «Сохранить схему» carries the plan
- * through the registration into the new account (`/start?plan=…`, lib/demoPlan.ts).
+ * kept in the browser. A showcase, not a free tool: the visitor plays with the example — moves and turns the cargo,
+ * runs autoload, looks at the views and the axle loads — but cannot make the plan their own (`exampleOnly`: no
+ * cargo of their own, no other vehicle or its figures) or take a result away (no PDF, no files). Each of these
+ * opens the registration (DemoGate), as does DEMO_NUDGE_AFTER of use; the window can always be closed and the demo
+ * goes on. «Сохранить схему» carries the plan through the registration into the new account (`/start?plan=…`,
+ * lib/demoPlan.ts).
  */
 
-/** What the demo holds; more asks for the registration (the store refuses it, as a tier limit). */
-export const DEMO_LIMITS = { vehicles: 2, items: 60, tierName: 'Демо' } as const;
-/** PDF files the demo makes before asking for the registration. */
-export const DEMO_FREE_PDFS = 1;
+/** The example only; more than it asks for the registration (the store refuses it, as a tier limit). */
+export const DEMO_LIMITS = { vehicles: 2, items: 60, tierName: 'Демо', exampleOnly: true } as const;
 /** Active use of the demo (the tab visible, input within IDLE_AFTER) before it suggests saving the plan. */
 export const DEMO_NUDGE_AFTER = 5 * 60_000;
 export const DEMO_IDLE_AFTER = 60_000;
 
-export type DemoGateReason = 'time' | 'limits' | 'pdf' | 'save' | 'file';
-export type DemoStep = 'move' | 'autoload' | 'pdf';
+/** `own`: the visitor's own cargo or vehicle (the store's `setup` refusal); `pdf`: any PDF. */
+export type DemoGateReason = 'time' | 'limits' | 'own' | 'pdf' | 'save' | 'file';
+export type DemoStep = 'move' | 'autoload' | 'axles';
 
 interface DemoState {
   /** The plan as the visitor left the demo: back on `/demo` (the browser's «Back» from the registration) it is there again. */
@@ -37,8 +38,6 @@ interface DemoState {
   activeMs: number;
   /** The window after DEMO_NUDGE_AFTER was shown (once a visit). */
   nudged: boolean;
-  /** PDF files made in the demo. */
-  pdfs: number;
   steps: Record<DemoStep, boolean>;
   /** Why the registration window is open; null — closed. */
   gate: DemoGateReason | null;
@@ -48,8 +47,7 @@ export const useDemo = create<DemoState>()(() => ({
   plan: null,
   activeMs: 0,
   nudged: false,
-  pdfs: 0,
-  steps: { move: false, autoload: false, pdf: false },
+  steps: { move: false, autoload: false, axles: false },
   gate: null,
 }));
 
