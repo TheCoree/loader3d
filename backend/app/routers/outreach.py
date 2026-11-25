@@ -17,6 +17,7 @@ from app.models import OutreachContact, User, Visit, utcnow
 from app.schemas.outreach import (
     MailboxOut,
     MailMessageOut,
+    MailSeenIn,
     OutreachContactIn,
     OutreachContactOut,
     OutreachLetterOut,
@@ -185,8 +186,18 @@ async def mailbox(auth: AdminAuth, db: Db, settings: SettingsDep) -> MailboxOut:
                 about=m.about,
                 text=m.text,
                 contact_id=by_email.get(m.about or "") or by_email.get(m.sender),
+                seen=m.seen,
             )
             for m in messages
         ],
         error=None,
     )
+
+
+@router.post("/mail/{uid}/seen", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_seen(uid: str, body: MailSeenIn, auth: AdminAuth, settings: SettingsDep) -> None:
+    """Marks a letter read (opened in the panel) or unread again — in the mailbox itself."""
+    try:
+        await asyncio.to_thread(inbox.set_seen, settings, uid, body.seen)
+    except inbox.InboxError as exc:
+        raise ApiError(status.HTTP_502_BAD_GATEWAY, "mailbox_failed", str(exc)) from exc

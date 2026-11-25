@@ -215,3 +215,18 @@ async def test_add_from_the_console(app, settings):
         ("ТК 82", None, None),
     ]
     assert all(outreach.REF_PATTERN.fullmatch(c.ref) for c in contacts)
+
+
+def test_the_read_flag_of_a_fetch_answer():
+    assert inbox.seen_flag([(rb"5 (UID 5 FLAGS (\Seen \Answered) BODY[] {12}", b"raw"), b")"]) is True
+    assert inbox.seen_flag([(b"5 (UID 5 FLAGS () BODY[] {12}", b"raw"), b")"]) is False
+    # Some servers send the flags after the body.
+    assert inbox.seen_flag([(b"5 (UID 5 BODY[] {12}", b"raw"), rb" FLAGS (\Seen))"]) is True
+    assert inbox.parse("7", REPLY, seen=True).seen is True
+
+
+async def test_marking_read_needs_a_mailbox(admin, client):
+    response = await admin.post("/api/admin/mail/12/seen", json={"seen": True})
+    assert response.status_code == 502 and error_code(response) == "mailbox_failed"
+    await register(client, "bob@example.com")
+    assert (await client.post("/api/admin/mail/12/seen", json={"seen": True})).status_code == 403
