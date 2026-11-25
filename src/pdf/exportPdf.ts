@@ -83,6 +83,12 @@ export async function buildPdf(
     units: source.units,
     orientation: options.orientation,
     sections,
+    // Drivers, warehouses and clients see where the plan was made; the tags show these visits in the admin
+    // «Посещаемость» as the campaign «pdf / pdf-footer».
+    site: {
+      host: location.host,
+      url: `${location.origin}/?utm_source=pdf&utm_medium=document&utm_campaign=pdf-footer`,
+    },
   });
   return (await library).createPdf(doc).getBlob();
 }

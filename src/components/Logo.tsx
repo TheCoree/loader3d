@@ -1,17 +1,12 @@
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
+import { LOGO_BLUE, LOGO_FACES, faceTransform } from '@/lib/brand';
 
-/**
- * The mark: an isometric box of three faces with thin gaps between them, no tile behind it. The top face
- * takes the text colour, the left one a lighter shade of it, the right one the accent blue.
- * The same drawing is the favicon, public/favicon.svg — change both, and render favicon.ico (16/32/48 px)
- * and apple-touch-icon.png (180 px, white tile) from it again.
- */
+/** The mark (its drawing: lib/brand.ts): the top face in the text colour, the left at half strength, the right blue. */
 const FACES = [
-  // [path, centroid] — the gaps come from shrinking each face towards its centroid.
-  { d: 'M12 2.5 20.2 7.25 12 12 3.8 7.25Z', c: [12, 7.25], fill: 'currentColor', opacity: 1, out: [0, -1] },
-  { d: 'M3.8 7.25 12 12v9.5l-8.2-4.75Z', c: [7.9, 14.375], fill: 'currentColor', opacity: 0.5, out: [-0.866, 0.5] },
-  { d: 'M20.2 7.25 12 12v9.5l8.2-4.75Z', c: [16.1, 14.375], fill: '#2f6fed', opacity: 1, out: [0.866, 0.5] },
+  { ...LOGO_FACES[0], fill: 'currentColor', opacity: 1 },
+  { ...LOGO_FACES[1], fill: 'currentColor', opacity: 0.5 },
+  { ...LOGO_FACES[2], fill: LOGO_BLUE, opacity: 1 },
 ] as const;
 
 /** `mono`: every face in the text colour (set it with a text-* class), shaded top → right → left. */
@@ -30,7 +25,7 @@ function Faces({ animated, mono }: { animated?: boolean; mono?: boolean }) {
             d={d}
             fill={mono ? 'currentColor' : fill}
             fillOpacity={mono ? MONO_OPACITY[i] : opacity}
-            transform={`translate(${c[0]} ${c[1]}) scale(0.86) translate(${-c[0]} ${-c[1]})`}
+            transform={faceTransform(c)}
           />
         </g>
       ))}

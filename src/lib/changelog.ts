@@ -33,6 +33,20 @@ export const CHANGE_KINDS: Record<ChangeKind, { label: string; filter: string }>
 
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-25',
+    title: 'Обновлённая PDF-схема',
+    changes: [
+      {
+        kind: 'improved',
+        text: 'В шапке PDF-схемы теперь новый логотип Loader3D, тот же, что на сайте.',
+      },
+      {
+        kind: 'improved',
+        text: 'В подвале PDF-схемы теперь есть адрес сайта, на него можно нажать. Водитель, склад или клиент, которым вы отправили схему, сразу видят, где она сделана.',
+      },
+    ],
+  },
+  {
     id: '2026-11-24.2',
     title: 'Нагрузка на оси',
     changes: [

@@ -5,6 +5,7 @@ import { formatSeqList, type BodySummary, type CargoRow, type LoadSummary } from
 import { COG_LAT_TOLERANCE, COG_LONG_TOLERANCE } from '../core/stats';
 import { MIN_STEER_SHARE, groupLabel, type VehicleAxles } from '../core/chassis';
 import { formatDims, formatLength, formatMeters, formatPercent, formatVolume, formatWeight, type Units } from '../core/units';
+import { logoSvg } from '../lib/brand';
 import { plural } from '../lib/format';
 import { LIGHT_COLORS as COLORS } from '../scene/theme';
 import type { Snapshot } from './snapshot';
@@ -34,6 +35,8 @@ export interface ReportData {
   orientation: PdfOrientation;
   /** One per vehicle; several start each on a new page under the vehicle's name. */
   sections: ReportSection[];
+  /** The site the plan was made on, shown and linked in the footer: «loader3d.pro» and the address to open. */
+  site?: { host: string; url: string };
 }
 
 type SectionData = ReportSection & Pick<ReportData, 'units' | 'orientation'>;
@@ -64,17 +67,8 @@ export const DIRECTION_TEXT: Record<LoadDirection, string> = {
   top: 'сверху',
 };
 
-/** The lucide "Boxes" icon of the app logo. */
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-<rect width="32" height="32" rx="7" fill="${COLORS.accent}"/>
-<g transform="translate(4 4)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-<path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/>
-<path d="m7 16.5-4.74-2.85"/><path d="m7 16.5 5-3"/><path d="M7 16.5v5.17"/>
-<path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/>
-<path d="m17 16.5-5-3"/><path d="m17 16.5 4.74-2.85"/><path d="M17 16.5v5.17"/>
-<path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/>
-<path d="M12 8 7.26 5.15"/><path d="m12 8 4.74-2.85"/><path d="M12 13.5V8"/>
-</g></svg>`;
+/** The brand mark (lib/brand.ts), dark on the white page like the favicon. */
+const LOGO_SVG = logoSvg('#0a0b0d');
 
 /** «Полуприцеп 13,6 × 2,45 × 2,7 м · 20 т · 90 м³» for every body, joined with «+». */
 export function vehicleSummary(bodies: readonly CargoBody[]): string {
@@ -158,9 +152,10 @@ export function reportDocument(data: ReportData): TDocumentDefinitions {
       stack: [
         {
           columns: [
-            { svg: LOGO_SVG, width: 18, height: 18 },
-            { text: 'Loader3D', fontSize: 15, margin: [7, 0, 0, 0], width: 'auto' },
-            { text: date, fontSize: 8, color: MUTED, alignment: 'right', margin: [0, 5, 0, 0] },
+            { svg: LOGO_SVG, width: 22, height: 22 },
+            // Like the site's wordmark: semibold (Roboto Medium is the «bold» of the report) and set a little tight.
+            { text: 'Loader3D', fontSize: 15, bold: true, characterSpacing: -0.3, margin: [6, 3, 0, 0], width: 'auto' },
+            { text: date, fontSize: 8, color: MUTED, alignment: 'right', margin: [0, 7, 0, 0] },
           ],
           columnGap: 0,
         },
@@ -177,7 +172,14 @@ export function reportDocument(data: ReportData): TDocumentDefinitions {
     footer: (current, total) => ({
       margin: [MARGIN_X, 16, MARGIN_X, 0],
       columns: [
-        { text: 'Loader3D · план загрузки', fontSize: 8, color: MUTED },
+        {
+          text: [
+            'Loader3D · план загрузки',
+            ...(data.site ? [' · ', { text: data.site.host, link: data.site.url, color: COLORS.accent }] : []),
+          ],
+          fontSize: 8,
+          color: MUTED,
+        },
         { text: `Страница ${current} из ${total}`, fontSize: 8, color: MUTED, alignment: 'right' },
       ],
     }),
