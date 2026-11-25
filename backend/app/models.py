@@ -95,6 +95,8 @@ class User(Base):
     tier_note: Mapped[str | None] = mapped_column(String(500))
     # The `tier_expires_at` the last «тариф заканчивается» letter was about (app/billing.py): one per period.
     tier_reminder_for: Mapped[datetime | None]
+    # The referral code the account came with (`?ref=` of a letter to a company, OutreachContact.ref).
+    ref: Mapped[str | None] = mapped_column(String(40), index=True)
 
     sessions: Mapped[list[AuthSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
@@ -122,6 +124,29 @@ class Lead(Base):
     # "new" until an admin handles it, then "done".
     status: Mapped[str] = mapped_column(String(20), default="new", server_default="new")
     created_at: Mapped[datetime] = mapped_column(default=utcnow, index=True)
+
+
+class OutreachContact(Base):
+    """A company the admin writes to (app/outreach.py): one personal letter with its own referral link
+    (`/r/<ref>`). Replies and bounces are read from the mailbox (app/inbox.py), sign-ups by `User.ref`."""
+
+    __tablename__ = "outreach_contacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid7)
+    company: Mapped[str] = mapped_column(String(200))
+    # Stored lower-cased.
+    email: Mapped[str] = mapped_column(String(320), unique=True)
+    city: Mapped[str | None] = mapped_column(String(100))
+    # One line about them, said in the letter: «возите продукты по Крыму своим автопарком».
+    note: Mapped[str | None] = mapped_column(String(300))
+    ref: Mapped[str] = mapped_column(String(40), unique=True)
+    # "new" → "queued" (the job sends one a minute) → "sent", or "failed" with `error`.
+    status: Mapped[str] = mapped_column(String(20), default="new", server_default="new")
+    queued_at: Mapped[datetime | None]
+    sent_at: Mapped[datetime | None]
+    message_id: Mapped[str | None] = mapped_column(String(250))
+    error: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
 class Payment(Base):

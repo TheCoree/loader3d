@@ -10,7 +10,7 @@ from app.analytics import LIVE_WINDOW
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.metrics import Activity, RequestMetricsMiddleware, RequestStats
-from app.routers import admin, analytics, auth, billing, health, leads, plans, users, widget
+from app.routers import admin, analytics, auth, billing, health, leads, outreach, plans, users, widget
 from app.widget import WidgetCache
 
 API_PREFIX = "/api"
@@ -26,10 +26,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = engine
         app.state.sessionmaker = create_sessionmaker(engine)
         # Hourly: «тариф заканчивается» letters and the removal of old visit statistics; every few minutes:
-        # pending payments asked about at their provider (app/jobs.py).
+        # pending payments asked about at their provider; every minute: one queued letter to a company
+        # (app/jobs.py).
         tasks = [
             asyncio.create_task(jobs.hourly(app.state.sessionmaker, settings)),
             asyncio.create_task(jobs.check_payments(app.state.sessionmaker, settings)),
+            asyncio.create_task(jobs.send_outreach(app.state.sessionmaker, settings)),
         ]
         try:
             yield
@@ -66,7 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["*"],
         )
 
-    for module in (health, auth, users, plans, leads, billing, analytics, admin):
+    for module in (health, auth, users, plans, leads, billing, analytics, admin, outreach):
         app.include_router(module.router, prefix=API_PREFIX)
     # Without a key the widget's endpoint does not exist at all: 404 like any unknown path.
     if settings.widget_key_sha256:

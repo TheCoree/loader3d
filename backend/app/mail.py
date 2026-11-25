@@ -104,8 +104,9 @@ def build_message(
     return message
 
 
-def _deliver_smtp(settings: Settings, message: EmailMessage) -> None:
-    """Blocking: runs in a worker thread."""
+def _deliver_smtp(settings: Settings, message: EmailMessage, login: tuple[str, str] | None = None) -> None:
+    """Blocking: runs in a worker thread. `login` — another mailbox's username and password (outreach)."""
+    username, password = login or (settings.smtp_username, settings.smtp_password.get_secret_value())
     context = ssl.create_default_context()
     smtp: smtplib.SMTP
     if settings.smtp_security == "ssl":
@@ -117,19 +118,19 @@ def _deliver_smtp(settings: Settings, message: EmailMessage) -> None:
     with smtp:
         if settings.smtp_security == "starttls":
             smtp.starttls(context=context)
-        if settings.smtp_username:
-            smtp.login(settings.smtp_username, settings.smtp_password.get_secret_value())
+        if username:
+            smtp.login(username, password)
         smtp.send_message(message)
 
 
-async def send(settings: Settings, message: EmailMessage) -> None:
+async def send(settings: Settings, message: EmailMessage, login: tuple[str, str] | None = None) -> None:
     to = message["To"]
     if settings.mail_backend == "console":
         # print: uvicorn does not configure the root logger, and the code must be visible in development.
         print(f"[mail] To {to}: {message['Subject']}", flush=True)
         return
     try:
-        await asyncio.to_thread(_deliver_smtp, settings, message)
+        await asyncio.to_thread(_deliver_smtp, settings, message, login)
     except (smtplib.SMTPException, OSError) as exc:
         # WARNING and above reach stderr (docker compose logs api) even without a configured handler.
         logger.error("mail to %s was not sent: %s: %s", to, type(exc).__name__, exc)
