@@ -1,10 +1,12 @@
 import { TOOL_PAGES, TOOLS_HUB, documentTitle, toolPage, type ToolId } from '@/lib/toolPages';
 import { cn } from '@/lib/utils';
 import { AXLE_LOADS } from './AxlePage';
+import { BOXES_IN_TRUCK } from './BoxesInTruckPage';
 import { BOXES_ON_PALLET, CARGO_VOLUME } from './CargoPages';
 import { CONTAINER_DIMENSIONS, TRUCK_DIMENSIONS } from './DimensionsPages';
 import { LDM } from './LdmPage';
-import { PALLETS_CONTAINER, PALLETS_GAZELLE, PALLETS_TRUCK } from './PalletPages';
+import { PALLETS_CONTAINER, PALLETS_GAZELLE, PALLETS_LORRY, PALLETS_TRUCK } from './PalletPages';
+import { PALLET_SIZES } from './PalletSizesPage';
 import { LOADING_PLAN } from './SchemePage';
 import { Article, Container, RelatedTools, ToolCards, ToolCta, ToolFaq, ToolShell, siteTitle, type FaqItem, type ToolContent } from './kit';
 
@@ -25,6 +27,9 @@ export const TOOL_CONTENT: Record<ToolId, ToolContent> = {
   'boxes-on-pallet': BOXES_ON_PALLET,
   'cargo-volume': CARGO_VOLUME,
   'loading-plan': LOADING_PLAN,
+  'pallets-lorry': PALLETS_LORRY,
+  'pallet-sizes': PALLET_SIZES,
+  'boxes-in-truck': BOXES_IN_TRUCK,
 };
 
 /** The FAQ of a page, for its FAQPage structured data (src/prerender.tsx). */
@@ -50,8 +55,8 @@ export function ToolPage({ id }: { id: ToolId }) {
 const HUB_GROUPS: Array<{ title: string; text: string; ids: ToolId[] }> = [
   {
     title: 'Сколько поместится',
-    text: 'Паллеты и коробки — в фуре, контейнере, газели и на паллете.',
-    ids: ['pallets-truck', 'pallets-container', 'pallets-gazelle', 'boxes-on-pallet'],
+    text: 'Паллеты и коробки — в фуре, контейнере, грузовике, газели и на паллете.',
+    ids: ['pallets-truck', 'pallets-container', 'pallets-lorry', 'pallets-gazelle', 'boxes-in-truck', 'boxes-on-pallet'],
   },
   {
     title: 'Место, вес и оси',
@@ -59,9 +64,9 @@ const HUB_GROUPS: Array<{ title: string; text: string; ids: ToolId[] }> = [
     ids: ['ldm', 'cargo-volume', 'axle-loads'],
   },
   {
-    title: 'Кузова и схема',
-    text: 'Размеры машин и контейнеров и как составить схему загрузки.',
-    ids: ['truck-dimensions', 'container-dimensions', 'loading-plan'],
+    title: 'Размеры и схема',
+    text: 'Размеры машин, контейнеров и паллет и как составить схему загрузки.',
+    ids: ['truck-dimensions', 'container-dimensions', 'pallet-sizes', 'loading-plan'],
   },
 ];
 

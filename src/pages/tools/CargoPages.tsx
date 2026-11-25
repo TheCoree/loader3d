@@ -134,13 +134,13 @@ function BoxesCalculator() {
 }
 
 /** A tilt trailer full of the pallets just made (as many as stand and as the payload carries). */
-function palletsInTent(l: number, w: number, h: number, weight: number): StartSpec {
+export function palletsInTent(l: number, w: number, h: number, weight: number, what = 'с коробками'): StartSpec {
   const body = presetBody('tent');
   const load = palletLoad({ ...body.dims, maxLoad: body.maxLoad }, { dims: { l, w, h }, weight, stackable: false });
   return {
-    name: `Тент 13,6 м — ${load.total} ${word(load.total, ['паллета', 'паллеты', 'паллет'])} с коробками`,
+    name: `Тент 13,6 м — ${load.total} ${word(load.total, ['паллета', 'паллеты', 'паллет'])} ${what}`,
     body,
-    cargo: [{ name: 'Паллета с коробками', dims: { l, w, h }, weight, count: load.total, lay: { gap: 0, stackable: false } }],
+    cargo: [{ name: `Паллета ${what}`, dims: { l, w, h }, weight, count: load.total, lay: { gap: 0, stackable: false } }],
   };
 }
 

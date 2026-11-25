@@ -5,7 +5,7 @@ import { bestFit, gridFit } from '@/core/tools/floorFit';
 import { PALLETS } from '@/core/tools/pallets';
 import { toolPage } from '@/lib/toolPages';
 import { DataTable, num, tonnes, type ToolContent } from './kit';
-import { PalletCalculator, type BodyChoice } from './PalletCalculator';
+import { PalletCalculator, layoutText, type BodyChoice } from './PalletCalculator';
 import { presetChassis } from './start';
 
 /** The three «how many pallets fit» pages: a semi-trailer, a container, a Gazelle. Numbers come from core/tools. */
@@ -263,7 +263,7 @@ export const PALLETS_CONTAINER: ToolContent = {
 // ------------------------------------------------------------------ a Gazelle
 
 /** Typical tilt bodies of a Gazelle; the real ones differ by a few centimetres, the width matters most. */
-const GAZELLES: BodyChoice[] = [
+export const GAZELLES: BodyChoice[] = [
   { id: 'g3', label: '3 м', name: 'Газель 3 м', dims: { l: 300, w: 195, h: 180 }, maxLoad: 1500, kind: 'truck' },
   { id: 'g4', label: '4 м', name: 'Газель 4 м', dims: { l: 400, w: 195, h: 200 }, maxLoad: 1500, kind: 'truck' },
   { id: 'g42', label: '4,2 м', name: 'Газель 4,2 м', dims: { l: 420, w: 200, h: 220 }, maxLoad: 1500, kind: 'truck' },
@@ -341,5 +341,122 @@ export const PALLETS_GAZELLE: ToolContent = {
   cta: {
     title: 'Газель, грузовик или фура — загрузите в 3D',
     text: 'В Loader3D свои размеры кузова и грузоподъёмность, грузы с весом, автозагрузка и PDF-схема — прямо в браузере.',
+  },
+};
+
+// ------------------------------------------------------------------ a rigid truck by its payload class
+
+/**
+ * The payload classes logisticians name trucks by («пятитонник»), with typical bodies: the 3- and 10-tonne ones and
+ * the semi-trailer are the editor's templates, the 5-tonne one a common 6,2 m body. Real bodies of a class differ.
+ */
+export const LORRIES: BodyChoice[] = [
+  { id: 't3', label: '3 т', name: 'Грузовик 3 т', dims: preset('van').bodies[0].dims, maxLoad: 3000, kind: 'truck', chassisModel: presetChassis('van') },
+  { id: 't5', label: '5 т', name: 'Грузовик 5 т', dims: { l: 620, w: 245, h: 240 }, maxLoad: 5000, kind: 'truck' },
+  {
+    id: 't10',
+    label: '10 т',
+    name: 'Грузовик 10 т',
+    dims: preset('truck10').bodies[0].dims,
+    maxLoad: 10000,
+    kind: 'truck',
+    chassisModel: presetChassis('truck10'),
+  },
+  { id: 't20', label: '20 т', name: 'Еврофура 20 т', dims: TENT.dims, maxLoad: 20000, kind: 'semi', chassisModel: presetChassis('tent') },
+];
+
+const lorries = LORRIES.map((b) => ({ ...b, deck: deck(b.dims), fit: bestFit(b.dims, PALLETS.eur) }));
+const [t3, t5, t10, t20] = lorries;
+/** Pallets of 400 kg the payload carries. */
+const by400 = (b: BodyChoice) => Math.floor(b.maxLoad / 400);
+const lorryRows = lorries.map((b) => [
+  b.name,
+  dimsText(b.dims),
+  `${m3(b.dims)} м³`,
+  String(b.deck.eurAlong),
+  String(b.deck.eur),
+  String(b.deck.fin),
+  tonnes(b.maxLoad),
+  String(by400(b)),
+]);
+
+export const PALLETS_LORRY: ToolContent = {
+  lead: (
+    <>
+      <p>
+        В типичный 5-тонник с кузовом {dimsText(t5.dims)} входит <strong>{t5.deck.eur} европаллет</strong> ({layoutText(t5.fit)}), в
+        10-тонник с кузовом 8 м — <strong>{t10.deck.eur}</strong>, в 3-тонник 4,2 м — <strong>{t3.deck.eur}</strong>, в 20-тонник,
+        еврофуру, — <strong>{t20.deck.eurAlong}</strong>.
+      </p>
+      <p>
+        Но «5 тонн» — это грузоподъёмность, а не размер: кузова у машин одного класса разные. Введите свой — и вес паллеты: 5-тонник
+        возьмёт {t5.deck.eur} паллет по месту, но по 400 кг — только {by400(t5)}.
+      </p>
+    </>
+  ),
+  calculator: <PalletCalculator bodies={LORRIES} initialBody="t5" />,
+  article: (
+    <>
+      <h2>Что значит 3, 5, 10 и 20 тонн</h2>
+      <p>
+        Так грузовики называют по грузоподъёмности — сколько они везут, — а не по размеру кузова. У двух 5-тонников длина кузова может
+        отличаться на метр и больше, а от неё и зависит число паллет. Поэтому ниже — типичные кузова, а в калькуляторе — поля для
+        размеров своей машины: их пишут в документах или меряют рулеткой изнутри.
+      </p>
+      <DataTable
+        caption="Типичные кузова и паллеты в один ярус"
+        head={['Машина', 'Кузов внутри, Д × Ш × В', 'Объём', 'EUR вдоль', 'EUR максимум', 'FIN', 'Грузоподъёмность', 'EUR по 400 кг']}
+        rows={lorryRows}
+        note="Паллетомест на полу в один ярус, вплотную. «Максимум» — с раскладкой поперёк или ёлочкой. Последняя колонка — сколько паллет по 400 кг пропускает грузоподъёмность."
+      />
+      <h2>Вес кончается раньше места</h2>
+      <p>
+        В небольшой грузовик паллеты чаще упираются в вес, чем в место. В 5-тонник по полу встаёт {t5.deck.eur} европаллет, но по 400 кг
+        это {tonnes(t5.deck.eur * 400)} — больше его 5 т; увезти можно {by400(t5)}. В 3-тонник по месту — {t3.deck.eur}, по весу —{' '}
+        {by400(t3)}. А 10-тонник и фура при обычном весе паллет заполняются по месту раньше, чем по весу.
+      </p>
+      <p>
+        Тяжёлое к тому же нужно поставить так, чтобы не перегрузить ось: проверьте распределение в{' '}
+        {link('axle-loads', 'калькуляторе нагрузки на оси')}.
+      </p>
+      <h2>Почему решает ширина</h2>
+      <p>
+        При ширине кузова 2,45 м европаллеты встают по 3 в ряд вдоль (3 × 80 = 240 см) — это 5-, 10- и 20-тонники. У 3-тонника кузов
+        уже, около 2 м: по 3 не встаёт, и паллеты ставят ёлочкой — ряд поперёк (120 см) и ряд вдоль (80 см). Так в кузов 4,2 м входит{' '}
+        {t3.deck.eur} европаллет вместо {t3.deck.eurAlong}. Если ширина меньше 2 м, остаётся только по две вдоль — как в{' '}
+        {link('pallets-gazelle', 'газели')}.
+      </p>
+      <p>
+        Для фуры подробнее — на странице {link('pallets-truck', 'паллет в еврофуре')}, а если груз не паллетный —{' '}
+        {link('boxes-in-truck', 'сколько коробок поместится в машину')}.
+      </p>
+    </>
+  ),
+  faq: [
+    {
+      q: 'Сколько паллет входит в 5-тонник?',
+      a: `В кузов ${dimsText(t5.dims)} — ${t5.deck.eur} европаллет: 5 рядов по 3 вдоль. Финпаллет — ${t5.deck.fin}. По весу 5 т — это ${by400(t5)} паллет по 400 кг.`,
+    },
+    {
+      q: 'Сколько паллет входит в 10-тонник?',
+      a: `В кузов 8 × 2,45 м — ${t10.deck.eur} европаллет (${layoutText(t10.fit)}), вдоль по 3 — ${t10.deck.eurAlong}. Финпаллет — ${t10.deck.fin}.`,
+    },
+    {
+      q: 'Сколько паллет входит в 3-тонник?',
+      a: `В кузов 4,2 × 2,05 м — ${t3.deck.eur} европаллет ёлочкой или ${t3.deck.eurAlong} по две вдоль. По весу 3 т — ${by400(t3)} паллет по 400 кг.`,
+    },
+    {
+      q: 'Сколько паллет входит в 20-тонник?',
+      a: `20-тонник — это обычно еврофура 13,6 м: ${t20.deck.eurAlong} европаллеты в один ярус, 11 рядов по 3. Поперёк вплотную — ${t20.deck.eur}, финпаллет — ${t20.deck.fin}.`,
+    },
+    {
+      q: 'Как посчитать паллеты для своей машины?',
+      a: 'Введите в калькулятор внутренние размеры кузова и грузоподъёмность из документов, размер и вес паллеты. Он подберёт раскладку и покажет, сколько встанет по месту и сколько пропустит вес.',
+    },
+  ],
+  related: ['pallets-gazelle', 'pallets-truck', 'boxes-in-truck', 'truck-dimensions', 'axle-loads', 'ldm'],
+  cta: {
+    title: 'Посчитали паллеты — загрузите грузовик в 3D',
+    text: 'В Loader3D свой кузов и грузоподъёмность, паллеты с весом, автозагрузка с развесовкой по осям и PDF-схема для водителя.',
   },
 };

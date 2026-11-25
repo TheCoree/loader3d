@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { VEHICLE_PRESETS } from './presets';
 import type { FloorFit } from './tools/floorFit';
 import { bestFit, fitOptions, gridFit, tiersUnder } from './tools/floorFit';
-import { floorPlaces, palletLoad, PALLETS } from './tools/pallets';
+import { floorPlaces, loadedPallet, palletLoad, PALLET_REFS, PALLETS } from './tools/pallets';
 import { ldmSummary, rowLdm } from './tools/ldm';
 import {
   AXLE_EXAMPLE,
@@ -15,7 +15,7 @@ import {
   type LoadGroup,
   type Rig,
 } from './tools/axleLoads';
-import { bodyCheck, boxesOnPallet, cargoTotals } from './tools/cargo';
+import { bodyCheck, boxesInBody, boxesOnPallet, cargoTotals } from './tools/cargo';
 import { START_MAX_ITEMS, buildStartPlan, decodeStart, encodeStart, fitPlan, type StartSpec } from './tools/startPlan';
 import { computeLayout } from './layout';
 import type { CargoItem, Plan } from './types';
@@ -570,5 +570,47 @@ describe('a plan from the axle calculator', () => {
     );
     expect(many).toHaveLength(20);
     expect(many.reduce((n, c) => n + c.count, 0)).toBeLessThanOrEqual(START_MAX_ITEMS);
+  });
+});
+
+describe('boxes loose in a body', () => {
+  const cube = { l: 100, w: 100, h: 100 };
+
+  it('fills the floor and the height with upright boxes', () => {
+    const r = boxesInBody(cube, { l: 50, w: 50, h: 50 });
+    expect(r).toMatchObject({ perLayer: 4, layers: 2, bySpace: 8, total: 8, upright: true, byWeight: null });
+    expect(r.volumeFill).toBeCloseTo(1);
+  });
+
+  it('lays a box on its side only when that is allowed and takes more', () => {
+    const low = { l: 100, w: 100, h: 50 };
+    const tall = { l: 50, w: 50, h: 60 };
+    expect(boxesInBody(low, tall).total).toBe(0);
+    const tipped = boxesInBody(low, tall, 0, true);
+    expect(tipped).toMatchObject({ total: 2, layers: 1, upright: false });
+    expect(tipped.dims.h).toBe(50);
+    // A cube gains nothing on its side: it stays upright.
+    expect(boxesInBody(cube, { l: 50, w: 50, h: 50 }, 0, true).upright).toBe(true);
+  });
+
+  it('stops at the payload', () => {
+    const body = { ...VEHICLE_PRESETS.find((p) => p.id === 'tent')!.bodies[0].dims, maxLoad: 20000 };
+    const r = boxesInBody(body, { l: 60, w: 40, h: 40 }, 30);
+    expect(r.perLayer).toBe(bestFit(deck('tent'), { l: 60, w: 40 }).count);
+    expect(r.layers).toBe(6);
+    expect(r.bySpace).toBe(r.perLayer * 6);
+    expect(r.byWeight).toBe(666);
+    expect(r.total).toBe(Math.min(r.bySpace, 666));
+    expect(r.weight).toBe(r.total * 30);
+  });
+});
+
+describe('a pallet with its load', () => {
+  it('adds the pallet to the cargo and checks the safe working load', () => {
+    expect(loadedPallet('eur', 600, 120)).toEqual({ grossWeight: 625, height: 134.4, loadShare: 0.4, overloaded: false, area: 0.96 });
+    expect(loadedPallet('eur', 1600, 100).overloaded).toBe(true);
+    expect(loadedPallet('half', 800, 50).overloaded).toBe(true);
+    expect(loadedPallet('fin', 1500, 100).overloaded).toBe(false);
+    expect(PALLET_REFS.half.safeLoad).toBeLessThan(PALLET_REFS.eur.safeLoad);
   });
 });
