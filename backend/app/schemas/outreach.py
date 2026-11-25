@@ -76,9 +76,15 @@ class MailMessageOut(ApiModel):
     text: str
     # The company it is from (or, for a bounce, about).
     contact_id: uuid.UUID | None
+    # Read here or in a mail client (the mailbox's own flag).
+    seen: bool
 
 
 class MailboxOut(ApiModel):
     messages: list[MailMessageOut]
     # Why the mailbox could not be read; null — read.
     error: str | None
+
+
+class MailSeenIn(ApiModel):
+    seen: bool

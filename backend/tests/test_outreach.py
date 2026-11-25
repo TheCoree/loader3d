@@ -62,6 +62,9 @@ async def test_the_letter_is_a_personal_letter(app, settings):
     assert {part.get_content_type() for part in message.iter_parts()} == {"text/plain", "text/html"}
     html = message.get_body(preferencelist=("html",)).get_content()
     assert html.count("<a ") == 1 and "<img" not in html
+    # What spam filters look at: text not hidden in base64, a date with its time zone.
+    assert {part["Content-Transfer-Encoding"] for part in message.iter_parts()} == {"quoted-printable"}
+    assert message["Date"].endswith("+0000")
 
 
 async def test_queue_and_send_one_a_call(app, admin, settings):
@@ -215,3 +218,18 @@ async def test_add_from_the_console(app, settings):
         ("ТК 82", None, None),
     ]
     assert all(outreach.REF_PATTERN.fullmatch(c.ref) for c in contacts)
+
+
+def test_the_read_flag_of_a_fetch_answer():
+    assert inbox.seen_flag([(rb"5 (UID 5 FLAGS (\Seen \Answered) BODY[] {12}", b"raw"), b")"]) is True
+    assert inbox.seen_flag([(b"5 (UID 5 FLAGS () BODY[] {12}", b"raw"), b")"]) is False
+    # Some servers send the flags after the body.
+    assert inbox.seen_flag([(b"5 (UID 5 BODY[] {12}", b"raw"), rb" FLAGS (\Seen))"]) is True
+    assert inbox.parse("7", REPLY, seen=True).seen is True
+
+
+async def test_marking_read_needs_a_mailbox(admin, client):
+    response = await admin.post("/api/admin/mail/12/seen", json={"seen": True})
+    assert response.status_code == 502 and error_code(response) == "mailbox_failed"
+    await register(client, "bob@example.com")
+    assert (await client.post("/api/admin/mail/12/seen", json={"seen": True})).status_code == 403

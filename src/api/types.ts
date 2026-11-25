@@ -351,6 +351,8 @@ export interface MailMessage {
   about: string | null;
   text: string;
   contactId: string | null;
+  /** Read here or in a mail client (the mailbox's own flag). */
+  seen: boolean;
 }
 
 export interface Mailbox {

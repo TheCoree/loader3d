@@ -162,4 +162,6 @@ export const adminApi = {
   sendOutreach: (id: string) => api<OutreachContact>(`/admin/outreach/${id}/send`, { method: 'POST' }),
   sendAllOutreach: () => api<{ queued: number }>('/admin/outreach/send-all', { method: 'POST' }),
   mailbox: (signal?: AbortSignal) => api<Mailbox>('/admin/mail', { signal }),
+  /** Marks a letter read (opened in the panel) or unread — in the mailbox itself. */
+  markMailSeen: (uid: string, seen: boolean) => api<void>(`/admin/mail/${uid}/seen`, { method: 'POST', body: { seen } }),
 };
