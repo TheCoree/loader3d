@@ -9,9 +9,9 @@ light HTML, one link, no pictures or tracking, the sender's own address to reply
 
 import re
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 from email.message import EmailMessage
-from email.utils import formatdate, make_msgid, parseaddr
+from email.utils import format_datetime, make_msgid, parseaddr
 from html import escape
 
 from sqlalchemy import select
@@ -99,13 +99,15 @@ def letter(settings: Settings, contact: OutreachContact) -> EmailMessage:
     message["Subject"] = subject(contact)
     message["From"] = sender
     message["To"] = contact.email
-    message["Date"] = formatdate(localtime=False)
+    # "+0000", not the "-0000" of formatdate(): that one marks a sender that does not know its own time zone.
+    message["Date"] = format_datetime(datetime.now(UTC))
     message["Message-ID"] = make_msgid(domain=address.rpartition("@")[2] or "loader3d.local")
     if address:
         # Gmail and Mail.ru show «Отписаться»; a reply with this subject is treated as a no.
         message["List-Unsubscribe"] = f"<mailto:{address}?subject=unsubscribe>"
-    message.set_content("\n\n".join([*parts, "\n".join(SIGNATURE)]) + "\n")
-    message.add_alternative(_html(parts, link), subtype="html")
+    # Quoted-printable, the way mail clients write Cyrillic: spam filters score text hidden in base64.
+    message.set_content("\n\n".join([*parts, "\n".join(SIGNATURE)]) + "\n", cte="quoted-printable")
+    message.add_alternative(_html(parts, link), subtype="html", cte="quoted-printable")
     return message
 
 

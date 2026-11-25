@@ -62,6 +62,9 @@ async def test_the_letter_is_a_personal_letter(app, settings):
     assert {part.get_content_type() for part in message.iter_parts()} == {"text/plain", "text/html"}
     html = message.get_body(preferencelist=("html",)).get_content()
     assert html.count("<a ") == 1 and "<img" not in html
+    # What spam filters look at: text not hidden in base64, a date with its time zone.
+    assert {part["Content-Transfer-Encoding"] for part in message.iter_parts()} == {"quoted-printable"}
+    assert message["Date"].endswith("+0000")
 
 
 async def test_queue_and_send_one_a_call(app, admin, settings):
