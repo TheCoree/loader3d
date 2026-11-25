@@ -1,5 +1,5 @@
 import type { Dims } from '../types';
-import { bestFit, type FloorFit } from './floorFit';
+import { bestFit, tiersUnder, type FloorFit } from './floorFit';
 
 /**
  * Volume and weight of a list of cargo places, which vehicles take it by the numbers, and boxes on a
@@ -119,4 +119,59 @@ export function boxesOnPallet(spec: BoxPalletSpec): BoxPallet {
     height: total > 0 ? spec.palletHeight + fullLayers * spec.box.h : spec.palletHeight,
     weight: palletWeight + total * boxWeight,
   };
+}
+
+export interface BoxesInBody {
+  /** The box as it stands in the body: `h` is up (the box's own size when it stands upright). */
+  dims: Dims;
+  /** Stands on its bottom; false — laid on a side (only when tipping is allowed). */
+  upright: boolean;
+  layer: FloorFit;
+  perLayer: number;
+  layers: number;
+  /** Boxes by space: per layer × layers. */
+  bySpace: number;
+  /** Boxes the payload carries (null: no weight or no payload given). */
+  byWeight: number | null;
+  total: number;
+  /** Weight of `total` boxes, kg. */
+  weight: number;
+  /** Share of the body volume the boxes take (0..1). */
+  volumeFill: number;
+}
+
+/**
+ * Equal boxes loose in a body, without pallets: the best layer on the floor (floorFit), as many layers as the
+ * height takes, then the payload. `canTip` — a box may also lie on a side, whichever way takes the most; a tie keeps
+ * it upright.
+ */
+export function boxesInBody(body: Dims & { maxLoad?: number }, box: Dims, boxWeight = 0, canTip = false): BoxesInBody {
+  const stands: Array<{ dims: Dims; upright: boolean }> = [{ dims: box, upright: true }];
+  if (canTip) {
+    stands.push({ dims: { l: box.l, w: box.h, h: box.w }, upright: false }, { dims: { l: box.w, w: box.h, h: box.l }, upright: false });
+  }
+  const weight = boxWeight > 0 ? boxWeight : 0;
+  const byWeight = weight > 0 && body.maxLoad && body.maxLoad > 0 ? Math.floor(body.maxLoad / weight + 1e-9) : null;
+  const capacity = body.l * body.w * body.h;
+  let best: BoxesInBody | null = null;
+  for (const stand of stands) {
+    const layer = bestFit({ l: body.l, w: body.w }, { l: stand.dims.l, w: stand.dims.w });
+    const layers = layer.count > 0 ? tiersUnder(body.h, stand.dims.h, true) : 0;
+    const bySpace = layer.count * layers;
+    if (best && bySpace <= best.bySpace) continue;
+    const total = byWeight === null ? bySpace : Math.min(bySpace, byWeight);
+    best = {
+      dims: stand.dims,
+      upright: stand.upright,
+      layer,
+      perLayer: layer.count,
+      layers,
+      bySpace,
+      byWeight,
+      total,
+      weight: total * weight,
+      volumeFill: capacity > 0 ? (total * box.l * box.w * box.h) / capacity : 0,
+    };
+  }
+  return best!;
 }

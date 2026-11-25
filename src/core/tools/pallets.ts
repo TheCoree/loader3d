@@ -45,6 +45,55 @@ export const PALLETS = {
 
 export type PalletKind = keyof typeof PALLETS;
 
+/** A pallet itself, by its EPAL data sheet (epal-pallets.org). Height in cm, weights in kg. */
+export interface PalletRef {
+  /** The EPAL name of this size. */
+  epal: string;
+  /** Height of the empty pallet, cm. */
+  height: number;
+  /** Weight of the empty pallet, kg (approximate: wood). */
+  weight: number;
+  /** Safe working load, kg. */
+  safeLoad: number;
+  /** Most the bottom pallet of a stack of laden pallets may carry, on firm and even ground, kg. */
+  stackLoad: number;
+}
+
+/** The standard pallets of the calculators: the euro pallet is EPAL 1, the Finnish one EPAL 3, the half pallet EPAL 6. */
+export const PALLET_REFS: Record<PalletKind, PalletRef> = {
+  eur: { epal: 'EPAL 1', height: 14.4, weight: 25, safeLoad: 1500, stackLoad: 5500 },
+  fin: { epal: 'EPAL 3', height: 14.4, weight: 30, safeLoad: 1500, stackLoad: 4500 },
+  half: { epal: 'EPAL 6', height: 14.4, weight: 9.5, safeLoad: 750, stackLoad: 1500 },
+};
+
+/** The other 120 × 100 pallet, EPAL 2 («промышленный»): boards the other way, taller and heavier than the Finnish one. */
+export const INDUSTRIAL_PALLET = { name: 'Промышленный поддон', l: 120, w: 100, ref: { epal: 'EPAL 2', height: 16.2, weight: 35, safeLoad: 1250, stackLoad: 4250 } } as const;
+
+export interface LoadedPallet {
+  /** Pallet and cargo, kg. */
+  grossWeight: number;
+  /** Pallet and cargo, cm. */
+  height: number;
+  /** Cargo / safe working load (0..). */
+  loadShare: number;
+  overloaded: boolean;
+  /** Deck area, m². */
+  area: number;
+}
+
+/** A standard pallet with this cargo on it (weight in kg, height in cm, the pallet not included). */
+export function loadedPallet(kind: PalletKind, cargoWeight: number, cargoHeight: number): LoadedPallet {
+  const ref = PALLET_REFS[kind];
+  const cargo = Math.max(0, cargoWeight);
+  return {
+    grossWeight: ref.weight + cargo,
+    height: ref.height + Math.max(0, cargoHeight),
+    loadShare: cargo / ref.safeLoad,
+    overloaded: cargo > ref.safeLoad + 1e-9,
+    area: (PALLETS[kind].l * PALLETS[kind].w) / 1e4,
+  };
+}
+
 export function palletLoad(body: Dims & { maxLoad?: number }, pallet: PalletSpec, gap = 0): PalletLoad {
   const floor = { l: body.l, w: body.w };
   const piece = { l: pallet.dims.l, w: pallet.dims.w };

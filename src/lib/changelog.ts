@@ -34,8 +34,12 @@ export const CHANGE_KINDS: Record<ChangeKind, { label: string; filter: string }>
 export const RELEASES: readonly Release[] = [
   {
     id: '2026-11-25',
-    title: 'Обновлённая PDF-схема',
+    title: 'Новые калькуляторы и обновлённая PDF-схема',
     changes: [
+      {
+        kind: 'new',
+        text: 'Три новых бесплатных калькулятора: сколько паллет в грузовик 3, 5, 10 и 20 тонн, сколько коробок поместится в газель, грузовик или фуру и размеры паллет — с весом и высотой паллеты с грузом.',
+      },
       {
         kind: 'improved',
         text: 'В шапке PDF-схемы теперь новый логотип Loader3D, тот же, что на сайте.',
