@@ -14,6 +14,11 @@ import type {
   Lead,
   LeadInput,
   LeadStatus,
+  Mailbox,
+  OutreachContact,
+  OutreachContactInput,
+  OutreachLetter,
+  OutreachList,
   Page,
   PlanPage,
   PlanRecord,
@@ -32,10 +37,11 @@ import type {
 export const authApi = {
   login: (email: string, password: string) =>
     api<AuthResponse>('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
-  register: (email: string, password: string, displayName?: string, tier: 'free' | 'pro' = 'free') =>
+  /** `ref` — the referral code the visitor came with (lib/ref.ts), if any. */
+  register: (email: string, password: string, displayName?: string, tier: 'free' | 'pro' = 'free', ref?: string | null) =>
     api<AuthResponse>('/auth/register', {
       method: 'POST',
-      body: { email, password, displayName: displayName || undefined, tier },
+      body: { email, password, displayName: displayName || undefined, tier, ref: ref || undefined },
       auth: false,
     }),
   logout: () => api<void>('/auth/logout', { method: 'POST', auth: false }),
@@ -148,4 +154,12 @@ export const adminApi = {
     api<AnalyticsReport>('/admin/analytics', { query: { days }, signal }),
   payments: (query: { status?: PaymentStatus; limit?: number; offset?: number }, signal?: AbortSignal) =>
     api<AdminPaymentPage>('/admin/payments', { query: { ...query }, signal }),
+  /** «Почта»: companies to write to (backend/app/outreach.py) and the mailbox they answer in. */
+  outreach: (signal?: AbortSignal) => api<OutreachList>('/admin/outreach', { signal }),
+  addOutreach: (body: OutreachContactInput) => api<OutreachContact>('/admin/outreach', { method: 'POST', body }),
+  deleteOutreach: (id: string) => api<void>(`/admin/outreach/${id}`, { method: 'DELETE' }),
+  outreachLetter: (id: string) => api<OutreachLetter>(`/admin/outreach/${id}/letter`),
+  sendOutreach: (id: string) => api<OutreachContact>(`/admin/outreach/${id}/send`, { method: 'POST' }),
+  sendAllOutreach: () => api<{ queued: number }>('/admin/outreach/send-all', { method: 'POST' }),
+  mailbox: (signal?: AbortSignal) => api<Mailbox>('/admin/mail', { signal }),
 };

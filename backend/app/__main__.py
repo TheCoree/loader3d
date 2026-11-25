@@ -7,20 +7,25 @@
 `python -m app send-reminders`: send the «тариф заканчивается» letters now (the API does it every hour).
 
 `python -m app widget-key`: a new key for the phone widget and the WIDGET_KEY_SHA256 line for .env.
+
+`python -m app outreach-add < companies.tsv`: add companies for the letters of the admin panel («Почта»), one
+per line: company, e-mail, city, note — separated by tabs; the city and the note may be empty. Nothing is
+sent.
 """
 
 import argparse
 import asyncio
 import sys
+from email.utils import parseaddr
 
 import uvicorn
 from sqlalchemy import select
 
-from app import billing, mail, widget
+from app import billing, mail, outreach, widget
 from app.config import BACKEND_DIR, Settings, get_settings
 from app.db import create_engine, create_sessionmaker
 from app.migrate import upgrade_database
-from app.models import User, utcnow
+from app.models import OutreachContact, User, utcnow
 
 
 async def set_admin(settings: Settings, email: str, is_admin: bool) -> bool:
@@ -47,6 +52,47 @@ async def send_reminders(settings: Settings) -> int:
         await engine.dispose()
 
 
+async def add_outreach(settings: Settings, lines: list[str]) -> list[str]:
+    """Adds the companies of tab-separated lines; returns what happened to each, for the console."""
+    engine = create_engine(settings.sqlalchemy_url)
+    report: list[str] = []
+    try:
+        async with create_sessionmaker(engine)() as db:
+            refs = set(await db.scalars(select(OutreachContact.ref)))
+            emails = set(await db.scalars(select(OutreachContact.email)))
+            for line in lines:
+                cells = [cell.strip() for cell in line.rstrip("\n").split("\t")]
+                if not any(cells):
+                    continue
+                company, email, city, note = [*cells, "", "", "", ""][:4]
+                email = email.lower()
+                if not company or "@" not in parseaddr(email)[1]:
+                    report.append(f"skipped (company and e-mail needed): {line.strip()}")
+                    continue
+                if email in emails:
+                    report.append(f"already in the list: {email}")
+                    continue
+                ref = outreach.new_ref()
+                while ref in refs:
+                    ref = outreach.new_ref()
+                refs.add(ref)
+                emails.add(email)
+                db.add(
+                    OutreachContact(
+                        company=company[:200],
+                        email=email,
+                        city=city[:100] or None,
+                        note=note[:300] or None,
+                        ref=ref,
+                    )
+                )
+                report.append(f"added: {company} <{email}> /r/{ref}")
+            await db.commit()
+    finally:
+        await engine.dispose()
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app", description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
@@ -63,6 +109,7 @@ def main() -> None:
     test_mail.add_argument("email", help="where to send it")
     commands.add_parser("send-reminders", help="send the «тариф заканчивается» letters now")
     commands.add_parser("widget-key", help="a new key for the phone widget (tools/scriptable)")
+    commands.add_parser("outreach-add", help="add companies for the letters (tab-separated lines on stdin)")
     args = parser.parse_args()
 
     if args.command == "widget-key":
@@ -94,6 +141,11 @@ def main() -> None:
 
     if args.command == "send-reminders":
         print(f"Reminders sent: {asyncio.run(send_reminders(settings))}")
+        return
+
+    if args.command == "outreach-add":
+        for line in asyncio.run(add_outreach(settings, sys.stdin.readlines())):
+            print(line)
         return
 
     uvicorn.run(

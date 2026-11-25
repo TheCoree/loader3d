@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router';
 import { ApiError } from './api/client';
 import { Shell } from './Shell';
+import { captureRef } from './lib/ref';
 import { TOOL_PATHS } from './lib/toolPages';
 import { useAuth, wasSignedIn } from './store/useAuth';
 import './store/accountSync';
@@ -26,6 +27,8 @@ useAuth.subscribe((state, prev) => {
   if (state.user?.id !== prev.user?.id) queryClient.clear();
 });
 void useAuth.getState().bootstrap();
+// A letter's referral code (lib/ref.ts): sent with the registration if the visitor signs up.
+captureRef(window.location.search);
 
 // A tab opened before a deploy asks for code split off into chunks (the editor, the PDF) under names the new
 // build no longer has: load the new version instead of failing. Not on a page that has only just loaded,

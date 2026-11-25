@@ -27,6 +27,11 @@
 		-Server
 	}
 
+	# Referral links of the letters to companies (backend/app/outreach.py): /r/<code> → the landing page with the
+	# code (registration keeps it, User.ref) and utm tags (the visit statistics count the visits by the code).
+	@ref path_regexp ref ^/r/([a-z0-9]{4,12})$
+	redir @ref /?ref={re.ref.1}&utm_source=outreach&utm_medium=email&utm_campaign=outreach&utm_term={re.ref.1} 302
+
 	# Backend (backend/, the "api" service). Same origin as the frontend: no CORS, and the
 	# refresh-token cookie stays first-party.
 	handle /api/* {

@@ -69,6 +69,8 @@ docker compose up -d
 | `MAIL_FROM` | — | Отправитель: `Loader3D <noreply@example.com>`; домену нужны SPF и DKIM от почтового сервиса, иначе письма уйдут в спам |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURITY` | — / `465` / `ssl` | SMTP-сервер сервиса; `ssl` — порт 465, `starttls` — 587, `none` — без шифрования (локальный релей) |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | — | Логин ящика и пароль (у Яндекса и Mail.ru — пароль приложения); пустой логин — без авторизации |
+| `OUTREACH_FROM` / `OUTREACH_USERNAME` / `OUTREACH_PASSWORD` | — | Письма компаниям из админки («Почта»): отправитель и ящик, из которого вкладка читает ответы и отказы по IMAP; отправитель — этот ящик или его алиас. Пусто — `MAIL_FROM` и `SMTP_USERNAME` / `SMTP_PASSWORD` |
+| `IMAP_PORT` | `993` | IMAP того же сервера, что `SMTP_HOST` (TLS) |
 | `FORWARDED_ALLOW_IPS` | `*` | Чьему `X-Forwarded-For` API верит, определяя IP посетителя (лимиты входа и регистрации, список сессий); `*` — API доступен только через Caddy |
 | `YANDEX_VERIFICATION` / `GOOGLE_SITE_VERIFICATION` | — | Код мета-тега подтверждения прав в Яндекс.Вебмастере и Google Search Console (только `content="…"` из тега, несколько — через запятую): тег встаёт на главную при сборке; после смены — `--build`. Пошагово — [docs/seo.md](docs/seo.md) |
 | `TIERS_ENABLED` | `false` | `true` — тарифы: цены на сайте, выбор при регистрации, лимиты, тариф в аккаунте и админке; `false` — о тарифах ни слова, без лимитов; после смены — `--build` |
@@ -169,7 +171,8 @@ uv run ruff check . && uv run ruff format --check .
 же адреса, что и в проде. Настройки бэкенда — переменные окружения, `.env` в корне репозитория (тот же, что
 для деплоя) или `backend/.env` (важнее корневого): `DATABASE_URL`, `DATABASE_PASSWORD`, `JWT_SECRET`,
 `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REGISTRATION_OPEN`, `EMAIL_VERIFICATION`, `MAIL_BACKEND`,
-`MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SITE_URL`,
+`MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `OUTREACH_FROM`,
+`OUTREACH_USERNAME`, `OUTREACH_PASSWORD`, `IMAP_PORT`, `SITE_URL`,
 `FORWARDED_ALLOW_IPS` (без него — `127.0.0.1`), `TIERS_ENABLED`, `PAYMENT_PROVIDER`, `CISPAY_SHOP_ID`,
 `CISPAY_API_KEY`, `CISPAY_SANDBOX` (только разработка: платежи песочницы cisPay считаются оплаченными), `WIDGET_KEY_SHA256`, `CORS_ORIGINS`,
 `ENVIRONMENT` (см. [config.py](backend/app/config.py)). `TIERS_ENABLED` из корневого `.env` читает и Vite —
@@ -221,6 +224,8 @@ uv run ruff check . && uv run ruff format --check .
 | `GET /api/admin/payments` | Админ: платежи (`?status=paid\|pending\|canceled`) и сумма полученного |
 | `POST /api/analytics/collect` | Без входа: отчёт страницы о визите (страницы, время в разделах лендинга, клики, регистрация) — `navigator.sendBeacon` |
 | `GET /api/admin/analytics?days=7\|30\|90` | Админ: посещаемость за период и сравнение с прошлым |
+| `GET /api/admin/outreach`, `POST …`, `DELETE …/{id}`, `GET …/{id}/letter`, `POST …/{id}/send`, `POST …/send-all` | Админ: компании для писем, своя ссылка `/r/<код>` у каждой (визиты и регистрации по ней), письмо, очередь отправки (одно письмо в минуту) |
+| `GET /api/admin/mail` | Админ: последние письма ящика рассылки по IMAP — ответы, отказы, автоответы, с привязкой к компаниям |
 | `GET /api/health` | Проверка живости и связи с БД |
 | `GET /api/widget/stats` | Виджет владельца ([tools/scriptable](tools/scriptable/README.md)), только с `WIDGET_KEY_SHA256`: ключ в `Authorization: Bearer`; статус и проблемы, нагрузка (запросы в минуту, p95, 5xx, время БД, CPU/память/диск), онлайн, выручка, регистрации и посетители по дням за 14 дней — только агрегаты. 30 запросов в минуту с IP, 10 неверных ключей за 15 минут → 429 |
 
@@ -316,6 +321,12 @@ uv run ruff check . && uv run ruff format --check .
 - **Админ-панель** (`/admin`): статистика, пользователи (поиск, фильтры по тарифу и статусу), тариф и срок,
   лимиты «Индивидуального», блокировка, права администратора, новый пароль, завершение сессий, удаление,
   создание аккаунтов; заявки с сайта; онлайн-платежи и сумма полученного.
+- **Почта** (вкладка админки, `backend/app/outreach.py`, `backend/app/inbox.py`, `src/pages/AdminMail.tsx`):
+  личные письма компаниям — у каждой своя ссылка `/r/<код>` (Caddy переадресует на главную с `?ref=` и utm-метками;
+  код держится в памяти страницы, `src/lib/ref.ts`, и уходит с регистрацией в `users.ref`), видны визиты и регистрации
+  по ней. Письма уходят по одному в минуту (`app/jobs.py`), текстом и простым HTML, с одной ссылкой и
+  `List-Unsubscribe`. «Входящие» читают ящик рассылки по IMAP (только чтение) и делят письма на ответы, отказы
+  (`Final-Recipient` отчёта о доставке) и автоответы, привязывая их к компаниям.
 - **Посещаемость** (вкладка админки, `backend/app/analytics.py`, `src/lib/analytics.ts`): визиты гостей
   публичных страниц (главная, тарифы, калькуляторы, документы, вход и регистрация; вошедшие не считаются) — сколько гостей
   сейчас на сайте, визиты, посетители, время на сайте, отказы, регистрации и конверсия с динамикой к прошлому

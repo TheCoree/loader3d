@@ -69,6 +69,11 @@ services:
       SMTP_SECURITY: ${SMTP_SECURITY:-ssl}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      # Letters to companies («Почта» in the admin panel) and the mailbox they are answered in.
+      OUTREACH_FROM: ${OUTREACH_FROM:-}
+      OUTREACH_USERNAME: ${OUTREACH_USERNAME:-}
+      OUTREACH_PASSWORD: ${OUTREACH_PASSWORD:-}
+      IMAP_PORT: ${IMAP_PORT:-993}
       # The link at the bottom of the letters; where the customer comes back after paying (cisPay).
       SITE_URL: ${SITE_URL:-}
       # The api is reachable only from the compose network (through Caddy), so its X-Forwarded-For is trusted.

@@ -27,6 +27,9 @@ class RegisterIn(ApiModel):
     display_name: DisplayName | None = None
     # "pro" starts its free trial; "custom" is by contract (a request on the landing page).
     tier: Literal["free", "pro"] = "free"
+    # The referral code of a letter to a company (`?ref=`, app/outreach.py); one that does not look like a
+    # code is ignored, it never stops a registration.
+    ref: Annotated[str, StringConstraints(max_length=40)] | None = None
 
 
 class VerifyEmailIn(ApiModel):

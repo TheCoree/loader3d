@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     # Empty username: no login (a relay that trusts the server's address).
     smtp_username: str = ""
     smtp_password: SecretStr = SecretStr("")
+    # Letters to companies from the admin panel (app/outreach.py) and the mailbox its «Почта» tab reads
+    # (app/inbox.py, IMAP on SMTP_HOST:IMAP_PORT). The mailbox's login and password send the letters too, so
+    # the sender is that mailbox or one of its aliases (docker-mailserver refuses other senders). Empty:
+    # MAIL_FROM and SMTP_USERNAME / SMTP_PASSWORD.
+    outreach_from: str = ""
+    outreach_username: str = ""
+    outreach_password: SecretStr = SecretStr("")
+    imap_port: int = Field(993, ge=1, le=65535)
     # Public address of the site (https://example.com): the link at the bottom of the letters, and where the
     # customer comes back after paying (cisPay). May be empty without online payment.
     site_url: str = ""
@@ -131,6 +139,17 @@ class Settings(BaseSettings):
             if "@" not in parseaddr(self.mail_from)[1]:
                 raise ValueError('MAIL_BACKEND=smtp needs MAIL_FROM, e.g. "Loader3D <noreply@example.com>"')
         return self
+
+    @property
+    def outreach_sender(self) -> str:
+        return self.outreach_from or self.mail_from
+
+    @property
+    def outreach_login(self) -> tuple[str, str]:
+        """The mailbox of the letters to companies: its login and password (SMTP and IMAP)."""
+        if self.outreach_username:
+            return self.outreach_username, self.outreach_password.get_secret_value()
+        return self.smtp_username, self.smtp_password.get_secret_value()
 
     @property
     def is_sqlite(self) -> bool:

@@ -1,6 +1,7 @@
 """Background work of the API (started by the lifespan in app/main.py). Hourly: «тариф заканчивается»
 letters (app/billing.py, with tiers on) and the removal of old visit statistics (app/analytics.py). Every
-few minutes: pending payments are asked about at their provider (billing.reconcile)."""
+few minutes: pending payments are asked about at their provider (billing.reconcile). Every minute: one queued
+letter to a company (app/outreach.py), so the mail server never sends them in a burst."""
 
 import asyncio
 import logging
@@ -8,7 +9,7 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app import analytics, billing
+from app import analytics, billing, outreach
 from app.config import Settings
 from app.models import utcnow
 
@@ -16,6 +17,7 @@ logger = logging.getLogger("app.jobs")
 
 INTERVAL = timedelta(hours=1)
 PAYMENTS_INTERVAL = timedelta(minutes=5)
+OUTREACH_INTERVAL = timedelta(minutes=1)
 
 
 async def run_once(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
@@ -55,3 +57,19 @@ async def check_payments(sessionmaker: async_sessionmaker[AsyncSession], setting
         except Exception:
             logger.exception("payment checks failed")
         await asyncio.sleep(PAYMENTS_INTERVAL.total_seconds())
+
+
+async def send_outreach_once(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
+    async with sessionmaker() as db:
+        if contact := await outreach.send_next(db, settings, utcnow()):
+            print(f"[jobs] outreach letter to {contact.email}: {contact.status}", flush=True)
+
+
+async def send_outreach(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:
+    await asyncio.sleep(30)
+    while True:
+        try:
+            await send_outreach_once(sessionmaker, settings)
+        except Exception:
+            logger.exception("outreach letters failed")
+        await asyncio.sleep(OUTREACH_INTERVAL.total_seconds())

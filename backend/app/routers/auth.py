@@ -25,6 +25,7 @@ from app.deps import SettingsDep
 from app.errors import ApiError, not_found, unauthorized
 from app.mail import MailError
 from app.models import AuthSession, User, utcnow
+from app.outreach import clean_ref
 from app.ratelimit import RateLimiter, client_ip, too_many
 from app.schemas.auth import (
     AuthOut,
@@ -85,6 +86,7 @@ async def register(
         email=body.email,
         password_hash=await hash_password(body.password),
         display_name=body.display_name or body.email.split("@", 1)[0][:100],
+        ref=clean_ref(body.ref),
     )
     now = utcnow()
     if body.tier == "pro" and settings.tiers_enabled:

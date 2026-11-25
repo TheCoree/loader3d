@@ -294,3 +294,67 @@ export interface AnalyticsReport {
   sections: Array<{ section: string; visits: number; reach: number; avgMs: number }>;
   clicks: Array<{ name: string; clicks: number; visits: number }>;
 }
+
+/** A company the admin writes to (backend/app/outreach.py): its letter, referral link and what came of it. */
+export interface OutreachContact {
+  id: string;
+  company: string;
+  email: string;
+  city: string | null;
+  note: string | null;
+  ref: string;
+  link: string;
+  status: 'new' | 'queued' | 'sent' | 'failed';
+  queuedAt: string | null;
+  sentAt: string | null;
+  error: string | null;
+  createdAt: string;
+  /** Visits of the public pages by the link. */
+  visits: number;
+  /** Accounts registered with its code. */
+  signups: { email: string; createdAt: string }[];
+}
+
+export interface OutreachList {
+  items: OutreachContact[];
+  /** Who the letters are from. */
+  sender: string;
+  /** False: MAIL_BACKEND is not smtp, letters only go to the API log. */
+  sending: boolean;
+}
+
+export interface OutreachContactInput {
+  company: string;
+  email: string;
+  city?: string;
+  /** Goes after «Видели, что вы …» in the letter. */
+  note?: string;
+}
+
+export interface OutreachLetter {
+  sender: string;
+  to: string;
+  subject: string;
+  text: string;
+}
+
+export type MailKind = 'reply' | 'bounce' | 'auto' | 'letter';
+
+export interface MailMessage {
+  uid: string;
+  receivedAt: string | null;
+  senderName: string;
+  sender: string;
+  subject: string;
+  kind: MailKind;
+  /** Bounces: the address the failed letter was for. */
+  about: string | null;
+  text: string;
+  contactId: string | null;
+}
+
+export interface Mailbox {
+  messages: MailMessage[];
+  /** Why the mailbox could not be read; null — read. */
+  error: string | null;
+}

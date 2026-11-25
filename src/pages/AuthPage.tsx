@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { Spinner } from '@/components/ui/spinner';
 import { SUPPORT } from '@/lib/legal';
+import { currentRef } from '@/lib/ref';
 import { TIERS_ENABLED, TRIAL_DAYS, tierInfo } from '@/lib/tiers';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/useAuth';
@@ -47,7 +48,8 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/plans';
   const [params] = useSearchParams();
-  const [tier, setTier] = useState<ChosenTier>(TIERS_ENABLED && params.get('tier') === 'pro' ? 'pro' : 'free');
+  // A visitor from a letter to a company (lib/ref.ts) was promised the trial of «Pro»: it is chosen for them.
+  const [tier, setTier] = useState<ChosenTier>(TIERS_ENABLED && (params.get('tier') === 'pro' || currentRef()) ? 'pro' : 'free');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

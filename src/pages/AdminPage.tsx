@@ -43,6 +43,7 @@ import type {
 import { AppHeader } from '@/components/AppHeader';
 import { TierBadge } from '@/components/TierBadge';
 import { AnalyticsTab } from '@/pages/AdminAnalytics';
+import { MailTab } from '@/pages/AdminMail';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -195,6 +196,9 @@ export function AdminPage() {
                 <Receipt /> Платежи
               </TabsTrigger>
             )}
+            <TabsTrigger value="mail">
+              <Mail /> Почта
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="analytics" className="mt-4">
             <AnalyticsTab />
@@ -210,6 +214,9 @@ export function AdminPage() {
               <PaymentsTab />
             </TabsContent>
           )}
+          <TabsContent value="mail" className="mt-4">
+            <MailTab />
+          </TabsContent>
         </Tabs>
       </main>
     </div>
