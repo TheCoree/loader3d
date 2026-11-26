@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     # the raw visits are kept.
     analytics_enabled: bool = True
     analytics_retention_days: int = Field(400, ge=30, le=3650)
+    # Where the free DB-IP Lite databases of places of IP addresses are kept (app/geoip.py): the hourly job
+    # downloads them there once a month. Empty: the admin «Онлайн» tab shows no city or provider.
+    geoip_dir: str = ""
     # Addresses of the reverse proxy whose X-Forwarded-For is trusted for the client's IP (rate limits,
     # the sessions list). Compose sets "*": the api is reachable only through Caddy there.
     forwarded_allow_ips: str = "127.0.0.1"

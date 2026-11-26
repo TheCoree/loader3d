@@ -33,6 +33,21 @@ export const CHANGE_KINDS: Record<ChangeKind, { label: string; filter: string }>
 
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-26',
+    title: 'Сообщения от команды',
+    changes: [
+      {
+        kind: 'new',
+        text: 'Сообщения от команды Loader3D прямо в приложении: подсказки, вопросы и помощь с первой схемой. Ответить можно в том же окне — мы читаем каждый ответ.',
+      },
+      {
+        kind: 'new',
+        text: 'Подарки от команды: дни Pro приходят сообщением в приложении и добавляются к текущему сроку одной кнопкой.',
+        tiers: true,
+      },
+    ],
+  },
+  {
     id: '2026-11-25',
     title: 'Новые калькуляторы и обновлённая PDF-схема',
     changes: [

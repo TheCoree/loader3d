@@ -301,6 +301,22 @@ async def get_optional_auth(
 OptionalAuth = Annotated[AuthContext | None, Depends(get_optional_auth)]
 
 
+async def get_auth_if_sent(
+    request: Request,
+    db: Db,
+    settings: SettingsDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> AuthContext | None:
+    """No token — a guest; a token — it must be valid (401 makes the client refresh it and repeat), so a
+    signed-in tab whose token has just expired is not taken for a guest."""
+    if credentials is None:
+        return None
+    return await get_auth(request, db, settings, credentials)
+
+
+AuthIfSent = Annotated[AuthContext | None, Depends(get_auth_if_sent)]
+
+
 async def get_verified(auth: CurrentAuth, settings: SettingsDep) -> AuthContext:
     """A user who has confirmed their email (app/verification.py): needed for plans."""
     if settings.email_verification and auth.user.email_verified_at is None:

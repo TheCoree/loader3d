@@ -1,7 +1,8 @@
 """Background work of the API (started by the lifespan in app/main.py). Hourly: «тариф заканчивается»
-letters (app/billing.py, with tiers on) and the removal of old visit statistics (app/analytics.py). Every
-few minutes: pending payments are asked about at their provider (billing.reconcile). Every minute: one queued
-letter to a company (app/outreach.py), so the mail server never sends them in a burst."""
+letters (app/billing.py, with tiers on), the removal of old visit statistics (app/analytics.py) and, once a
+month, the databases of places of IP addresses (app/geoip.py). Every few minutes: pending payments are asked
+about at their provider (billing.reconcile). Every minute: one queued letter to a company (app/outreach.py),
+so the mail server never sends them in a burst."""
 
 import asyncio
 import logging
@@ -9,7 +10,7 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app import analytics, billing, outreach
+from app import analytics, billing, geoip, outreach
 from app.config import Settings
 from app.models import utcnow
 
@@ -29,6 +30,10 @@ async def run_once(sessionmaker: async_sessionmaker[AsyncSession], settings: Set
                 print(f"[jobs] tier reminders sent: {sent}", flush=True)
     async with sessionmaker() as db:
         await analytics.prune(db, settings, now)
+    if settings.geoip_dir and (
+        fetched := await asyncio.to_thread(geoip.download, settings.geoip_dir, now.date())
+    ):
+        print(f"[jobs] GeoIP databases downloaded: {', '.join(fetched)}", flush=True)
 
 
 async def hourly(sessionmaker: async_sessionmaker[AsyncSession], settings: Settings) -> None:

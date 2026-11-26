@@ -1,6 +1,8 @@
 import type { Plan } from '../core/types';
 import { api } from './client';
 import type {
+  AdminMessage,
+  AdminMessageInput,
   AdminPaymentPage,
   AnalyticsReport,
   AdminStats,
@@ -10,6 +12,9 @@ import type {
   AuthResponse,
   BillingInfo,
   BillingPeriod,
+  LiveReport,
+  MessageAnswer,
+  MessageOutcome,
   Checkout,
   Lead,
   LeadInput,
@@ -164,4 +169,19 @@ export const adminApi = {
   mailbox: (signal?: AbortSignal) => api<Mailbox>('/admin/mail', { signal }),
   /** Marks a letter read (opened in the panel) or unread — in the mailbox itself. */
   markMailSeen: (uid: string, seen: boolean) => api<void>(`/admin/mail/${uid}/seen`, { method: 'POST', body: { seen } }),
+  /** Who is on the site right now (tabs in the server's memory) and who left in the last 15 minutes. */
+  live: (signal?: AbortSignal) => api<LiveReport>('/admin/live', { signal }),
+  /** The newest messages of the team to everyone, with what became of them. */
+  messages: (signal?: AbortSignal) => api<AdminMessage[]>('/admin/messages', { signal }),
+  userMessages: (userId: string, signal?: AbortSignal) => api<AdminMessage[]>(`/admin/users/${userId}/messages`, { signal }),
+  sendMessage: (userId: string, body: AdminMessageInput) =>
+    api<AdminMessage>(`/admin/users/${userId}/messages`, { method: 'POST', body }),
+  withdrawMessage: (id: string) => api<void>(`/admin/messages/${id}`, { method: 'DELETE' }),
+};
+
+/** Messages of the team to the signed-in user (components/MessageDialog.tsx). */
+export const messageApi = {
+  shown: (id: string) => api<void>(`/messages/${id}/shown`, { method: 'POST' }),
+  answer: (id: string, outcome: MessageOutcome, reply?: string) =>
+    api<MessageAnswer>(`/messages/${id}/answer`, { method: 'POST', body: { outcome, reply: reply || null } }),
 };

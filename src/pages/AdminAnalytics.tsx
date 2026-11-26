@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
  * charts explain themselves on hover.
  */
 
-const CHANNELS: Record<string, string> = {
+export const CHANNELS: Record<string, string> = {
   search: 'Поиск',
   ads: 'Реклама',
   social: 'Соцсети и мессенджеры',
@@ -29,7 +29,7 @@ const CHANNELS: Record<string, string> = {
   referral: 'Другие сайты',
   direct: 'Прямые заходы',
 };
-const DEVICES: Record<string, string> = { desktop: 'Компьютер', mobile: 'Телефон', tablet: 'Планшет' };
+export const DEVICES: Record<string, string> = { desktop: 'Компьютер', mobile: 'Телефон', tablet: 'Планшет' };
 const DEVICE_ICONS = { desktop: Monitor, mobile: Smartphone, tablet: Tablet } as const;
 const PAGES: Record<string, string> = {
   '/': 'Главная',
@@ -39,6 +39,16 @@ const PAGES: Record<string, string> = {
   '/terms': 'Соглашение',
   '/privacy': 'Политика',
   '/reset-password': 'Сброс пароля',
+  '/demo': 'Демо',
+  // Inside the app (the «Онлайн» tab sees signed-in users too).
+  '/plans': 'Схемы',
+  '/plans/:id': 'Редактор',
+  '/start': 'Создание схемы',
+  '/account': 'Аккаунт',
+  '/billing': 'Оплата',
+  '/updates': 'Что нового',
+  '/verify-email': 'Подтверждение почты',
+  '/admin': 'Админка',
   [TOOLS_HUB.path]: 'Калькуляторы',
   ...Object.fromEntries(TOOL_PAGES.map((p) => [p.path, `Калькулятор: ${p.name}`])),
 };
@@ -60,8 +70,8 @@ export function duration(ms: number): string {
   return `${Math.floor(m / 60)} ч ${m % 60} мин`;
 }
 
-function pageName(path: string): string {
-  return PAGES[path] ?? path;
+export function pageName(path: string): string {
+  return PAGES[path] ?? (path.startsWith('/account/') ? PAGES['/account'] : path);
 }
 
 type Days = 7 | 30 | 90;
@@ -74,6 +84,8 @@ export function AnalyticsTab() {
     placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
+  // Guests on the site right now, exactly (the tabs' presence reports, «Онлайн»).
+  const live = useQuery({ queryKey: ['admin', 'live'], queryFn: ({ signal }) => adminApi.live(signal), refetchInterval: 5000 });
 
   return (
     <>
@@ -85,7 +97,7 @@ export function AnalyticsTab() {
             <TabsTrigger value="90">90 дней</TabsTrigger>
           </TabsList>
         </Tabs>
-        {report.data && <LiveBadge count={report.data.live} />}
+        {report.data && <LiveBadge count={live.data ? live.data.counts.guests : report.data.live} />}
         <p className="text-sm text-muted-foreground">Гости публичных страниц; вошедшие в аккаунт не считаются.</p>
       </div>
 
@@ -694,7 +706,7 @@ function RecentVisits({ visits }: { visits: AnalyticsRecentVisit[] }) {
             {visits.map((v, i) => {
               const DeviceIcon = DEVICE_ICONS[v.device as keyof typeof DEVICE_ICONS] ?? Monitor;
               return (
-                <li key={`${v.startedAt}-${i}`} className="grid gap-x-4 gap-y-1 px-6 py-3 text-sm sm:grid-cols-[9rem_minmax(0,13rem)_minmax(0,1fr)_auto]">
+                <li key={`${v.startedAt}-${i}`} className="grid gap-x-4 gap-y-1 px-6 py-3 text-sm lg:grid-cols-[9rem_minmax(0,13rem)_minmax(0,1fr)_auto]">
                   <span className="flex items-center gap-2 whitespace-nowrap text-muted-foreground tabular-nums">
                     <span
                       className={cn('size-1.5 shrink-0 rounded-full', v.live ? 'bg-emerald-500' : 'bg-transparent')}
@@ -713,7 +725,7 @@ function RecentVisits({ visits }: { visits: AnalyticsRecentVisit[] }) {
                       </span>
                     ))}
                   </span>
-                  <span className="flex items-center gap-3 text-muted-foreground sm:justify-end">
+                  <span className="flex flex-wrap items-center gap-3 text-muted-foreground lg:justify-end">
                     <span className="tabular-nums">{duration(v.engagedMs)}</span>
                     <span className="inline-flex items-center gap-1" title={`${DEVICES[v.device] ?? v.device} · ${v.browser} · ${v.os}`}>
                       <DeviceIcon className="size-3.5" aria-hidden />

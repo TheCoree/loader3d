@@ -141,6 +141,12 @@ Architecture, controls, API endpoints and extension points are in README.md — 
   not signed in, only on `PUBLIC_PATHS`; nothing is written to the browser (no cookies, no storage) and the server
   keeps no IP or user agent (a daily salted hash). Landing sections carry `data-section` and tracked buttons
   `data-track` (names in `SECTION_NAMES` / `TRACK_NAMES`) — keep them when the landing page changes.
+- Who is on the site (admin «Онлайн», `src/lib/presence.ts`, `app/presence.py`, `routers/presence.py`): every tab reports
+  every 15 s; the server keeps tabs, IPs and places (`app/geoip.py`, DB-IP Lite in `GEOIP_DIR`) in memory only, never in
+  the database or logs, and shows the IP masked. Administrators (and guests from their address) and bots are not counted;
+  the visit an administrator signs in from is deleted from the statistics. Messages of the team (`UserMessage`,
+  `app/messages.py`, `components/MessageDialog.tsx`) come with the presence answer; a gift of «Pro» days is granted on the
+  button only (`tiers.gift_pro`, also with online payment on).
 - The owner's phone widget (`routers/widget.py`, `app/widget.py`, `app/metrics.py`, `tools/scriptable`): the route
   exists only with `WIDGET_KEY_SHA256` (SHA-256 of keys from `python -m app widget-key`; the key travels only in
   `Authorization: Bearer`) and answers aggregates only — no email, name, id or IP. `get_auth` notes the user id in

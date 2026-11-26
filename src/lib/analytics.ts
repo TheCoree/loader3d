@@ -137,6 +137,20 @@ function setTracking(on: boolean, path: string): void {
   state.lastActive = Date.now();
 }
 
+/**
+ * For the presence reports (lib/presence.ts): the visit of this page load (also when it is not counted — the
+ * server takes the visit an administrator signs in from out of the statistics), the section of the landing
+ * page on screen and how long ago the visitor last moved.
+ */
+export function analyticsSnapshot(): { visitId: string | null; section: string | null; idleSeconds: number } {
+  const sections = [...state.visibleSections];
+  return {
+    visitId: state.visitId || null,
+    section: sections.at(-1) ?? null,
+    idleSeconds: state.lastActive ? Math.max(0, Math.round((Date.now() - state.lastActive) / 1000)) : 0,
+  };
+}
+
 /** A marked action that is not a click on a `data-track` element (a lead sent, for one). */
 export function trackAction(name: string): void {
   if (state.on) state.queue.push({ kind: 'click', name });

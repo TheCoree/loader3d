@@ -233,6 +233,13 @@ async def record(
     return True
 
 
+async def forget_visit(db: AsyncSession, visit_id: uuid.UUID) -> None:
+    """Takes a visit out of the statistics: an administrator signed in from it (routers/presence.py), so it
+    was the owner on the sign-in page, not a visitor. The caller commits."""
+    await db.execute(delete(VisitEvent).where(VisitEvent.visit_id == visit_id))
+    await db.execute(delete(Visit).where(Visit.id == visit_id))
+
+
 async def prune(db: AsyncSession, settings: Settings, now: datetime) -> int:
     """Deletes visits older than ANALYTICS_RETENTION_DAYS (their events go with them)."""
     cutoff = now - timedelta(days=settings.analytics_retention_days)

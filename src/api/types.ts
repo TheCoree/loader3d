@@ -360,3 +360,104 @@ export interface Mailbox {
   /** Why the mailbox could not be read; null — read. */
   error: string | null;
 }
+
+// ------------------------------------------------------------------ who is on the site, messages of the team
+
+export type MessageKind = 'welcome' | 'gift' | 'feedback' | 'help' | 'custom';
+export type MessageOutcome = 'accepted' | 'dismissed';
+
+/** A message of the team as the user sees it (components/MessageDialog.tsx). */
+export interface UserMessage {
+  id: string;
+  kind: MessageKind;
+  title: string;
+  body: string;
+  button: string;
+  /** Days of «Pro» the button grants. */
+  giftDays: number | null;
+  askReply: boolean;
+  /** After the button: "example" opens an example plan in the account. */
+  action: 'example' | null;
+  createdAt: string;
+}
+
+export interface MessageAnswer {
+  user: User;
+  giftUntil: string | null;
+}
+
+export interface AdminMessage extends UserMessage {
+  userId: string;
+  userEmail: string;
+  userName: string;
+  authorName: string | null;
+  shownAt: string | null;
+  answeredAt: string | null;
+  outcome: MessageOutcome | null;
+  reply: string | null;
+  giftUntil: string | null;
+}
+
+export interface AdminMessageInput {
+  kind: MessageKind;
+  title: string;
+  body: string;
+  button: string;
+  giftDays?: number | null;
+  askReply?: boolean;
+  action?: 'example' | null;
+}
+
+export interface PresenceDetail {
+  plan?: string;
+  vehicles?: number;
+  items?: number;
+  demo?: boolean;
+}
+
+export interface LiveTab {
+  id: string;
+  /** "admin": an administrator, or a guest from an administrator's address. */
+  kind: 'guest' | 'user' | 'admin' | 'bot';
+  online: boolean;
+  firstSeen: string;
+  lastSeen: string;
+  path: string;
+  section: string | null;
+  detail: PresenceDetail | null;
+  visible: boolean;
+  idleSeconds: number;
+  trail: string[];
+  /** Masked: 95.24.123.• */
+  ip: string;
+  place: { city: string | null; region: string | null; country: string | null; org: string | null } | null;
+  device: string;
+  browser: string;
+  os: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    createdAt: string;
+    planCount: number;
+    tier: TierId | null;
+    trial: boolean;
+    lastMessage: AdminMessage | null;
+  } | null;
+  source: {
+    channel: string | null;
+    searchEngine: string | null;
+    referrerHost: string | null;
+    utmSource: string | null;
+    utmTerm: string | null;
+    company: string | null;
+  } | null;
+  signedUp: boolean;
+}
+
+export interface LiveReport {
+  counts: { guests: number; users: number; editing: number; demo: number; bots: number; admins: number };
+  tabs: LiveTab[];
+  /** The places of addresses are known (the DB-IP files are on the server). */
+  geo: boolean;
+}
