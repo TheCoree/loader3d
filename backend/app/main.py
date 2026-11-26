@@ -9,8 +9,23 @@ from app import jobs
 from app.analytics import LIVE_WINDOW
 from app.config import Settings, get_settings
 from app.db import create_engine, create_sessionmaker
+from app.geoip import GeoIP
 from app.metrics import Activity, RequestMetricsMiddleware, RequestStats
-from app.routers import admin, analytics, auth, billing, health, leads, outreach, plans, users, widget
+from app.presence import Presence
+from app.routers import (
+    admin,
+    analytics,
+    auth,
+    billing,
+    health,
+    leads,
+    messages,
+    outreach,
+    plans,
+    presence,
+    users,
+    widget,
+)
 from app.widget import WidgetCache
 
 API_PREFIX = "/api"
@@ -57,6 +72,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # For the owner's widget (app/metrics.py): requests and their times, users seen a moment ago.
     app.state.request_stats = RequestStats()
     app.state.activity = Activity(LIVE_WINDOW.total_seconds())
+    # The admin «Онлайн» tab (app/presence.py, app/geoip.py): open tabs in memory, places of addresses.
+    app.state.presence = Presence()
+    app.state.geoip = GeoIP(settings.geoip_dir)
     app.add_middleware(RequestMetricsMiddleware, stats=app.state.request_stats)
 
     if settings.cors_origins:
@@ -68,7 +86,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["*"],
         )
 
-    for module in (health, auth, users, plans, leads, billing, analytics, admin, outreach):
+    for module in (
+        health,
+        auth,
+        users,
+        plans,
+        leads,
+        billing,
+        analytics,
+        admin,
+        outreach,
+        presence,
+        messages,
+    ):
         app.include_router(module.router, prefix=API_PREFIX)
     # Without a key the widget's endpoint does not exist at all: 404 like any unknown path.
     if settings.widget_key_sha256:

@@ -15,6 +15,8 @@ import { useAuth } from '@/store/useAuth';
 
 /** The name of the plan the demo of the landing page brings. */
 const DEMO_PLAN_NAME = 'Схема из демо';
+// `&example=1`: the example a message of the team opens (components/MessageDialog.tsx).
+const EXAMPLE_PLAN_NAME = 'Пример схемы';
 
 type Start = StartPlan & { name: string };
 
@@ -48,7 +50,7 @@ export function StartPlanPage() {
       let next: Start | null = null;
       if (fromDemo) {
         const plan = parsePlan(await decodePlanParam(params.get('plan')));
-        if (plan) next = { ...fitPlan(plan, limits), name: DEMO_PLAN_NAME };
+        if (plan) next = { ...fitPlan(plan, limits), name: params.has('example') ? EXAMPLE_PLAN_NAME : DEMO_PLAN_NAME };
       } else {
         const spec = decodeStart(params.get('d'));
         if (spec) next = { ...buildStartPlan(spec, limits?.items), name: spec.name };

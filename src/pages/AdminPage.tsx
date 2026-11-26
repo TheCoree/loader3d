@@ -14,9 +14,11 @@ import {
   LogOut,
   Mail,
   Phone,
+  Radio,
   Receipt,
   Plus,
   Search,
+  Send,
   ShieldCheck,
   ShieldOff,
   Sparkles,
@@ -43,6 +45,8 @@ import type {
 import { AppHeader } from '@/components/AppHeader';
 import { TierBadge } from '@/components/TierBadge';
 import { AnalyticsTab } from '@/pages/AdminAnalytics';
+import { LiveTabPanel, useLive } from '@/pages/AdminLive';
+import { MessageComposer } from '@/pages/AdminMessages';
 import { MailTab } from '@/pages/AdminMail';
 import {
   AlertDialog,
@@ -127,7 +131,9 @@ function shortDate(iso: string): string {
 /** /admin: accounts, their subscriptions and requests from the landing page. */
 export function AdminPage() {
   const stats = useQuery({ queryKey: ['admin', 'stats'], queryFn: adminApi.stats });
-  const [tab, setTab] = useState('analytics');
+  const live = useLive();
+  const online = live.data ? live.data.counts.guests + live.data.counts.users : 0;
+  const [tab, setTab] = useState('live');
 
   return (
     <div className="min-h-dvh">
@@ -179,6 +185,12 @@ export function AdminPage() {
 
         <Tabs value={tab} onValueChange={setTab} className="mt-8">
           <TabsList>
+            <TabsTrigger value="live">
+              <Radio /> Онлайн
+              {online > 0 && (
+                <Badge className="ml-1 h-4.5 min-w-4.5 bg-emerald-600 px-1 tabular-nums text-white">{online}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="analytics">
               <ChartColumn /> Посещаемость
             </TabsTrigger>
@@ -200,6 +212,9 @@ export function AdminPage() {
               <Mail /> Почта
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="live" className="mt-4">
+            <LiveTabPanel />
+          </TabsContent>
           <TabsContent value="analytics" className="mt-4">
             <AnalyticsTab />
           </TabsContent>
@@ -400,7 +415,7 @@ function subscriptionNote(u: AdminUser): string {
   return s.trial ? `пробный, ${until}` : until;
 }
 
-type Dialogs = 'subscription' | 'password' | 'delete' | null;
+type Dialogs = 'subscription' | 'password' | 'delete' | 'message' | null;
 
 function UserRow({ user }: { user: AdminUser }) {
   const me = useAuth((s) => s.user?.id === user.id);
@@ -476,6 +491,9 @@ function UserRow({ user }: { user: AdminUser }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuItem onSelect={() => setDialog('message')}>
+              <Send /> Написать сообщение…
+            </DropdownMenuItem>
             {user.subscription && (
               <DropdownMenuItem onSelect={() => setDialog('subscription')}>
                 <Sparkles /> Тариф и срок…
@@ -515,6 +533,21 @@ function UserRow({ user }: { user: AdminUser }) {
           />
         )}
         <PasswordDialog user={user} open={dialog === 'password'} onOpenChange={(o) => setDialog(o ? 'password' : null)} />
+        {dialog === 'message' && (
+          <MessageComposer
+            user={{
+              id: user.id,
+              email: user.email,
+              displayName: user.displayName,
+              canGift:
+                !!user.subscription &&
+                user.subscription.effectiveTier !== 'custom' &&
+                !(user.subscription.effectiveTier === 'pro' && !user.subscription.expiresAt),
+            }}
+            open
+            onOpenChange={(o) => setDialog(o ? 'message' : null)}
+          />
+        )}
         <DeleteUserDialog user={user} open={dialog === 'delete'} onOpenChange={(o) => setDialog(o ? 'delete' : null)} />
       </td>
     </tr>

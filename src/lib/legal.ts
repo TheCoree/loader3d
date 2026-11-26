@@ -16,6 +16,6 @@ export const SUPPORT = {
 export const DATA_LOCATION = 'Российской Федерации';
 
 /** The date both documents take effect; change it with every edit of their text. */
-export const DOCS_DATE = '20 ноября 2026 г.';
+export const DOCS_DATE = '26 ноября 2026 г.';
 
 export const telegramUrl = `https://t.me/${SUPPORT.telegram}`;

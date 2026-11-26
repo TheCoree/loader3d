@@ -76,6 +76,7 @@ docker compose up -d
 | `TIERS_ENABLED` | `false` | `true` — тарифы: цены на сайте, выбор при регистрации, лимиты, тариф в аккаунте и админке; `false` — о тарифах ни слова, без лимитов; после смены — `--build` |
 | `PAYMENT_PROVIDER` | `none` | Онлайн-оплата «Pro» из аккаунта (с `TIERS_ENABLED=true`): `none` — платные тарифы по заявке и через админа; `test` — тестовая страница оплаты, только для разработки (прод с ним не запустится); `cispay` — cisPay (карта, СБП), нужны `CISPAY_SHOP_ID`, `CISPAY_API_KEY` и `SITE_URL` |
 | `CISPAY_SHOP_ID`, `CISPAY_API_KEY` | — | Магазин cisPay: Shop ID и секретный ключ `cis_sec_…` из его кабинета («Настройки магазина»). Там же адрес вебхука: `https://<домен>/api/billing/cispay/webhook` |
+| `GEOIP_DIR` | `/data/geoip` в Docker, пусто локально | Где API держит бесплатные базы DB-IP Lite (город и провайдер по IP) для вкладки «Онлайн»; скачивает их сам раз в месяц. Пусто — без города |
 | `ANALYTICS_ENABLED` / `ANALYTICS_RETENTION_DAYS` | `true` / `400` | Статистика посещений публичных страниц для вкладки «Посещаемость» админки (без cookie, IP не хранится) и сколько дней хранить сырые визиты |
 | `WIDGET_KEY_SHA256` | — | Виджет владельца для iPhone ([tools/scriptable](tools/scriptable/README.md)): SHA-256 ключей из `python -m app widget-key` через запятую (сами ключи на сервере не хранятся); пусто — `GET /api/widget/stats` нет (404) |
 | `POSTGRES_PASSWORD` | — (обязательно) | Пароль БД, применяется при первом создании базы |
@@ -223,6 +224,10 @@ uv run ruff check . && uv run ruff format --check .
 | `POST /api/billing/cispay/webhook` | Уведомление cisPay о статусе платежа; без верной подписи `X-Signature` — 401 |
 | `GET /api/admin/payments` | Админ: платежи (`?status=paid\|pending\|canceled`) и сумма полученного |
 | `POST /api/analytics/collect` | Без входа: отчёт страницы о визите (страницы, время в разделах лендинга, клики, регистрация) — `navigator.sendBeacon` |
+| `POST /api/presence` | Открытая вкладка раз в 15 с: страница, раздел, открытая схема; ответ — ждущие сообщения команды |
+| `GET /api/admin/live` | Админ «Онлайн»: кто на сайте сейчас и кто ушёл за 15 минут (город, провайдер, IP без последней части, откуда пришёл) |
+| `GET /api/messages`, `POST …/{id}/shown`, `POST …/{id}/answer` | Сообщения команды пользователю: показ и ответ (кнопка с подарком Pro или закрытие, текст ответа) |
+| `GET /api/admin/messages`, `GET/POST /api/admin/users/{id}/messages`, `DELETE /api/admin/messages/{id}` | Админ: сообщения пользователям и что с ними стало |
 | `GET /api/admin/analytics?days=7\|30\|90` | Админ: посещаемость за период и сравнение с прошлым |
 | `GET /api/admin/outreach`, `POST …`, `DELETE …/{id}`, `GET …/{id}/letter`, `POST …/{id}/send`, `POST …/send-all` | Админ: компании для писем, своя ссылка `/r/<код>` у каждой (визиты и регистрации по ней), письмо, очередь отправки (одно письмо в минуту) |
 | `GET /api/admin/mail`, `POST …/{uid}/seen` | Админ: последние письма ящика рассылки по IMAP — ответы, отказы, автоответы, с привязкой к компаниям и флагом «прочитано»; `{seen}` отмечает письмо прочитанным или нет в самом ящике |

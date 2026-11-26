@@ -26,7 +26,9 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev \
 # --- runtime -----------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim
 
-RUN useradd --system --uid 10001 --home-dir /app app
+# /data/geoip: the volume of the GeoIP databases (GEOIP_DIR) takes this directory's owner on first mount.
+RUN useradd --system --uid 10001 --home-dir /app app \
+ && mkdir -p /data/geoip && chown app:app /data/geoip
 WORKDIR /app
 COPY --from=build --chown=app:app /app /app
 

@@ -15,6 +15,7 @@ import { EditorLayout, useNoPageZoom } from '@/editor/EditorLayout';
 import { flush, hasUnsavedChanges, startSync, stopSync, usePlanSync } from '@/editor/planSync';
 import { startThumbnails, stopThumbnails } from '@/editor/planThumbnail';
 import { planKeys } from '@/lib/plansQuery';
+import { setPresenceDetail } from '@/lib/presence';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 
@@ -61,6 +62,23 @@ export function EditorPage() {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
+
+  // The admin «Онлайн» tab sees which plan is open and how big it is (lib/presence.ts).
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    const update = () => {
+      const { vehicles, items } = useStore.getState();
+      setPresenceDetail({ plan: usePlanSync.getState().name || undefined, vehicles: vehicles.length, items: items.length });
+    };
+    update();
+    const stopStore = useStore.subscribe(update);
+    const stopSync = usePlanSync.subscribe(update);
+    return () => {
+      stopStore();
+      stopSync();
+      setPresenceDetail(null);
+    };
+  }, [state.status]);
 
   const name = usePlanSync((s) => s.name);
   useEffect(() => {

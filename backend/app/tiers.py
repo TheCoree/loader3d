@@ -68,6 +68,21 @@ def tier_limits(user: User, now: datetime) -> TierLimits:
     return limits
 
 
+def gift_pro(user: User, days: int, now: datetime) -> datetime | None:
+    """A gift of «Pro» days from the team (app/messages.py): added to the end of the current «Pro» — paid or
+    the trial, which then simply goes on as «Pro» — or from now. «Индивидуальный» is left as it is (None).
+    The caller commits."""
+    tier = effective_tier(user, now)
+    if tier == "custom" or (tier == "pro" and user.tier_expires_at is None):  # nothing to add to «бессрочно»
+        return None
+    current = user.tier_expires_at if tier == "pro" else None
+    start = current if current is not None and current > now else now
+    user.tier = "pro"
+    user.tier_trial = False
+    user.tier_expires_at = start + timedelta(days=days)
+    return user.tier_expires_at
+
+
 def start_trial(user: User, now: datetime) -> None:
     """The free trial of "pro", once per account. The caller checks `trial_used_at` and commits."""
     user.tier = "pro"

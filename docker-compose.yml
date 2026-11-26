@@ -84,8 +84,12 @@ services:
       CISPAY_API_KEY: ${CISPAY_API_KEY:-}
       ANALYTICS_ENABLED: ${ANALYTICS_ENABLED:-true}
       ANALYTICS_RETENTION_DAYS: ${ANALYTICS_RETENTION_DAYS:-400}
+      # Free DB-IP Lite databases (city and provider of an IP) for the admin «Онлайн» tab, fetched monthly.
+      GEOIP_DIR: ${GEOIP_DIR:-/data/geoip}
       # SHA-256 of the keys of the owner's phone widget (tools/scriptable); empty — no widget endpoint.
       WIDGET_KEY_SHA256: ${WIDGET_KEY_SHA256:-}
+    volumes:
+      - geoip_data:/data/geoip
     depends_on:
       db:
         condition: service_healthy
@@ -166,6 +170,7 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
+  geoip_data:
   mail_data:
   mail_state:
   mail_logs:

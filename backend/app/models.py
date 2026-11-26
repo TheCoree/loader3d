@@ -149,6 +149,36 @@ class OutreachContact(Base):
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
+class UserMessage(Base):
+    """A message of the team to one user (admin «Онлайн» / «Пользователи», app/messages.py): shown as a
+    dialog the next time the app hears from them (routers/presence.py), with what they did with it — shown,
+    the button pressed or closed, a reply. A gift of «Pro» days is granted when the button is pressed."""
+
+    __tablename__ = "user_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # The preset it was written from: "welcome", "gift", "feedback", "help", "custom".
+    kind: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(String(2000))
+    button: Mapped[str] = mapped_column(String(40))
+    # Days of «Pro» granted by the button (tiers on only).
+    gift_days: Mapped[int | None]
+    ask_reply: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # What the button does after answering: None or "example" (opens an example plan in the account).
+    action: Mapped[str | None] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    shown_at: Mapped[datetime | None]
+    answered_at: Mapped[datetime | None]
+    # "accepted" (the button) or "dismissed" (closed); None — not answered yet, still shown.
+    outcome: Mapped[str | None] = mapped_column(String(20))
+    reply: Mapped[str | None] = mapped_column(String(2000))
+    # The end of «Pro» after the gift was granted.
+    gift_until: Mapped[datetime | None]
+
+
 class Payment(Base):
     """An online payment of a tier (app/billing.py): created at checkout, then paid or canceled through the
     payment provider. Kept when the account is deleted (`email` stays) — it is an accounting record."""

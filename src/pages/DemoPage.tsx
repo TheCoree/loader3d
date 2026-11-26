@@ -21,6 +21,7 @@ import {
 import { useMediaQuery } from '@/editor/hooks';
 import { usePlanSync } from '@/editor/planSync';
 import { trackAction } from '@/lib/analytics';
+import { setPresenceDetail } from '@/lib/presence';
 import { DemoMode } from '@/lib/demoMode';
 import { exportPlan, useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
@@ -43,6 +44,20 @@ export function DemoPage() {
       document.title = title;
     };
   }, []);
+  // The admin «Онлайн» tab sees a visitor in the demo and what they have built there (lib/presence.ts).
+  useEffect(() => {
+    if (!ready) return;
+    const update = () => {
+      const { vehicles, items } = useStore.getState();
+      setPresenceDetail({ demo: true, vehicles: vehicles.length, items: items.length });
+    };
+    update();
+    const stop = useStore.subscribe(update);
+    return () => {
+      stop();
+      setPresenceDetail(null);
+    };
+  }, [ready]);
 
   if (!ready) return <DemoFallback />;
   return (
