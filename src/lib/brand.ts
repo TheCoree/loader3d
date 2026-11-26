@@ -1,9 +1,9 @@
 /**
  * The Loader3D mark: an isometric box of three faces with thin gaps between them, no tile behind it. The top face
  * takes the text colour, the left one a lighter shade of it (half strength), the right one the accent blue.
- * Drawn by components/Logo.tsx and, as an SVG string, in the PDF report (pdf/document.ts). The favicon,
- * public/favicon.svg, is the same drawing — change them together, and render favicon.ico (16/32/48 px) and
- * apple-touch-icon.png (180 px, white tile) from it again.
+ * Drawn by components/Logo.tsx and, as an SVG string, in the PDF report (pdf/document.ts). The favicons in public/
+ * are the same drawing on a white rounded tile (visible on the dark results pages of search engines too):
+ * favicon.svg, favicon.ico (16/32/48 px), icon-192.png and apple-touch-icon.png (180 px) — change them together.
  */
 
 /** The blue of the right face; the same as `--primary` and `COLORS.accent`. */
