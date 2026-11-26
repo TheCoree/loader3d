@@ -113,18 +113,54 @@ export function MessageDialog() {
   });
 
   if (!signedIn || !message) return null;
-  const gift = !!message.giftDays;
-  const close = () => !answer.isPending && answer.mutate({ outcome: 'dismissed' });
-
   return (
-    <Dialog open onOpenChange={(open) => !open && !gift && close()}>
+    <MessageWindow
+      message={message}
+      reply={reply}
+      onReply={setReply}
+      pending={answer.isPending}
+      onAccept={() => answer.mutate({ outcome: 'accepted' })}
+      onDismiss={() => !answer.isPending && answer.mutate({ outcome: 'dismissed' })}
+    />
+  );
+}
+
+type WindowMessage = Pick<UserMessage, 'kind' | 'title' | 'body' | 'button' | 'giftDays' | 'askReply'>;
+
+/**
+ * The window of a message, as the user gets it. `preview` (the admin panel's «Предпросмотр»): exactly the same,
+ * but its buttons do nothing and the cross always closes it — a gift included.
+ */
+export function MessageWindow({
+  message,
+  reply,
+  onReply,
+  pending = false,
+  onAccept,
+  onDismiss,
+  preview = false,
+}: {
+  message: WindowMessage;
+  reply: string;
+  onReply(reply: string): void;
+  pending?: boolean;
+  onAccept(): void;
+  /** Closed: the «Закрыть» button, the cross or Esc (a gift cannot be closed, except in a preview). */
+  onDismiss(): void;
+  preview?: boolean;
+}) {
+  const gift = !!message.giftDays;
+  const closable = preview || !gift;
+  const inert = () => {};
+  return (
+    <Dialog open onOpenChange={(open) => !open && closable && onDismiss()}>
       <DialogContent
         className="gap-5 p-6 sm:max-w-md"
-        showCloseButton={!gift}
-        onEscapeKeyDown={(e) => gift && e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
+        showCloseButton={closable}
+        onEscapeKeyDown={(e) => !closable && e.preventDefault()}
+        onPointerDownOutside={(e) => !preview && e.preventDefault()}
       >
-        <DialogTitle className="sr-only">{message.title}</DialogTitle>
+        <DialogTitle className="sr-only">{message.title || 'Сообщение'}</DialogTitle>
         <DialogDescription className="sr-only">Сообщение от команды Loader3D</DialogDescription>
         <MessageView message={message}>
           {message.askReply && (
@@ -134,24 +170,24 @@ export function MessageDialog() {
               maxLength={2000}
               placeholder="Ваш ответ…"
               value={reply}
-              onChange={(e) => setReply(e.target.value)}
+              onChange={(e) => onReply(e.target.value)}
               className="resize-none"
             />
           )}
         </MessageView>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {!gift && (
-            <Button variant="ghost" disabled={answer.isPending} onClick={close}>
+            <Button variant="ghost" disabled={pending} onClick={preview ? inert : onDismiss}>
               Закрыть
             </Button>
           )}
           <Button
-            disabled={answer.isPending || (message.askReply && !reply.trim())}
-            onClick={() => answer.mutate({ outcome: 'accepted' })}
+            disabled={pending || (message.askReply && !reply.trim())}
+            onClick={preview ? inert : onAccept}
             className={cn(gift && 'w-full')}
           >
-            {answer.isPending && <Spinner />}
-            {message.button}
+            {pending && <Spinner />}
+            {message.button || 'Кнопка'}
           </Button>
         </div>
       </DialogContent>

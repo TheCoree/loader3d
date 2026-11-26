@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Send, Trash2 } from 'lucide-react';
+import { Eye, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { errorMessage } from '@/api/client';
 import { adminApi } from '@/api/endpoints';
 import type { AdminMessage, AdminMessageInput, MessageKind } from '@/api/types';
-import { MESSAGE_ICONS, MessageView } from '@/components/MessageDialog';
+import { MESSAGE_ICONS, MessageWindow } from '@/components/MessageDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -143,6 +143,9 @@ export function MessageComposer({
     setDraft({ kind: preset.kind, ...preset.draft });
   };
   const change = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+  // «Предпросмотр»: the user's very window over this one; its buttons do nothing, the cross closes it.
+  const [previewing, setPreviewing] = useState(false);
+  const [previewReply, setPreviewReply] = useState('');
 
   const history = useQuery({
     queryKey: ['admin', 'messages', user.id],
@@ -167,7 +170,7 @@ export function MessageComposer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Сообщение для {user.displayName}</DialogTitle>
           <DialogDescription>
@@ -186,7 +189,7 @@ export function MessageComposer({
           })}
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="grid gap-4">
           <FieldGroup className="gap-4">
             <Field>
               <FieldLabel htmlFor="message-title">Заголовок</FieldLabel>
@@ -247,17 +250,10 @@ export function MessageComposer({
             )}
           </FieldGroup>
 
-          <div className="grid content-start gap-3">
-            <div className="text-xs font-medium text-muted-foreground">Так увидит пользователь</div>
-            <div className="rounded-xl bg-muted/40 p-5">
-              <MessageView message={{ kind: draft.kind, title: draft.title, body: draft.body, giftDays: draft.giftDays }}>
-                {draft.askReply && <div className="h-20 rounded-md bg-background/80 p-2 text-sm text-muted-foreground">Ваш ответ…</div>}
-              </MessageView>
-              <div className="mt-4 flex justify-end gap-2">
-                {!draft.giftDays && <span className="px-3 py-1.5 text-sm text-muted-foreground">Закрыть</span>}
-                <span className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground">{draft.button || 'Кнопка'}</span>
-              </div>
-            </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setPreviewing(true)}>
+              <Eye /> Предпросмотр
+            </Button>
             <Button disabled={!ready || send.isPending} onClick={() => send.mutate()}>
               {send.isPending ? <Spinner /> : <Send />} Отправить
             </Button>
@@ -279,6 +275,19 @@ export function MessageComposer({
           )}
         </div>
       </DialogContent>
+      {previewing && (
+        <MessageWindow
+          preview
+          message={draft}
+          reply={previewReply}
+          onReply={setPreviewReply}
+          onAccept={() => {}}
+          onDismiss={() => {
+            setPreviewing(false);
+            setPreviewReply('');
+          }}
+        />
+      )}
     </Dialog>
   );
 }
